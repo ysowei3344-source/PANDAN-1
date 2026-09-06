@@ -162,7 +162,11 @@
   }
   .alert-banner .close-btn { margin-left: auto; background: transparent; color: var(--warning); padding: 0 4px; font-size: 15px; }
 
-  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  /* kpi-grid and overview-grid share a 7-column template (matching the
+     current 7 KPI cards) so the panels below line up with specific cards:
+     video/trend under cards 1-5, diagnosis under cards 6-7. If the KPI
+     card count changes, update both the column count and the spans below. */
+  .kpi-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 16px; margin-bottom: 20px; }
   .kpi-card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 18px; display: flex; flex-direction: column; gap: 10px;
@@ -180,13 +184,14 @@
   .kpi-combined .kpi-delta { font-size: 10px; padding: 1px 6px; }
 
   .overview-grid {
-    display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: auto auto;
+    display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto auto;
     gap: 16px; align-items: stretch; margin-top: 20px;
   }
-  .overview-grid .video-panel { grid-column: 1; grid-row: 1; }
-  .overview-grid .trend-panel { grid-column: 1; grid-row: 2; }
-  .overview-grid .diagnosis-panel { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; }
+  .overview-grid .video-panel { grid-column: 1 / span 5; grid-row: 1; }
+  .overview-grid .trend-panel { grid-column: 1 / span 5; grid-row: 2; }
+  .overview-grid .diagnosis-panel { grid-column: 6 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; }
   @media (max-width: 1024px) {
+    .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .overview-grid { grid-template-columns: 1fr; }
     .overview-grid .video-panel, .overview-grid .trend-panel, .overview-grid .diagnosis-panel { grid-column: 1; }
     .overview-grid .diagnosis-panel { grid-row: auto; }
