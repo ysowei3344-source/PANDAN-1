@@ -9,7 +9,23 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy over SSH
+      - uses: actions/checkout@v4
+
+      # The ECS instance cannot reach github.com directly (network restriction
+      # observed from mainland China), so the runner pushes files to it over
+      # rsync/ssh instead of having the server git-pull from GitHub.
+      - name: Rsync backend to ECS
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete
+          path: backend/
+          remote_path: ${{ secrets.ECS_TARGET_DIR }}/backend/
+          remote_host: ${{ secrets.ECS_HOST }}
+          remote_port: ${{ secrets.ECS_PORT }}
+          remote_user: ${{ secrets.ECS_USER }}
+          remote_key: ${{ secrets.ECS_SSH_KEY }}
+
+      - name: Install deps and restart service
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ECS_HOST }}
@@ -18,10 +34,7 @@ jobs:
           port: ${{ secrets.ECS_PORT }}
           script: |
             set -e
-            cd ${{ secrets.ECS_TARGET_DIR }}
-            git pull origin main
+            cd ${{ secrets.ECS_TARGET_DIR }}/backend
             python3 -m venv .venv || true
-            source .venv/bin/activate
-            pip install -r requirements.txt
-            # TODO: restart your service here, e.g.:
-            # sudo systemctl restart panda.service
+            .venv/bin/pip install -q -r requirements.txt
+            systemctl restart pandan1-backend
