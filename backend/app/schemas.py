@@ -53,6 +53,27 @@ class TodayStats(BaseModel):
     wechat_added: int
 
 
+Role = Literal["super_admin", "operator"]
+
+
+class LoginInput(BaseModel):
+    username: str
+    password: str
+
+
+class UserOut(BaseModel):
+    id: str
+    username: str
+    role: Role
+    created_at: str
+
+
+class UserCreateInput(BaseModel):
+    username: str
+    password: str
+    role: Role = "operator"
+
+
 class PlatformBreakdown(BaseModel):
     platform: Platform
     account_count: int

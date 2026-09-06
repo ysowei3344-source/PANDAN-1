@@ -5,7 +5,6 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/root/PANDAN-1/backend
-EnvironmentFile=/root/PANDAN-1/backend/.env
 ExecStart=/root/PANDAN-1/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=3

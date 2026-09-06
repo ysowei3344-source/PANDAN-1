@@ -29,13 +29,19 @@ python3 -m venv .venv
 - `GET /api/videos?platform=douyin` — 按平台筛选视频
 - `GET /api/banners` — 首页轮播图（数据来自 `app/data/banners.json`，由发布后台维护）
 
-轮播图发布后台（写接口，需要 `X-Admin-Token` 请求头）：
+统一管理台的账号体系（`app/data/users.json` + `app/data/sessions.json`，用户名/密码 + PBKDF2 哈希，7 天会话）：
+- `POST /api/admin/auth/login` — 登录，返回 `token`
+- `POST /api/admin/auth/logout`、`GET /api/admin/auth/me`
+- `GET/POST /api/admin/users`，`DELETE /api/admin/users/{id}` — 仅 `super_admin` 角色可用
+- 请求头 `Authorization: Bearer <token>`
+
+角色目前分两种：`super_admin`（能管账号 + 全部内容）、`operator`（只能管内容，不能管账号）。首个 `super_admin` 账号通过 `backend/scripts/seed_admin.py <username> <password>` 在服务器上手动创建一次（空的 `users.json` 时才需要跑）。
+
+轮播图发布后台（登录后任意角色可用）：
 - `GET/POST /api/admin/banners`，`PUT/DELETE /api/admin/banners/{id}`
 - `POST /api/admin/upload` — 上传图片，返回 `url`
 
-`ADMIN_TOKEN` 从环境变量读取（本地开发用 `backend/.env`，服务器上由 systemd 的 `EnvironmentFile` 加载），没配置的话所有 `/api/admin/*` 请求都会 401，`.env` 不进 git。
-
-对应的管理页面在 `admin-console/index.html`（纯静态单文件，不走 uni-app 构建），部署时直接把它扔到 `/var/www/p.rvppp.cn/console/`，通过 `p.rvppp.cn/console/` 访问，进去先输一遍令牌。
+管理页面在 `admin-console/index.html`（纯静态单文件，不走 uni-app 构建），部署时直接把它扔到 `/var/www/p.rvppp.cn/console/`，通过 `p.rvppp.cn/console/` 访问，先登录。左侧导航目前只有"轮播图管理"和"账号管理"（后者仅 `super_admin` 可见）是真正可用的，矩阵账号/内容分析/AI 客服/订单跟踪几个入口先占位，对应模块做出来了再接上。
 
 ## 前端
 

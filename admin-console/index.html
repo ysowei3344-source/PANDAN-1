@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>轮播图发布后台</title>
+<title>房车矩阵中枢 · 管理台</title>
 <style>
   :root {
     --bg: #eef4fc;
@@ -15,6 +15,7 @@
     --accent-soft: #e4eefd;
     --danger: #f35b6e;
     --danger-soft: #fde3e7;
+    --success: #22b573;
     --radius: 16px;
     --shadow: 0 6px 20px rgba(31, 58, 94, 0.08);
   }
@@ -25,25 +26,7 @@
     color: var(--ink);
     font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   }
-  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .hint { color: var(--ink-soft); font-size: 13px; margin: 0 0 24px; }
-
-  .gate {
-    background: var(--card);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 28px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .gate input {
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    font-size: 14px;
-  }
+  [hidden] { display: none !important; }
   button {
     cursor: pointer;
     border: none;
@@ -54,15 +37,81 @@
     background: var(--accent);
     color: #fff;
   }
-  button.ghost {
-    background: transparent;
-    color: var(--ink-soft);
+  button.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  button.danger { background: var(--danger-soft); color: var(--danger); }
+  input[type="text"], input[type="password"], input[type="number"] {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
     border: 1px solid var(--line);
+    font-size: 14px;
   }
-  button.danger {
-    background: var(--danger-soft);
-    color: var(--danger);
+  label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  .msg { font-size: 13px; margin-top: 10px; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: var(--success); }
+
+  /* Login */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
+  .login-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 36px 32px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .login-card h1 { font-size: 18px; margin: 0 0 4px; }
+  .login-card p.hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 8px; }
+
+  /* Shell */
+  .topbar {
+    background: var(--card);
+    box-shadow: var(--shadow);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .topbar .title { font-size: 16px; font-weight: 700; flex: 1; }
+  .role-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .layout { display: flex; align-items: flex-start; max-width: 1080px; margin: 0 auto; padding: 24px 20px 80px; gap: 20px; }
+  nav.side {
+    width: 180px;
+    flex-shrink: 0;
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  nav.side .nav-item {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  nav.side .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav.side .nav-item.disabled { color: #c3cad6; cursor: default; }
+  nav.side .nav-item .tag { font-size: 10px; margin-left: 4px; }
+  main.content { flex: 1; min-width: 0; }
 
   .panel {
     background: var(--card);
@@ -72,82 +121,200 @@
     margin-bottom: 20px;
   }
   .panel h2 { font-size: 16px; margin: 0 0 16px; }
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-grid .full { grid-column: 1 / -1; }
-  label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
-  input[type="text"], input[type="number"] {
-    width: 100%;
-    padding: 9px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    font-size: 14px;
-  }
   .actions { margin-top: 16px; display: flex; gap: 10px; }
 
-  .banner-item {
-    display: flex;
-    gap: 14px;
-    padding: 14px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .banner-item:last-child { border-bottom: none; }
-  .banner-item img {
-    width: 120px;
-    height: 48px;
-    object-fit: cover;
-    border-radius: 8px;
-    background: var(--bg);
-    flex-shrink: 0;
-  }
-  .banner-body { flex: 1; min-width: 0; }
-  .banner-title { font-weight: 600; font-size: 14px; }
-  .banner-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
-  .banner-meta { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
-  .banner-btns { display: flex; gap: 8px; align-items: flex-start; }
-  .banner-btns button { padding: 6px 12px; font-size: 12px; }
+  .row-item { display: flex; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .row-item:last-child { border-bottom: none; }
+  .row-item img { width: 120px; height: 48px; object-fit: cover; border-radius: 8px; background: var(--bg); flex-shrink: 0; }
+  .row-body { flex: 1; min-width: 0; }
+  .row-title { font-weight: 600; font-size: 14px; }
+  .row-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .row-btns { display: flex; gap: 8px; }
+  .row-btns button { padding: 6px 12px; font-size: 12px; }
 
-  .msg { font-size: 13px; margin-top: 10px; }
-  .msg.error { color: var(--danger); }
-  .msg.ok { color: #22b573; }
-  [hidden] { display: none !important; }
+  .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>轮播图发布后台</h1>
-  <p class="hint">管理首页第一屏的轮播广告（p.rvppp.cn/ 首页顶部）</p>
 
-  <div class="gate" id="gate">
-    <label>管理口令</label>
-    <input type="text" id="tokenInput" placeholder="输入 ADMIN_TOKEN">
-    <button onclick="saveToken()">进入</button>
-    <p class="msg" id="gateMsg"></p>
+<div class="login-wrap" id="loginView">
+  <div class="login-card">
+    <h1>房车矩阵中枢</h1>
+    <p class="hint">管理台登录</p>
+    <div>
+      <label>用户名</label>
+      <input type="text" id="loginUsername">
+    </div>
+    <div>
+      <label>密码</label>
+      <input type="password" id="loginPassword">
+    </div>
+    <button onclick="login()">登录</button>
+    <p class="msg" id="loginMsg"></p>
+  </div>
+</div>
+
+<div id="appShell" hidden>
+  <div class="topbar">
+    <span class="title">房车矩阵中枢 · 管理台</span>
+    <span class="role-badge" id="roleBadge"></span>
+    <span id="usernameLabel" style="font-size:13px;color:var(--ink-soft)"></span>
+    <button class="ghost" onclick="logout()">退出登录</button>
   </div>
 
-  <div id="app" hidden>
+  <div class="layout">
+    <nav class="side" id="sideNav"></nav>
+    <main class="content">
+      <section id="section-banners"></section>
+      <section id="section-users" hidden></section>
+      <section id="section-stub" hidden></section>
+    </main>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/admin/api/admin';
+let currentUser = null;
+let banners = [];
+let users = [];
+let editingBannerId = null;
+
+const NAV_ITEMS = [
+  { key: 'banners', label: '轮播图管理' },
+  { key: 'users', label: '账号管理', roles: ['super_admin'] },
+  { key: 'accounts', label: '矩阵账号', stub: true },
+  { key: 'content', label: '内容分析', stub: true },
+  { key: 'service', label: 'AI 客服', stub: true },
+  { key: 'orders', label: '订单跟踪', stub: true },
+];
+let activeSection = 'banners';
+
+function token() { return localStorage.getItem('rv_admin_token') || ''; }
+function setToken(t) { t ? localStorage.setItem('rv_admin_token', t) : localStorage.removeItem('rv_admin_token'); }
+
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${token()}` },
+  });
+  if (res.status === 401) {
+    setToken(null);
+    showLogin('登录已过期，请重新登录');
+    throw new Error('unauthorized');
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch (e) {}
+    throw new Error(detail);
+  }
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : null;
+}
+
+function showLogin(msg) {
+  document.getElementById('loginView').hidden = false;
+  document.getElementById('appShell').hidden = true;
+  if (msg) {
+    document.getElementById('loginMsg').textContent = msg;
+    document.getElementById('loginMsg').className = 'msg error';
+  }
+}
+
+async function login() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msg = document.getElementById('loginMsg');
+  if (!username || !password) { msg.textContent = '请输入用户名和密码'; msg.className = 'msg error'; return; }
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || '登录失败');
+    }
+    const data = await res.json();
+    setToken(data.token);
+    currentUser = data.user;
+    await enterApp();
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
+}
+
+function logout() {
+  api('/auth/logout', { method: 'POST' }).catch(() => {});
+  setToken(null);
+  currentUser = null;
+  location.reload();
+}
+
+async function enterApp() {
+  document.getElementById('loginView').hidden = true;
+  document.getElementById('appShell').hidden = false;
+  document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '运营';
+  document.getElementById('usernameLabel').textContent = currentUser.username;
+  renderNav();
+  await loadBanners();
+  renderBanners();
+  showSection('banners');
+}
+
+function renderNav() {
+  const nav = document.getElementById('sideNav');
+  nav.innerHTML = NAV_ITEMS
+    .filter((item) => !item.roles || item.roles.includes(currentUser.role))
+    .map((item) => `
+      <div class="nav-item ${item.key === activeSection ? 'active' : ''}" onclick="showSection('${item.key}')">
+        ${item.label}${item.stub ? '<span class="tag">建设中</span>' : ''}
+      </div>
+    `)
+    .join('');
+}
+
+async function showSection(key) {
+  activeSection = key;
+  renderNav();
+  document.getElementById('section-banners').hidden = key !== 'banners';
+  document.getElementById('section-users').hidden = key !== 'users';
+  document.getElementById('section-stub').hidden = key === 'banners' || key === 'users';
+
+  if (key === 'users') {
+    await loadUsers();
+    renderUsers();
+  } else if (key !== 'banners') {
+    const item = NAV_ITEMS.find((i) => i.key === key);
+    document.getElementById('section-stub').innerHTML = `
+      <div class="panel"><div class="empty-hint">「${item.label}」模块还在开发计划里，暂未上线。</div></div>
+    `;
+  }
+}
+
+/* ---------------- Banners ---------------- */
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function loadBanners() {
+  banners = await api('/banners');
+}
+
+function renderBanners() {
+  const el = document.getElementById('section-banners');
+  el.innerHTML = `
     <div class="panel">
-      <h2 id="formTitle">新增轮播图</h2>
+      <h2 id="bannerFormTitle">新增轮播图</h2>
       <div class="form-grid">
-        <div class="full">
-          <label>标题</label>
-          <input type="text" id="fTitle">
-        </div>
-        <div class="full">
-          <label>副标题</label>
-          <input type="text" id="fSubtitle">
-        </div>
-        <div>
-          <label>排序（数字越小越靠前）</label>
-          <input type="number" id="fSort" value="0">
-        </div>
-        <div>
-          <label>跳转链接（可选）</label>
-          <input type="text" id="fLink">
-        </div>
+        <div class="full"><label>标题</label><input type="text" id="fTitle"></div>
+        <div class="full"><label>副标题</label><input type="text" id="fSubtitle"></div>
+        <div><label>排序（数字越小越靠前）</label><input type="number" id="fSort" value="0"></div>
+        <div><label>跳转链接（可选）</label><input type="text" id="fLink"></div>
         <div class="full">
           <label>图片</label>
           <input type="file" id="fImage" accept="image/*,.svg">
@@ -155,80 +322,33 @@
         </div>
       </div>
       <div class="actions">
-        <button onclick="submitForm()">保存</button>
-        <button class="ghost" onclick="resetForm()">清空</button>
-        <button class="ghost" onclick="logout()">退出登录</button>
+        <button onclick="submitBanner()">保存</button>
+        <button class="ghost" onclick="resetBannerForm()">清空</button>
       </div>
-      <p class="msg" id="formMsg"></p>
+      <p class="msg" id="bannerFormMsg"></p>
     </div>
-
     <div class="panel">
       <h2>当前轮播图（按排序号显示）</h2>
-      <div id="list"></div>
+      <div id="bannerList"></div>
     </div>
-  </div>
-</div>
-
-<script>
-const API_BASE = '/admin/api';
-let editingId = null;
-let banners = [];
-
-function token() { return localStorage.getItem('rv_admin_token') || ''; }
-
-function saveToken() {
-  const t = document.getElementById('tokenInput').value.trim();
-  if (!t) return;
-  localStorage.setItem('rv_admin_token', t);
-  boot();
+  `;
+  renderBannerList();
 }
 
-function logout() {
-  localStorage.removeItem('rv_admin_token');
-  location.reload();
-}
-
-async function api(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...(options.headers || {}), 'X-Admin-Token': token() },
-  });
-  if (res.status === 401) {
-    localStorage.removeItem('rv_admin_token');
-    document.getElementById('gateMsg').textContent = '口令无效，请重新输入';
-    document.getElementById('gateMsg').className = 'msg error';
-    document.getElementById('gate').hidden = false;
-    document.getElementById('app').hidden = true;
-    throw new Error('unauthorized');
-  }
-  if (!res.ok) throw new Error(await res.text());
-  const ct = res.headers.get('content-type') || '';
-  return ct.includes('application/json') ? res.json() : null;
-}
-
-async function loadBanners() {
-  banners = await api('/banners');
-  renderList();
-}
-
-function renderList() {
-  const list = document.getElementById('list');
-  if (!banners.length) {
-    list.innerHTML = '<p class="hint">暂无轮播图</p>';
-    return;
-  }
+function renderBannerList() {
+  const list = document.getElementById('bannerList');
+  if (!banners.length) { list.innerHTML = '<div class="empty-hint">暂无轮播图</div>'; return; }
   list.innerHTML = banners
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((b) => `
-      <div class="banner-item">
+      <div class="row-item">
         <img src="${b.image_url}" alt="">
-        <div class="banner-body">
-          <div class="banner-title">${escapeHtml(b.title)}</div>
-          <div class="banner-sub">${escapeHtml(b.subtitle || '')}</div>
-          <div class="banner-meta">排序 ${b.sort_order} · id: ${b.id}</div>
+        <div class="row-body">
+          <div class="row-title">${escapeHtml(b.title)}</div>
+          <div class="row-sub">${escapeHtml(b.subtitle || '')} · 排序 ${b.sort_order}</div>
         </div>
-        <div class="banner-btns">
+        <div class="row-btns">
           <button class="ghost" onclick="editBanner('${b.id}')">编辑</button>
           <button class="danger" onclick="deleteBanner('${b.id}')">删除</button>
         </div>
@@ -237,15 +357,11 @@ function renderList() {
     .join('');
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
 function editBanner(id) {
   const b = banners.find((x) => x.id === id);
   if (!b) return;
-  editingId = id;
-  document.getElementById('formTitle').textContent = '编辑轮播图';
+  editingBannerId = id;
+  document.getElementById('bannerFormTitle').textContent = '编辑轮播图';
   document.getElementById('fTitle').value = b.title;
   document.getElementById('fSubtitle').value = b.subtitle || '';
   document.getElementById('fSort').value = b.sort_order;
@@ -254,26 +370,27 @@ function editBanner(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function resetForm() {
-  editingId = null;
-  document.getElementById('formTitle').textContent = '新增轮播图';
+function resetBannerForm() {
+  editingBannerId = null;
+  document.getElementById('bannerFormTitle').textContent = '新增轮播图';
   document.getElementById('fTitle').value = '';
   document.getElementById('fSubtitle').value = '';
   document.getElementById('fSort').value = '0';
   document.getElementById('fLink').value = '';
   document.getElementById('fImageUrl').value = '';
   document.getElementById('fImage').value = '';
-  document.getElementById('formMsg').textContent = '';
+  document.getElementById('bannerFormMsg').textContent = '';
 }
 
 async function deleteBanner(id) {
   if (!confirm('确定删除这条轮播图吗？')) return;
   await api(`/banners/${id}`, { method: 'DELETE' });
   await loadBanners();
+  renderBannerList();
 }
 
-async function submitForm() {
-  const msg = document.getElementById('formMsg');
+async function submitBanner() {
+  const msg = document.getElementById('bannerFormMsg');
   msg.className = 'msg';
   msg.textContent = '保存中...';
   try {
@@ -285,11 +402,7 @@ async function submitForm() {
       const uploadRes = await api('/upload', { method: 'POST', body: fd });
       imageUrl = uploadRes.url;
     }
-    if (!imageUrl) {
-      msg.textContent = '请上传图片';
-      msg.className = 'msg error';
-      return;
-    }
+    if (!imageUrl) { msg.textContent = '请上传图片'; msg.className = 'msg error'; return; }
     const payload = {
       title: document.getElementById('fTitle').value.trim(),
       subtitle: document.getElementById('fSubtitle').value.trim(),
@@ -297,46 +410,113 @@ async function submitForm() {
       link_url: document.getElementById('fLink').value.trim() || null,
       sort_order: Number(document.getElementById('fSort').value) || 0,
     };
-    if (!payload.title) {
-      msg.textContent = '请填写标题';
-      msg.className = 'msg error';
-      return;
-    }
-    if (editingId) {
-      await api(`/banners/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    if (!payload.title) { msg.textContent = '请填写标题'; msg.className = 'msg error'; return; }
+    if (editingBannerId) {
+      await api(`/banners/${editingBannerId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } else {
-      await api('/banners', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      await api('/banners', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     }
     msg.textContent = '已保存';
     msg.className = 'msg ok';
-    resetForm();
+    resetBannerForm();
     await loadBanners();
+    renderBannerList();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
   }
 }
 
-async function boot() {
-  if (!token()) {
-    document.getElementById('gate').hidden = false;
-    document.getElementById('app').hidden = true;
-    return;
-  }
+/* ---------------- Users ---------------- */
+
+async function loadUsers() {
+  users = await api('/users');
+}
+
+function renderUsers() {
+  const el = document.getElementById('section-users');
+  el.innerHTML = `
+    <div class="panel">
+      <h2>新增账号</h2>
+      <div class="form-grid">
+        <div><label>用户名</label><input type="text" id="uUsername"></div>
+        <div><label>初始密码</label><input type="password" id="uPassword"></div>
+        <div class="full">
+          <label>角色</label>
+          <select id="uRole" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--line);font-size:14px;">
+            <option value="operator">运营（可管理内容，不能管账号）</option>
+            <option value="super_admin">超级管理员（可管理全部，含账号）</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions"><button onclick="submitUser()">创建账号</button></div>
+      <p class="msg" id="userFormMsg"></p>
+    </div>
+    <div class="panel">
+      <h2>现有账号</h2>
+      <div id="userList"></div>
+    </div>
+  `;
+  renderUserList();
+}
+
+function renderUserList() {
+  const list = document.getElementById('userList');
+  if (!users.length) { list.innerHTML = '<div class="empty-hint">暂无账号</div>'; return; }
+  list.innerHTML = users
+    .map((u) => `
+      <div class="row-item">
+        <div class="row-body">
+          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
+          <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
+        </div>
+        <div class="row-btns">
+          ${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}
+        </div>
+      </div>
+    `)
+    .join('');
+}
+
+async function submitUser() {
+  const msg = document.getElementById('userFormMsg');
+  msg.className = 'msg';
+  const payload = {
+    username: document.getElementById('uUsername').value.trim(),
+    password: document.getElementById('uPassword').value,
+    role: document.getElementById('uRole').value,
+  };
+  if (!payload.username || !payload.password) { msg.textContent = '请填写用户名和密码'; msg.className = 'msg error'; return; }
   try {
-    await loadBanners();
-    document.getElementById('gate').hidden = true;
-    document.getElementById('app').hidden = false;
+    await api('/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    msg.textContent = '已创建';
+    msg.className = 'msg ok';
+    document.getElementById('uUsername').value = '';
+    document.getElementById('uPassword').value = '';
+    await loadUsers();
+    renderUserList();
   } catch (e) {
-    // require_admin already handles 401 UI state
+    msg.textContent = '创建失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+async function deleteUser(id) {
+  if (!confirm('确定删除这个账号吗？')) return;
+  await api(`/users/${id}`, { method: 'DELETE' });
+  await loadUsers();
+  renderUserList();
+}
+
+/* ---------------- Boot ---------------- */
+
+async function boot() {
+  if (!token()) { showLogin(); return; }
+  try {
+    currentUser = await api('/auth/me');
+    await enterApp();
+  } catch (e) {
+    showLogin();
   }
 }
 
