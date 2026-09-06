@@ -177,11 +177,11 @@
   .kpi-delta.up { background: var(--success-soft); color: var(--success); }
   .kpi-delta.down { background: var(--danger-soft); color: var(--danger); }
   .kpi-spark { width: 100%; height: 36px; }
-  .kpi-combined { display: flex; gap: 10px; }
-  .kpi-combined-item { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .kpi-combined-val { font-size: 18px; font-weight: 700; }
-  .kpi-combined-label { font-size: 11px; color: var(--ink-soft); }
-  .kpi-combined .kpi-delta { font-size: 10px; padding: 1px 6px; }
+  .kpi-combined { display: flex; flex-direction: column; gap: 8px; }
+  .kpi-combined-item { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .kpi-combined-label { font-size: 12px; color: var(--ink-soft); width: 30px; flex-shrink: 0; }
+  .kpi-combined-val { font-size: 17px; font-weight: 700; flex: 1; }
+  .kpi-combined .kpi-delta { font-size: 10px; padding: 1px 6px; flex-shrink: 0; }
 
   .overview-grid {
     display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto auto;
@@ -556,7 +556,7 @@ function sparklinePath(series, w, h) {
 }
 
 const KPI_DEFS = [
-  { key: 'videos_published', label: '今日视频更新数', fmt: (v) => Math.round(v).toLocaleString('zh-CN') },
+  { key: 'videos_published', label: '更新总数', fmt: (v) => Math.round(v).toLocaleString('zh-CN') },
   { key: 'plays', label: '播放总数', fmt: (v) => fmtNum(v) },
   {
     combined: true,
@@ -567,10 +567,10 @@ const KPI_DEFS = [
       { key: 'shares', label: '转发' },
     ],
   },
-  { key: 'new_followers', label: '今日账号关注数', fmt: (v) => fmtNum(v) },
+  { key: 'new_followers', label: '粉丝关注', fmt: (v) => fmtNum(v) },
   { key: 'ad_spend', label: '投流消耗', fmt: (v) => '¥' + fmtNum(v) },
-  { key: 'leads_count', label: '后台线索数', fmt: (v) => fmtNum(v) },
-  { key: 'wechat_added', label: '私信加微信客户数', fmt: (v) => fmtNum(v) },
+  { key: 'leads_count', label: '后台线索', fmt: (v) => fmtNum(v) },
+  { key: 'wechat_added', label: '私域添加', fmt: (v) => fmtNum(v) },
 ];
 
 let currentDiagnosis = null;
@@ -722,14 +722,14 @@ function renderKpiGrid(todayMetrics) {
     if (def.combined) {
       return `
         <div class="kpi-card">
-          <span class="kpi-label">${def.label}（今日）</span>
+          <span class="kpi-label">${def.label}</span>
           <div class="kpi-combined">
             ${def.parts.map((p) => {
               const m = todayMetrics[p.key];
               return `
                 <div class="kpi-combined-item">
-                  <span class="kpi-combined-val">${fmtNum(m.value)}</span>
                   <span class="kpi-combined-label">${p.label}</span>
+                  <span class="kpi-combined-val">${fmtNum(m.value)}</span>
                   ${deltaBadge(m)}
                 </div>
               `;
@@ -744,7 +744,7 @@ function renderKpiGrid(todayMetrics) {
     const path = sparklinePath(m.series, 200, 36);
     return `
       <div class="kpi-card">
-        <span class="kpi-label">${def.label}（今日）</span>
+        <span class="kpi-label">${def.label}</span>
         <span class="kpi-value">${def.fmt(m.value)}</span>
         ${deltaBadge(m)}
         <svg class="kpi-spark" viewBox="0 0 200 36" preserveAspectRatio="none">
