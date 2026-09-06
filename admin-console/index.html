@@ -201,6 +201,25 @@
   .diagnosis-tag.risk { background: var(--danger-soft); color: var(--danger); }
   .diagnosis-tag.opportunity { background: var(--success-soft); color: var(--success); }
   .diagnosis-text { font-size: 13px; line-height: 1.7; color: var(--ink); }
+  .diagnosis-back {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent);
+    cursor: pointer; margin-bottom: 14px; background: none; padding: 0; font-weight: 600;
+  }
+  .video-stats-row { display: flex; gap: 16px; margin: 10px 0 16px; }
+  .video-stats-row span { font-size: 12px; color: var(--ink-soft); }
+
+  .video-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
+  .video-thumb-item { flex-shrink: 0; width: 140px; cursor: pointer; }
+  .video-thumb-item img {
+    width: 140px; height: 140px; object-fit: cover; border-radius: 10px;
+    border: 2px solid transparent; display: block;
+  }
+  .video-thumb-item.active img { border-color: var(--accent); }
+  .video-thumb-item .thumb-title {
+    display: block; font-size: 11px; color: var(--ink-soft); margin-top: 6px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .video-thumb-item.active .thumb-title { color: var(--accent); }
 
   /* ---------- Generic list / form panels (banners, users, accounts) ---------- */
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -530,6 +549,12 @@ const KPI_DEFS = [
   { key: 'wechat_added', label: '私信加微信客户数', fmt: (v) => fmtNum(v) },
 ];
 
+let currentDiagnosis = null;
+let currentVideos = [];
+let selectedVideoId = null;
+
+function staticUrl(path) { return `/admin${path}`; }
+
 async function renderOverview() {
   const el = document.getElementById('section-overview');
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
@@ -541,6 +566,8 @@ async function renderOverview() {
     return;
   }
   trendPeriod = 7;
+  currentDiagnosis = data.diagnosis;
+  selectedVideoId = null;
 
   const alertsHtml = data.alerts.length
     ? `<div class="alert-banner" id="alertBanner">⚠ ${data.alerts.length}项经营异常需要关注：${data.alerts.map(escapeHtml).join(' · ')}
@@ -553,6 +580,11 @@ async function renderOverview() {
     <div class="page-sub">${escapeHtml(data.account_label)} · 数据每天自动更新一次</div>
     ${alertsHtml}
     <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="panel" style="margin: 20px 0 16px;">
+      <h2>视频内容</h2>
+      <div class="page-sub" style="margin-bottom:12px;">点击视频封面，右侧切换为该视频的 DeepSeek 分析</div>
+      <div class="video-strip" id="videoStrip"><div class="empty-hint">加载中...</div></div>
+    </div>
     <div class="overview-lower">
       <div class="panel">
         <div class="panel-head-row">
@@ -564,22 +596,85 @@ async function renderOverview() {
         </div>
         <svg class="trend-chart" id="trendChart" viewBox="0 0 640 220" preserveAspectRatio="none"></svg>
       </div>
-      <div class="panel">
-        <h2>DeepSeek 智能经营诊断</h2>
-        <div class="diagnosis-meta">${data.diagnosis.model} · ${data.diagnosis.based_on}生成（示例分析，未接入真实模型）</div>
-        <div class="diagnosis-block">
-          <span class="diagnosis-tag risk">风险</span>
-          <span class="diagnosis-text">${escapeHtml(data.diagnosis.risk)}</span>
-        </div>
-        <div class="diagnosis-block">
-          <span class="diagnosis-tag opportunity">机会</span>
-          <span class="diagnosis-text">${escapeHtml(data.diagnosis.opportunity)}</span>
-        </div>
-      </div>
+      <div class="panel" id="diagnosisPanel"></div>
     </div>
   `;
   renderKpiGrid(data.today_metrics);
   renderTrendChart(data.trend);
+  renderDiagnosisPanel();
+  loadVideoStrip();
+}
+
+function renderDiagnosisPanel() {
+  const panel = document.getElementById('diagnosisPanel');
+  if (!panel) return;
+  const video = selectedVideoId ? currentVideos.find((v) => v.id === selectedVideoId) : null;
+  if (video) {
+    panel.innerHTML = `
+      <button class="diagnosis-back" onclick="clearSelectedVideo()">‹ 返回账号总览诊断</button>
+      <h2>${escapeHtml(video.title)}</h2>
+      <div class="video-stats-row">
+        <span>播放 ${fmtNum(video.plays)}</span>
+        <span>赞 ${fmtNum(video.likes)}</span>
+        <span>评论 ${fmtNum(video.comments)}</span>
+        <span>转发 ${fmtNum(video.shares)}</span>
+      </div>
+      <div class="diagnosis-block">
+        <span class="diagnosis-tag opportunity">DeepSeek 分析</span>
+        <span class="diagnosis-text">${escapeHtml(video.deepseek_analysis)}</span>
+      </div>
+    `;
+  } else {
+    panel.innerHTML = `
+      <h2>DeepSeek 智能经营诊断</h2>
+      <div class="diagnosis-meta">${currentDiagnosis.model} · ${currentDiagnosis.based_on}生成（示例分析，未接入真实模型）</div>
+      <div class="diagnosis-block">
+        <span class="diagnosis-tag risk">风险</span>
+        <span class="diagnosis-text">${escapeHtml(currentDiagnosis.risk)}</span>
+      </div>
+      <div class="diagnosis-block">
+        <span class="diagnosis-tag opportunity">机会</span>
+        <span class="diagnosis-text">${escapeHtml(currentDiagnosis.opportunity)}</span>
+      </div>
+    `;
+  }
+}
+
+function clearSelectedVideo() {
+  selectedVideoId = null;
+  renderDiagnosisPanel();
+  renderVideoStripActiveState();
+}
+
+async function loadVideoStrip() {
+  try {
+    currentVideos = currentAccountId === 'all'
+      ? await fetch(`${PUBLIC_API_BASE}/videos`).then((r) => r.json())
+      : await fetch(`${PUBLIC_API_BASE}/accounts/${currentAccountId}/videos`).then((r) => r.json());
+  } catch (e) {
+    currentVideos = [];
+  }
+  const stripEl = document.getElementById('videoStrip');
+  if (!stripEl) return;
+  if (!currentVideos.length) { stripEl.innerHTML = '<div class="empty-hint">暂无视频</div>'; return; }
+  stripEl.innerHTML = currentVideos.map((v) => `
+    <div class="video-thumb-item" data-video-id="${v.id}" onclick="selectVideo('${v.id}')">
+      <img src="${staticUrl(v.thumbnail_url)}" alt="">
+      <span class="thumb-title">${escapeHtml(v.title)}</span>
+    </div>
+  `).join('');
+}
+
+function renderVideoStripActiveState() {
+  document.querySelectorAll('.video-thumb-item').forEach((el) => {
+    el.classList.toggle('active', el.dataset.videoId === selectedVideoId);
+  });
+}
+
+function selectVideo(id) {
+  selectedVideoId = id;
+  renderVideoStripActiveState();
+  renderDiagnosisPanel();
 }
 
 function deltaBadge(m) {
