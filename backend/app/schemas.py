@@ -74,6 +74,14 @@ class UserCreateInput(BaseModel):
     role: Role = "operator"
 
 
+class Settings(BaseModel):
+    brand_name: str = "房车"
+
+
+class SettingsInput(BaseModel):
+    brand_name: str
+
+
 class PlatformBreakdown(BaseModel):
     platform: Platform
     account_count: int

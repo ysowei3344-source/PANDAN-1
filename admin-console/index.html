@@ -135,13 +135,31 @@
   .row-btns button { padding: 6px 12px; font-size: 12px; }
 
   .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
+
+  .brand-edit { display: inline-flex; align-items: center; gap: 6px; }
+  .brand-edit input {
+    width: 140px;
+    padding: 4px 8px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+  }
+  .brand-edit button.icon-btn {
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 2px 6px;
+    font-size: 13px;
+    border-radius: 6px;
+  }
+  .brand-edit button.icon-btn:hover { background: var(--accent-soft); color: var(--accent); }
 </style>
 </head>
 <body>
 
 <div class="login-wrap" id="loginView">
   <div class="login-card">
-    <h1>房车矩阵中枢</h1>
+    <h1><span class="brand-part-login">房车</span>矩阵中枢</h1>
     <p class="hint">管理台登录</p>
     <div>
       <label>用户名</label>
@@ -158,7 +176,16 @@
 
 <div id="appShell" hidden>
   <div class="topbar">
-    <span class="title">房车矩阵中枢 · 管理台</span>
+    <span class="title">
+      <span class="brand-edit">
+        <span id="brandPart">房车</span>
+        <input type="text" id="brandInput" hidden>
+        <button class="icon-btn" id="editBrandBtn" onclick="startEditBrand()" title="编辑品牌名">✎</button>
+        <button class="icon-btn" id="saveBrandBtn" onclick="saveBrand()" hidden title="保存">✓</button>
+        <button class="icon-btn" id="cancelBrandBtn" onclick="cancelEditBrand()" hidden title="取消">✕</button>
+      </span>
+      矩阵中枢 · 管理台
+    </span>
     <span class="role-badge" id="roleBadge"></span>
     <span id="usernameLabel" style="font-size:13px;color:var(--ink-soft)"></span>
     <button class="ghost" onclick="logout()">退出登录</button>
@@ -508,9 +535,68 @@ async function deleteUser(id) {
   renderUserList();
 }
 
+/* ---------------- Brand name ---------------- */
+
+let brandName = '房车';
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/admin/api/settings');
+    if (res.ok) {
+      const data = await res.json();
+      brandName = data.brand_name || '房车';
+    }
+  } catch (e) {}
+  renderBrand();
+}
+
+function renderBrand() {
+  document.getElementById('brandPart').textContent = brandName;
+  document.querySelectorAll('.brand-part-login').forEach((el) => { el.textContent = brandName; });
+  document.title = `${brandName}矩阵中枢 · 管理台`;
+}
+
+function startEditBrand() {
+  document.getElementById('brandPart').hidden = true;
+  document.getElementById('editBrandBtn').hidden = true;
+  const input = document.getElementById('brandInput');
+  input.value = brandName;
+  input.hidden = false;
+  document.getElementById('saveBrandBtn').hidden = false;
+  document.getElementById('cancelBrandBtn').hidden = false;
+  input.focus();
+}
+
+function cancelEditBrand() {
+  document.getElementById('brandPart').hidden = false;
+  document.getElementById('editBrandBtn').hidden = false;
+  document.getElementById('brandInput').hidden = true;
+  document.getElementById('saveBrandBtn').hidden = true;
+  document.getElementById('cancelBrandBtn').hidden = true;
+}
+
+async function saveBrand() {
+  const val = document.getElementById('brandInput').value.trim();
+  if (!val) { cancelEditBrand(); return; }
+  try {
+    await api('/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brand_name: val }),
+    });
+    brandName = val;
+    renderBrand();
+  } catch (e) {
+    alert('保存失败：' + e.message);
+  } finally {
+    cancelEditBrand();
+  }
+}
+
 /* ---------------- Boot ---------------- */
 
 async function boot() {
+  await loadSettings();
   if (!token()) { showLogin(); return; }
   try {
     currentUser = await api('/auth/me');

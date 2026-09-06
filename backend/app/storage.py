@@ -3,12 +3,13 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .schemas import Banner
+from .schemas import Banner, Settings
 
 DATA_DIR = Path(__file__).parent / "data"
 BANNERS_FILE = DATA_DIR / "banners.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
+SETTINGS_FILE = DATA_DIR / "settings.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -93,6 +94,21 @@ def delete_user(user_id: str) -> bool:
         return False
     _write_json(USERS_FILE, remaining)
     return True
+
+
+# ---- Settings ----
+
+def get_settings() -> Settings:
+    if not SETTINGS_FILE.exists():
+        return Settings()
+    return Settings(**json.loads(SETTINGS_FILE.read_text(encoding="utf-8")))
+
+
+def update_settings(data: dict) -> Settings:
+    settings = Settings(**data)
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS_FILE.write_text(json.dumps(settings.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
+    return settings
 
 
 # ---- Sessions ----
