@@ -17,7 +17,11 @@ jobs:
       - name: Rsync backend to ECS
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -avz --delete
+          # --delete keeps the server in sync with the repo, but app/data
+          # (banners.json) and app/static/uploads are runtime state that only
+          # ever exists on the server (gitignored) — exclude them so a deploy
+          # never wipes published content.
+          switches: -avz --delete --exclude=app/data --exclude=app/static/uploads
           path: backend/
           remote_path: ${{ secrets.ECS_TARGET_DIR }}/backend/
           remote_host: ${{ secrets.ECS_HOST }}
