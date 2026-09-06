@@ -23,3 +23,15 @@ export function getAccounts() {
 export function getVideos(platform) {
   return request('/api/videos', platform ? { platform } : null)
 }
+
+export function getBanners() {
+  return request('/api/banners')
+}
+
+export function getTodayStats() {
+  return request('/api/dashboard/today')
+}
+
+export function staticUrl(path) {
+  return `${API_BASE}${path}`
+}

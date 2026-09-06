@@ -10,6 +10,7 @@ class Account(BaseModel):
     id: str
     platform: Platform
     nickname: str
+    avatar_url: str | None = None
     follower_count: int
     video_count: int
 
@@ -19,11 +20,29 @@ class VideoStat(BaseModel):
     account_id: str
     platform: Platform
     title: str
+    thumbnail_url: str
     plays: int
     likes: int
     comments: int
     shares: int
     published_at: datetime
+    deepseek_analysis: str
+
+
+class Banner(BaseModel):
+    id: str
+    title: str
+    subtitle: str
+    image_url: str
+    link_url: str | None = None
+    sort_order: int
+
+
+class TodayStats(BaseModel):
+    videos_published: int
+    total_exposure: int
+    dm_conversations: int
+    wechat_added: int
 
 
 class PlatformBreakdown(BaseModel):

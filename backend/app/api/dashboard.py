@@ -1,9 +1,14 @@
 from fastapi import APIRouter
 
-from ..mock_data import ACCOUNTS, VIDEOS
-from ..schemas import DashboardSummary, Platform, PlatformBreakdown
+from ..mock_data import ACCOUNTS, TODAY_STATS, VIDEOS
+from ..schemas import DashboardSummary, Platform, PlatformBreakdown, TodayStats
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
+
+
+@router.get("/today", response_model=TodayStats)
+def get_today_stats() -> TodayStats:
+    return TODAY_STATS
 
 
 @router.get("/summary", response_model=DashboardSummary)

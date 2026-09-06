@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="750" height="300" viewBox="0 0 750 300">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a3e"/>
+      <stop offset="1" stop-color="#d94f1f"/>
+    </linearGradient>
+  </defs>
+  <rect width="750" height="300" rx="24" fill="url(#g)"/>
+  <circle cx="640" cy="50" r="70" fill="#ffffff" opacity="0.12"/>
+  <circle cx="700" cy="220" r="40" fill="#ffffff" opacity="0.14"/>
+  <text x="48" y="120" font-family="Noto Sans SC, sans-serif" font-size="40" font-weight="700" fill="#ffffff">AI 视频生成内测</text>
+  <text x="48" y="168" font-family="Noto Sans SC, sans-serif" font-size="26" fill="#ffffff" opacity="0.85">图生视频 / 文生视频 预约申请中</text>
+  <text x="48" y="220" font-family="Noto Sans SC, sans-serif" font-size="22" fill="#ffffff" opacity="0.7">立即预约 →</text>
+</svg>
