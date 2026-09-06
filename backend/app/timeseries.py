@@ -10,7 +10,7 @@ import math
 import random
 from datetime import datetime, timedelta, timezone
 
-from .mock_data import ACCOUNTS
+from .mock_data import ACCOUNTS, IDENTITIES
 
 DAYS = 30
 TREND_KEYS = ["plays", "new_followers"]
@@ -56,31 +56,41 @@ def _daily_series(account_id: str, follower_count: int) -> list[dict]:
     return days
 
 
-def get_daily_series(account_id: str) -> list[dict]:
-    if account_id == "all":
-        per_account = [_daily_series(a.id, a.follower_count) for a in ACCOUNTS]
-        if not per_account:
-            return []
-        combined = []
-        for day_idx in range(DAYS):
-            day_rows = [p[day_idx] for p in per_account]
-            combined.append(
-                {
-                    "plays": sum(r["plays"] for r in day_rows),
-                    "likes": sum(r["likes"] for r in day_rows),
-                    "comments": sum(r["comments"] for r in day_rows),
-                    "shares": sum(r["shares"] for r in day_rows),
-                    "completion_rate": round(sum(r["completion_rate"] for r in day_rows) / len(day_rows), 4),
-                    "new_followers": sum(r["new_followers"] for r in day_rows),
-                    "videos_published": sum(r["videos_published"] for r in day_rows),
-                    "ad_spend": round(sum(r["ad_spend"] for r in day_rows), 2),
-                    "leads_count": sum(r["leads_count"] for r in day_rows),
-                    "wechat_added": sum(r["wechat_added"] for r in day_rows),
-                }
-            )
-        return combined
+def _combine(accounts: list) -> list[dict]:
+    per_account = [_daily_series(a.id, a.follower_count) for a in accounts]
+    if not per_account:
+        return []
+    combined = []
+    for day_idx in range(DAYS):
+        day_rows = [p[day_idx] for p in per_account]
+        combined.append(
+            {
+                "plays": sum(r["plays"] for r in day_rows),
+                "likes": sum(r["likes"] for r in day_rows),
+                "comments": sum(r["comments"] for r in day_rows),
+                "shares": sum(r["shares"] for r in day_rows),
+                "completion_rate": round(sum(r["completion_rate"] for r in day_rows) / len(day_rows), 4),
+                "new_followers": sum(r["new_followers"] for r in day_rows),
+                "videos_published": sum(r["videos_published"] for r in day_rows),
+                "ad_spend": round(sum(r["ad_spend"] for r in day_rows), 2),
+                "leads_count": sum(r["leads_count"] for r in day_rows),
+                "wechat_added": sum(r["wechat_added"] for r in day_rows),
+            }
+        )
+    return combined
 
-    account = next((a for a in ACCOUNTS if a.id == account_id), None)
+
+def get_daily_series(scope_id: str) -> list[dict]:
+    """scope_id is "all", a matrix identity id (aggregates its platform
+    accounts), or a single raw account id (kept for platform-level drill-down)."""
+    if scope_id == "all":
+        return _combine(ACCOUNTS)
+
+    if any(i.id == scope_id for i in IDENTITIES):
+        accounts = [a for a in ACCOUNTS if a.identity_id == scope_id]
+        return _combine(accounts)
+
+    account = next((a for a in ACCOUNTS if a.id == scope_id), None)
     if account is None:
         return []
     return _daily_series(account.id, account.follower_count)
@@ -161,8 +171,12 @@ def get_overview(account_id: str, period: int) -> dict | None:
     if account_id == "all":
         account_label = "全部账号"
     else:
-        account = next((a for a in ACCOUNTS if a.id == account_id), None)
-        account_label = account.nickname if account else account_id
+        identity = next((i for i in IDENTITIES if i.id == account_id), None)
+        if identity is not None:
+            account_label = identity.name
+        else:
+            account = next((a for a in ACCOUNTS if a.id == account_id), None)
+            account_label = account.nickname if account else account_id
 
     today_metrics = {key: _today_summary(days, key) for key in TODAY_METRIC_KEYS}
 

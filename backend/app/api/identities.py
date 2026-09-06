@@ -1,0 +1,39 @@
+from fastapi import APIRouter, HTTPException
+
+from ..mock_data import ACCOUNTS, IDENTITIES, VIDEOS
+from ..schemas import IdentitySummary, VideoStat
+
+router = APIRouter(prefix="/api/identities", tags=["identities"])
+
+
+def _summary(identity) -> IdentitySummary:
+    accounts = [a for a in ACCOUNTS if a.identity_id == identity.id]
+    return IdentitySummary(
+        id=identity.id,
+        name=identity.name,
+        phone_number=identity.phone_number,
+        accounts=accounts,
+        total_followers=sum(a.follower_count for a in accounts),
+        total_videos=sum(a.video_count for a in accounts),
+    )
+
+
+@router.get("", response_model=list[IdentitySummary])
+def list_identities() -> list[IdentitySummary]:
+    return [_summary(i) for i in IDENTITIES]
+
+
+@router.get("/{identity_id}", response_model=IdentitySummary)
+def get_identity(identity_id: str) -> IdentitySummary:
+    identity = next((i for i in IDENTITIES if i.id == identity_id), None)
+    if identity is None:
+        raise HTTPException(status_code=404, detail="identity not found")
+    return _summary(identity)
+
+
+@router.get("/{identity_id}/videos", response_model=list[VideoStat])
+def list_identity_videos(identity_id: str) -> list[VideoStat]:
+    if not any(i.id == identity_id for i in IDENTITIES):
+        raise HTTPException(status_code=404, detail="identity not found")
+    account_ids = {a.id for a in ACCOUNTS if a.identity_id == identity_id}
+    return [v for v in VIDEOS if v.account_id in account_ids]

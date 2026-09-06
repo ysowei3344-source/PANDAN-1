@@ -270,6 +270,34 @@
   .badge-pink { background: var(--danger-soft); color: var(--danger); }
   .badge-blue { background: var(--accent-soft); color: var(--accent); }
 
+  .mini-tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 5px; font-size: 10px; font-weight: 700; margin-right: 3px;
+  }
+
+  .identity-card {
+    display: flex; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); cursor: pointer;
+  }
+  .identity-card:last-child { border-bottom: none; }
+  .identity-card:hover { background: rgba(255, 255, 255, 0.03); }
+  .identity-avatar {
+    width: 48px; height: 48px; border-radius: 12px; background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex-shrink: 0;
+  }
+  .identity-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .identity-name { font-size: 15px; font-weight: 600; }
+  .identity-sub { font-size: 12px; color: var(--ink-soft); }
+  .identity-platforms { display: flex; gap: 4px; }
+  .identity-stats { text-align: right; display: flex; flex-direction: column; gap: 2px; }
+  .identity-stats .num { font-size: 15px; font-weight: 700; }
+  .identity-stats .label { font-size: 11px; color: var(--ink-soft); }
+  .identity-chevron { color: var(--ink-faint); font-size: 16px; }
+
+  .platform-detail-row {
+    display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line);
+  }
+  .platform-detail-row:last-child { border-bottom: none; }
+
   .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
 
   @media (max-width: 640px) {
@@ -342,7 +370,7 @@
 const API_BASE = '/admin/api/admin';
 const PUBLIC_API_BASE = '/admin/api';
 let currentUser = null;
-let allAccounts = [];
+let allIdentities = [];
 let currentAccountId = 'all';
 let overviewCache = {};
 let activeSection = 'overview';
@@ -393,6 +421,7 @@ function fmtNum(n) {
 }
 function platformInitial(p) { return { douyin: '抖', video_channel: '视', xiaohongshu: '红' }[p] || '·'; }
 function platformBadge(p) { return { douyin: 'badge-dark', video_channel: 'badge-green', xiaohongshu: 'badge-pink' }[p] || 'badge-blue'; }
+function platformLabel(p) { return { douyin: '抖音', video_channel: '视频号', xiaohongshu: '小红书' }[p] || p; }
 
 function showLogin(msg) {
   document.getElementById('loginView').hidden = false;
@@ -438,7 +467,7 @@ async function enterApp() {
   document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '运营';
   document.getElementById('usernameLabel').textContent = currentUser.username;
   renderNav();
-  try { allAccounts = await fetch(`${PUBLIC_API_BASE}/accounts`).then((r) => r.json()); } catch (e) { allAccounts = []; }
+  try { allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json()); } catch (e) { allIdentities = []; }
   await showSection('overview');
 }
 
@@ -488,10 +517,14 @@ async function showSection(key) {
 
 /* ---------------- Account switcher ---------------- */
 
+function platformTagsHtml(identity) {
+  return identity.accounts.map((a) => `<span class="mini-tag ${platformBadge(a.platform)}">${platformInitial(a.platform)}</span>`).join('');
+}
+
 function renderAccountSwitcher() {
-  const current = allAccounts.find((a) => a.id === currentAccountId);
-  const label = currentAccountId === 'all' ? '全部账号' : (current ? current.nickname : currentAccountId);
-  const avatarText = currentAccountId === 'all' ? '全' : platformInitial(current ? current.platform : '');
+  const current = allIdentities.find((i) => i.id === currentAccountId);
+  const label = currentAccountId === 'all' ? '全部账号' : (current ? current.name : currentAccountId);
+  const avatarText = currentAccountId === 'all' ? '全' : (current ? current.name[0] : '?');
   document.getElementById('headerLeft').innerHTML = `
     <div class="acc-switcher" id="accSwitcher">
       <button class="acc-switcher-btn" onclick="toggleAccDropdown(event)">
@@ -503,10 +536,10 @@ function renderAccountSwitcher() {
         <div class="acc-dropdown-item" onclick="selectAccount('all')">
           <span class="acc-avatar">全</span> 全部账号
         </div>
-        ${allAccounts.map((a) => `
-          <div class="acc-dropdown-item" onclick="selectAccount('${a.id}')">
-            <span class="acc-avatar">${platformInitial(a.platform)}</span> ${escapeHtml(a.nickname)}
-            <span class="acc-sub">${fmtNum(a.follower_count)} 粉丝</span>
+        ${allIdentities.map((i) => `
+          <div class="acc-dropdown-item" onclick="selectAccount('${i.id}')">
+            <span class="acc-avatar">${escapeHtml(i.name[0])}</span> ${escapeHtml(i.name)}
+            <span class="acc-sub">${platformTagsHtml(i)} ${fmtNum(i.total_followers)} 粉丝</span>
           </div>
         `).join('')}
       </div>
@@ -684,7 +717,7 @@ async function loadVideoStrip() {
   try {
     currentVideos = currentAccountId === 'all'
       ? await fetch(`${PUBLIC_API_BASE}/videos`).then((r) => r.json())
-      : await fetch(`${PUBLIC_API_BASE}/accounts/${currentAccountId}/videos`).then((r) => r.json());
+      : await fetch(`${PUBLIC_API_BASE}/identities/${currentAccountId}/videos`).then((r) => r.json());
   } catch (e) {
     currentVideos = [];
   }
@@ -807,33 +840,91 @@ function renderTrendChart(trend) {
 
 /* ---------------- 矩阵账号 ---------------- */
 
+let accountsDetailId = null;
+
 function renderAccountsPage() {
+  if (accountsDetailId) {
+    renderIdentityDetail(accountsDetailId);
+  } else {
+    renderIdentityList();
+  }
+}
+
+function renderIdentityList() {
   const el = document.getElementById('section-accounts');
-  const platforms = ['douyin', 'video_channel', 'xiaohongshu'];
-  const labels = { douyin: '抖音', video_channel: '视频号', xiaohongshu: '小红书' };
   el.innerHTML = `
     <div class="page-title">矩阵账号</div>
-    <div class="page-sub">共 ${allAccounts.length} 个账号</div>
-    ${platforms.map((p) => {
-      const accs = allAccounts.filter((a) => a.platform === p);
-      if (!accs.length) return '';
-      return `
-        <div class="panel" style="margin-bottom:16px;">
-          <h2>${labels[p]}</h2>
-          ${accs.map((a) => `
-            <div class="row-item">
-              <div class="avatar ${platformBadge(a.platform)}">${platformInitial(a.platform)}</div>
-              <div class="row-body">
-                <div class="row-title">${escapeHtml(a.nickname)}</div>
-                <div class="row-sub">${fmtNum(a.video_count)} 条视频</div>
-              </div>
-              <div class="row-sub" style="font-weight:600;color:var(--ink);">${fmtNum(a.follower_count)} 粉丝</div>
-            </div>
-          `).join('')}
+    <div class="page-sub">共 ${allIdentities.length} 个矩阵号 · 一个号码/人设的内容会同步分发到它绑定的各个平台</div>
+    <div class="panel">
+      ${allIdentities.map((i) => `
+        <div class="identity-card" onclick="openIdentityDetail('${i.id}')">
+          <div class="identity-avatar">${escapeHtml(i.name[0])}</div>
+          <div class="identity-info">
+            <div class="identity-name">${escapeHtml(i.name)}</div>
+            <div class="identity-sub">${i.phone_number}</div>
+            <div class="identity-platforms">${platformTagsHtml(i)}</div>
+          </div>
+          <div class="identity-stats">
+            <span class="num">${fmtNum(i.total_followers)}</span>
+            <span class="label">总粉丝 · ${i.accounts.length} 个平台</span>
+          </div>
+          <span class="identity-chevron">›</span>
         </div>
-      `;
-    }).join('')}
+      `).join('')}
+    </div>
   `;
+}
+
+function openIdentityDetail(id) {
+  accountsDetailId = id;
+  renderIdentityDetail(id);
+}
+
+function closeIdentityDetail() {
+  accountsDetailId = null;
+  renderIdentityList();
+}
+
+function renderIdentityDetail(id) {
+  const el = document.getElementById('section-accounts');
+  const identity = allIdentities.find((i) => i.id === id);
+  if (!identity) { closeIdentityDetail(); return; }
+  el.innerHTML = `
+    <button class="diagnosis-back" onclick="closeIdentityDetail()">‹ 返回矩阵账号列表</button>
+    <div class="page-title">${escapeHtml(identity.name)}</div>
+    <div class="page-sub">${identity.phone_number} · ${identity.accounts.length} 个平台绑定</div>
+    <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom:16px;">
+      <div class="kpi-card">
+        <span class="kpi-label">总粉丝数</span>
+        <span class="kpi-value">${fmtNum(identity.total_followers)}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">总视频数</span>
+        <span class="kpi-value">${fmtNum(identity.total_videos)}</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>分平台明细</h2>
+      ${identity.accounts.map((a) => `
+        <div class="platform-detail-row">
+          <div class="avatar ${platformBadge(a.platform)}">${platformInitial(a.platform)}</div>
+          <div class="row-body">
+            <div class="row-title">${platformLabel(a.platform)} · ${escapeHtml(a.nickname)}</div>
+            <div class="row-sub">${fmtNum(a.video_count)} 条视频</div>
+          </div>
+          <div class="row-sub" style="font-weight:600;color:var(--ink);">${fmtNum(a.follower_count)} 粉丝</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="panel" style="margin-top:16px;">
+      <button onclick="viewIdentityOverview('${identity.id}')">查看该矩阵号的经营分析总览 →</button>
+    </div>
+  `;
+}
+
+function viewIdentityOverview(id) {
+  currentAccountId = id;
+  showSection('overview');
 }
 
 /* ---------------- Banners ---------------- */

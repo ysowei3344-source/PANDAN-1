@@ -7,12 +7,33 @@ Platform = Literal["douyin", "video_channel", "xiaohongshu"]
 
 
 class Account(BaseModel):
+    """One platform binding (抖音/视频号/小红书) under a matrix identity."""
+
     id: str
+    identity_id: str
     platform: Platform
     nickname: str
     avatar_url: str | None = None
     follower_count: int
     video_count: int
+
+
+class Identity(BaseModel):
+    """A matrix account as the operator thinks about it: one phone number /
+    one persona, synced across whichever platforms it's registered on."""
+
+    id: str
+    name: str
+    phone_number: str
+
+
+class IdentitySummary(BaseModel):
+    id: str
+    name: str
+    phone_number: str
+    accounts: list[Account]
+    total_followers: int
+    total_videos: int
 
 
 class VideoStat(BaseModel):

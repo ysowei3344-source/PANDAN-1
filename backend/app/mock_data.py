@@ -1,18 +1,46 @@
 from datetime import datetime, timedelta
 
-from .schemas import Account, Banner, TodayStats, VideoStat
+from .schemas import Account, Banner, Identity, TodayStats, VideoStat
 
+# 矩阵号：一个手机号/一个人设，内容同源分发到它注册的各个平台。
+IDENTITIES: list[Identity] = [
+    Identity(id="iden-1", name="房车老王探店", phone_number="138****0001"),
+    Identity(id="iden-2", name="小房车改装日记", phone_number="139****0002"),
+    Identity(id="iden-3", name="房车穷游图鉴", phone_number="137****0003"),
+    Identity(id="iden-4", name="周末房车露营", phone_number="136****0004"),
+    Identity(id="iden-5", name="房车维修老师傅", phone_number="135****0005"),
+    Identity(id="iden-6", name="房车自驾中国", phone_number="134****0006"),
+    Identity(id="iden-7", name="房车女生日记", phone_number="133****0007"),
+    Identity(id="iden-8", name="房车亲子出行", phone_number="132****0008"),
+    Identity(id="iden-9", name="房车老王探店小号", phone_number="131****0009"),
+]
+
+# 每个矩阵号名下的平台账号（同一身份在不同平台的绑定，昵称通常保持一致）。
 ACCOUNTS: list[Account] = [
-    Account(id="dy-01", platform="douyin", nickname="房车老王探店", follower_count=128400, video_count=214),
-    Account(id="dy-02", platform="douyin", nickname="小房车改装日记", follower_count=52300, video_count=96),
-    Account(id="sph-01", platform="video_channel", nickname="老王房车生活", follower_count=31200, video_count=58),
-    Account(id="xhs-01", platform="xiaohongshu", nickname="房车穷游图鉴", follower_count=76500, video_count=142),
-    Account(id="xhs-02", platform="xiaohongshu", nickname="周末房车露营", follower_count=19800, video_count=63),
-    Account(id="dy-03", platform="douyin", nickname="房车维修老师傅", follower_count=41200, video_count=77),
-    Account(id="sph-02", platform="video_channel", nickname="房车自驾中国", follower_count=12600, video_count=34),
-    Account(id="xhs-03", platform="xiaohongshu", nickname="房车女生日记", follower_count=28900, video_count=88),
-    Account(id="dy-04", platform="douyin", nickname="房车老王探店2号", follower_count=8600, video_count=21),
-    Account(id="xhs-04", platform="xiaohongshu", nickname="房车亲子出行", follower_count=15300, video_count=45),
+    Account(id="dy-01", identity_id="iden-1", platform="douyin", nickname="房车老王探店", follower_count=128400, video_count=214),
+    Account(id="sph-01", identity_id="iden-1", platform="video_channel", nickname="房车老王探店", follower_count=31200, video_count=58),
+    Account(id="xhs-06", identity_id="iden-1", platform="xiaohongshu", nickname="房车老王探店", follower_count=22000, video_count=40),
+
+    Account(id="dy-02", identity_id="iden-2", platform="douyin", nickname="小房车改装日记", follower_count=52300, video_count=96),
+    Account(id="xhs-07", identity_id="iden-2", platform="xiaohongshu", nickname="小房车改装日记", follower_count=18000, video_count=30),
+
+    Account(id="xhs-01", identity_id="iden-3", platform="xiaohongshu", nickname="房车穷游图鉴", follower_count=76500, video_count=142),
+    Account(id="dy-05", identity_id="iden-3", platform="douyin", nickname="房车穷游图鉴", follower_count=35000, video_count=60),
+
+    Account(id="xhs-02", identity_id="iden-4", platform="xiaohongshu", nickname="周末房车露营", follower_count=19800, video_count=63),
+    Account(id="dy-06", identity_id="iden-4", platform="douyin", nickname="周末房车露营", follower_count=12000, video_count=25),
+
+    Account(id="dy-03", identity_id="iden-5", platform="douyin", nickname="房车维修老师傅", follower_count=41200, video_count=77),
+
+    Account(id="sph-02", identity_id="iden-6", platform="video_channel", nickname="房车自驾中国", follower_count=12600, video_count=34),
+    Account(id="dy-07", identity_id="iden-6", platform="douyin", nickname="房车自驾中国", follower_count=28000, video_count=50),
+
+    Account(id="xhs-03", identity_id="iden-7", platform="xiaohongshu", nickname="房车女生日记", follower_count=28900, video_count=88),
+
+    Account(id="xhs-04", identity_id="iden-8", platform="xiaohongshu", nickname="房车亲子出行", follower_count=15300, video_count=45),
+    Account(id="dy-08", identity_id="iden-8", platform="douyin", nickname="房车亲子出行", follower_count=9500, video_count=18),
+
+    Account(id="dy-04", identity_id="iden-9", platform="douyin", nickname="房车老王探店小号", follower_count=8600, video_count=21),
 ]
 
 _now = datetime(2026, 9, 6, 10, 0, 0)
