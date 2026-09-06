@@ -6,3 +6,5 @@ env/
 .env
 *.log
 .DS_Store
+backend/app/data/
+backend/app/static/uploads/

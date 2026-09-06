@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>轮播图发布后台</title>
+<style>
+  :root {
+    --bg: #eef4fc;
+    --card: #ffffff;
+    --ink: #1a2b3d;
+    --ink-soft: #8a94a6;
+    --line: #e7edf6;
+    --accent: #3e7bfa;
+    --accent-soft: #e4eefd;
+    --danger: #f35b6e;
+    --danger-soft: #fde3e7;
+    --radius: 16px;
+    --shadow: 0 6px 20px rgba(31, 58, 94, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .hint { color: var(--ink-soft); font-size: 13px; margin: 0 0 24px; }
+
+  .gate {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .gate input {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    font-size: 14px;
+  }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+  }
+  button.ghost {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+  }
+  button.danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  .panel {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .panel h2 { font-size: 16px; margin: 0 0 16px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .actions { margin-top: 16px; display: flex; gap: 10px; }
+
+  .banner-item {
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .banner-item:last-child { border-bottom: none; }
+  .banner-item img {
+    width: 120px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+  .banner-body { flex: 1; min-width: 0; }
+  .banner-title { font-weight: 600; font-size: 14px; }
+  .banner-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .banner-meta { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+  .banner-btns { display: flex; gap: 8px; align-items: flex-start; }
+  .banner-btns button { padding: 6px 12px; font-size: 12px; }
+
+  .msg { font-size: 13px; margin-top: 10px; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: #22b573; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>轮播图发布后台</h1>
+  <p class="hint">管理首页第一屏的轮播广告（p.rvppp.cn/ 首页顶部）</p>
+
+  <div class="gate" id="gate">
+    <label>管理口令</label>
+    <input type="text" id="tokenInput" placeholder="输入 ADMIN_TOKEN">
+    <button onclick="saveToken()">进入</button>
+    <p class="msg" id="gateMsg"></p>
+  </div>
+
+  <div id="app" hidden>
+    <div class="panel">
+      <h2 id="formTitle">新增轮播图</h2>
+      <div class="form-grid">
+        <div class="full">
+          <label>标题</label>
+          <input type="text" id="fTitle">
+        </div>
+        <div class="full">
+          <label>副标题</label>
+          <input type="text" id="fSubtitle">
+        </div>
+        <div>
+          <label>排序（数字越小越靠前）</label>
+          <input type="number" id="fSort" value="0">
+        </div>
+        <div>
+          <label>跳转链接（可选）</label>
+          <input type="text" id="fLink">
+        </div>
+        <div class="full">
+          <label>图片</label>
+          <input type="file" id="fImage" accept="image/*,.svg">
+          <input type="hidden" id="fImageUrl">
+        </div>
+      </div>
+      <div class="actions">
+        <button onclick="submitForm()">保存</button>
+        <button class="ghost" onclick="resetForm()">清空</button>
+        <button class="ghost" onclick="logout()">退出登录</button>
+      </div>
+      <p class="msg" id="formMsg"></p>
+    </div>
+
+    <div class="panel">
+      <h2>当前轮播图（按排序号显示）</h2>
+      <div id="list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/admin/api';
+let editingId = null;
+let banners = [];
+
+function token() { return localStorage.getItem('rv_admin_token') || ''; }
+
+function saveToken() {
+  const t = document.getElementById('tokenInput').value.trim();
+  if (!t) return;
+  localStorage.setItem('rv_admin_token', t);
+  boot();
+}
+
+function logout() {
+  localStorage.removeItem('rv_admin_token');
+  location.reload();
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { ...(options.headers || {}), 'X-Admin-Token': token() },
+  });
+  if (res.status === 401) {
+    localStorage.removeItem('rv_admin_token');
+    document.getElementById('gateMsg').textContent = '口令无效，请重新输入';
+    document.getElementById('gateMsg').className = 'msg error';
+    document.getElementById('gate').hidden = false;
+    document.getElementById('app').hidden = true;
+    throw new Error('unauthorized');
+  }
+  if (!res.ok) throw new Error(await res.text());
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : null;
+}
+
+async function loadBanners() {
+  banners = await api('/banners');
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  if (!banners.length) {
+    list.innerHTML = '<p class="hint">暂无轮播图</p>';
+    return;
+  }
+  list.innerHTML = banners
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((b) => `
+      <div class="banner-item">
+        <img src="${b.image_url}" alt="">
+        <div class="banner-body">
+          <div class="banner-title">${escapeHtml(b.title)}</div>
+          <div class="banner-sub">${escapeHtml(b.subtitle || '')}</div>
+          <div class="banner-meta">排序 ${b.sort_order} · id: ${b.id}</div>
+        </div>
+        <div class="banner-btns">
+          <button class="ghost" onclick="editBanner('${b.id}')">编辑</button>
+          <button class="danger" onclick="deleteBanner('${b.id}')">删除</button>
+        </div>
+      </div>
+    `)
+    .join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function editBanner(id) {
+  const b = banners.find((x) => x.id === id);
+  if (!b) return;
+  editingId = id;
+  document.getElementById('formTitle').textContent = '编辑轮播图';
+  document.getElementById('fTitle').value = b.title;
+  document.getElementById('fSubtitle').value = b.subtitle || '';
+  document.getElementById('fSort').value = b.sort_order;
+  document.getElementById('fLink').value = b.link_url || '';
+  document.getElementById('fImageUrl').value = b.image_url;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetForm() {
+  editingId = null;
+  document.getElementById('formTitle').textContent = '新增轮播图';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fSubtitle').value = '';
+  document.getElementById('fSort').value = '0';
+  document.getElementById('fLink').value = '';
+  document.getElementById('fImageUrl').value = '';
+  document.getElementById('fImage').value = '';
+  document.getElementById('formMsg').textContent = '';
+}
+
+async function deleteBanner(id) {
+  if (!confirm('确定删除这条轮播图吗？')) return;
+  await api(`/banners/${id}`, { method: 'DELETE' });
+  await loadBanners();
+}
+
+async function submitForm() {
+  const msg = document.getElementById('formMsg');
+  msg.className = 'msg';
+  msg.textContent = '保存中...';
+  try {
+    let imageUrl = document.getElementById('fImageUrl').value;
+    const file = document.getElementById('fImage').files[0];
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const uploadRes = await api('/upload', { method: 'POST', body: fd });
+      imageUrl = uploadRes.url;
+    }
+    if (!imageUrl) {
+      msg.textContent = '请上传图片';
+      msg.className = 'msg error';
+      return;
+    }
+    const payload = {
+      title: document.getElementById('fTitle').value.trim(),
+      subtitle: document.getElementById('fSubtitle').value.trim(),
+      image_url: imageUrl,
+      link_url: document.getElementById('fLink').value.trim() || null,
+      sort_order: Number(document.getElementById('fSort').value) || 0,
+    };
+    if (!payload.title) {
+      msg.textContent = '请填写标题';
+      msg.className = 'msg error';
+      return;
+    }
+    if (editingId) {
+      await api(`/banners/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await api('/banners', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
+    msg.textContent = '已保存';
+    msg.className = 'msg ok';
+    resetForm();
+    await loadBanners();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+async function boot() {
+  if (!token()) {
+    document.getElementById('gate').hidden = false;
+    document.getElementById('app').hidden = true;
+    return;
+  }
+  try {
+    await loadBanners();
+    document.getElementById('gate').hidden = true;
+    document.getElementById('app').hidden = false;
+  } catch (e) {
+    // require_admin already handles 401 UI state
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

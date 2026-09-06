@@ -23,9 +23,19 @@ python3 -m venv .venv
 接口一览：
 - `GET /api/health`
 - `GET /api/dashboard/summary` — 汇总看板数据
+- `GET /api/dashboard/today` — 今日全平台数据（发布数/曝光/私信/加微信）
 - `GET /api/accounts` — 矩阵账号列表
 - `GET /api/accounts/{id}/videos` — 单账号视频列表
 - `GET /api/videos?platform=douyin` — 按平台筛选视频
+- `GET /api/banners` — 首页轮播图（数据来自 `app/data/banners.json`，由发布后台维护）
+
+轮播图发布后台（写接口，需要 `X-Admin-Token` 请求头）：
+- `GET/POST /api/admin/banners`，`PUT/DELETE /api/admin/banners/{id}`
+- `POST /api/admin/upload` — 上传图片，返回 `url`
+
+`ADMIN_TOKEN` 从环境变量读取（本地开发用 `backend/.env`，服务器上由 systemd 的 `EnvironmentFile` 加载），没配置的话所有 `/api/admin/*` 请求都会 401，`.env` 不进 git。
+
+对应的管理页面在 `admin-console/index.html`（纯静态单文件，不走 uni-app 构建），部署时直接把它扔到 `/var/www/p.rvppp.cn/console/`，通过 `p.rvppp.cn/console/` 访问，进去先输一遍令牌。
 
 ## 前端
 

@@ -38,6 +38,14 @@ class Banner(BaseModel):
     sort_order: int
 
 
+class BannerInput(BaseModel):
+    title: str
+    subtitle: str = ""
+    image_url: str
+    link_url: str | None = None
+    sort_order: int = 0
+
+
 class TodayStats(BaseModel):
     videos_published: int
     total_exposure: int
