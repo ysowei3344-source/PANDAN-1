@@ -36,9 +36,16 @@ npm run dev:h5          # 本地预览 H5
 npm run dev:mp-weixin   # 编译到微信小程序，用微信开发者工具打开 dist/dev/mp-weixin
 ```
 
-`src/utils/api.js` 里配置了后端地址，开发阶段直连 ECS 公网 IP，备案 + HTTPS 就绪后切换成 `https://p.rvppp.cn`。
+`src/utils/api.js` 里的 `API_BASE` 是 `/admin`——前端和后端同域部署，`p.rvppp.cn/` 走前端静态页，`p.rvppp.cn/admin/` 由 nginx 反代到后端。
 
 ## 部署
+
+线上地址：`p.rvppp.cn`
+
+- `/` → nginx 直接托管 `frontend` 构建出的 H5 静态文件（`/var/www/p.rvppp.cn`）
+- `/admin/` → nginx 反代到 `127.0.0.1:8000`（`backend` 的 FastAPI 服务，去掉 `/admin` 前缀）
+
+nginx 配置见 `deploy/p.rvppp.cn.conf`，后端 systemd 服务见 `deploy/pandan1-backend.service`（都需要手动应用到服务器，不是自动同步的）。
 
 `.github/workflows/deploy.yml`：push 到 `main` 后，GitHub Actions 把 `backend/` 通过 rsync 传到 ECS（服务器本身连不上 github.com，所以不采用 git pull 的方式），再重启 `pandan1-backend` systemd 服务。
 
@@ -52,4 +59,4 @@ npm run dev:mp-weixin   # 编译到微信小程序，用微信开发者工具打
 | `ECS_SSH_KEY`    | SSH 私钥（配对的公钥需加到服务器 `~/.ssh/authorized_keys`）|
 | `ECS_TARGET_DIR` | 服务器上代码所在目录（如 `/root/PANDAN-1`）|
 
-前端目前手动构建部署（H5 静态文件传到服务器由 nginx 托管，小程序通过微信开发者工具上传审核），暂未纳入自动化。
+前端目前手动构建部署（`npx uni build` 生成 H5 产物后传到 `/var/www/p.rvppp.cn`，小程序包通过微信开发者工具上传审核），暂未纳入自动化。

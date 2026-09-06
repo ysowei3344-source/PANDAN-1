@@ -1,5 +1,5 @@
-// Phase 1 开发期先直连 ECS 公网 IP，备案 + HTTPS 就绪后切换成 https://p.rvppp.cn
-const API_BASE = 'http://47.122.105.40:8000'
+// 前端和后端同域部署：p.rvppp.cn/ 走前端静态页，p.rvppp.cn/admin/ 由 nginx 反代到后端
+const API_BASE = '/admin'
 
 function request(path, params) {
   return new Promise((resolve, reject) => {
