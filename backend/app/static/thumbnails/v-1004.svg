@@ -6,7 +6,5 @@
     </linearGradient>
   </defs>
   <rect width="400" height="225" fill="url(#g)"/>
-  <circle cx="200" cy="112" r="34" fill="#ffffff" opacity="0.9"/>
-  <path d="M190 96 L222 112 L190 128 Z" fill="#0f6e4d"/>
   <text x="16" y="205" font-family="Noto Sans SC, sans-serif" font-size="16" fill="#ffffff" opacity="0.8">视频号</text>
 </svg>

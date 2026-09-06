@@ -21,6 +21,7 @@ class VideoStat(BaseModel):
     platform: Platform
     title: str
     thumbnail_url: str
+    poster_url: str
     plays: int
     likes: int
     comments: int
