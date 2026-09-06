@@ -1,8 +1,9 @@
 """Deterministic mock daily time series for the 经营分析总览 overview page.
 
-Real numbers will eventually come from the platform-scraping pipeline (M1).
-Until then this generates a stable (seeded, not random-each-restart) 30-day
-history per account so the overview page has something realistic to show.
+Real numbers will eventually come from the platform-scraping pipeline (M1)
+and the ad/CRM systems (M4). Until then this generates a stable (seeded, not
+random-each-restart) 30-day history per account so the overview page has
+something realistic to show.
 """
 
 import math
@@ -12,7 +13,8 @@ from datetime import datetime, timedelta, timezone
 from .mock_data import ACCOUNTS
 
 DAYS = 30
-METRIC_KEYS = ["plays", "likes", "comments", "shares", "completion_rate", "new_followers"]
+TREND_KEYS = ["plays", "new_followers"]
+TODAY_METRIC_KEYS = ["videos_published", "plays", "likes", "comments", "shares", "ad_spend", "leads_count", "wechat_added"]
 
 
 def _account_seed(account_id: str) -> int:
@@ -33,6 +35,10 @@ def _daily_series(account_id: str, follower_count: int) -> list[dict]:
         shares = plays * rng.uniform(0.006, 0.015)
         completion_rate = rng.uniform(0.28, 0.52)
         new_followers = plays * rng.uniform(0.002, 0.006)
+        videos_published = round(rng.uniform(0.4, 2.4) * (1 + follower_count / 200_000))
+        ad_spend = round(scale * rng.uniform(80, 260), 2)
+        leads_count = round(plays * rng.uniform(0.0008, 0.002))
+        wechat_added = round(plays * rng.uniform(0.0004, 0.0012))
         days.append(
             {
                 "plays": round(plays),
@@ -41,6 +47,10 @@ def _daily_series(account_id: str, follower_count: int) -> list[dict]:
                 "shares": round(shares),
                 "completion_rate": round(completion_rate, 4),
                 "new_followers": round(new_followers),
+                "videos_published": videos_published,
+                "ad_spend": ad_spend,
+                "leads_count": leads_count,
+                "wechat_added": wechat_added,
             }
         )
     return days
@@ -62,6 +72,10 @@ def get_daily_series(account_id: str) -> list[dict]:
                     "shares": sum(r["shares"] for r in day_rows),
                     "completion_rate": round(sum(r["completion_rate"] for r in day_rows) / len(day_rows), 4),
                     "new_followers": sum(r["new_followers"] for r in day_rows),
+                    "videos_published": sum(r["videos_published"] for r in day_rows),
+                    "ad_spend": round(sum(r["ad_spend"] for r in day_rows), 2),
+                    "leads_count": sum(r["leads_count"] for r in day_rows),
+                    "wechat_added": sum(r["wechat_added"] for r in day_rows),
                 }
             )
         return combined
@@ -72,7 +86,8 @@ def get_daily_series(account_id: str) -> list[dict]:
     return _daily_series(account.id, account.follower_count)
 
 
-def _metric_summary(days: list[dict], key: str, period: int) -> dict:
+def _period_summary(days: list[dict], key: str, period: int) -> dict:
+    """7/30-day cumulative sum vs the preceding equal-length period. Used by the trend chart."""
     recent = days[-period:]
     previous = days[-2 * period : -period] if len(days) >= 2 * period else days[:period]
 
@@ -88,10 +103,18 @@ def _metric_summary(days: list[dict], key: str, period: int) -> dict:
     return {"value": value, "change_pct": change_pct, "series": [d[key] for d in recent]}
 
 
-def _diagnosis(account_label: str, metrics: dict) -> dict:
-    plays_change = metrics["plays"]["change_pct"]
-    completion_change = metrics["completion_rate"]["change_pct"]
-    followers_change = metrics["new_followers"]["change_pct"]
+def _today_summary(days: list[dict], key: str) -> dict:
+    """Today's value vs yesterday, with the last 7 days as sparkline context."""
+    today = days[-1][key]
+    yesterday = days[-2][key] if len(days) > 1 else today
+    change_pct = round((today - yesterday) / (yesterday or 1) * 100, 1)
+    return {"value": today, "change_pct": change_pct, "series": [d[key] for d in days[-7:]]}
+
+
+def _diagnosis(account_label: str, trend_metrics: dict) -> dict:
+    plays_change = trend_metrics["plays"]["change_pct"]
+    completion_change = trend_metrics["completion_rate"]["change_pct"]
+    followers_change = trend_metrics["new_followers"]["change_pct"]
 
     if plays_change >= 0:
         risk = (
@@ -115,18 +138,18 @@ def _diagnosis(account_label: str, metrics: dict) -> dict:
     return {
         "model": "DeepSeek-V3",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "based_on": "近7天数据" if account_label else "近7天数据",
+        "based_on": "近7天数据",
         "risk": risk,
         "opportunity": opportunity,
     }
 
 
-def _alerts(account_label: str, metrics: dict) -> list[str]:
+def _alerts(account_label: str, trend_metrics: dict) -> list[str]:
     alerts = []
-    if metrics["completion_rate"]["change_pct"] < -1.5:
-        alerts.append(f"「{account_label}」完播率环比下降{abs(metrics['completion_rate']['change_pct'])}pct，高于预警线")
-    if metrics["plays"]["change_pct"] < -10:
-        alerts.append(f"「{account_label}」播放量环比下降{abs(metrics['plays']['change_pct'])}%，需要关注")
+    if trend_metrics["completion_rate"]["change_pct"] < -1.5:
+        alerts.append(f"「{account_label}」完播率环比下降{abs(trend_metrics['completion_rate']['change_pct'])}pct，高于预警线")
+    if trend_metrics["plays"]["change_pct"] < -10:
+        alerts.append(f"「{account_label}」播放量环比下降{abs(trend_metrics['plays']['change_pct'])}%，需要关注")
     return alerts
 
 
@@ -141,7 +164,15 @@ def get_overview(account_id: str, period: int) -> dict | None:
         account = next((a for a in ACCOUNTS if a.id == account_id), None)
         account_label = account.nickname if account else account_id
 
-    metrics = {key: _metric_summary(days, key, period) for key in METRIC_KEYS}
+    today_metrics = {key: _today_summary(days, key) for key in TODAY_METRIC_KEYS}
+
+    # completion_rate/new_followers are only needed internally for the trend
+    # chart + diagnosis text, not surfaced as their own KPI card anymore.
+    trend_metrics = {
+        "plays": _period_summary(days, "plays", period),
+        "completion_rate": _period_summary(days, "completion_rate", period),
+        "new_followers": _period_summary(days, "new_followers", period),
+    }
 
     today = datetime.now(timezone.utc)
     all_dates = [(today - timedelta(days=DAYS - 1 - i)).strftime("%m/%d") for i in range(DAYS)]
@@ -152,12 +183,12 @@ def get_overview(account_id: str, period: int) -> dict | None:
         "account_id": account_id,
         "account_label": account_label,
         "period_days": period,
-        "metrics": metrics,
+        "today_metrics": today_metrics,
         "trend": {
             "dates": trend_dates,
             "plays": [d["plays"] for d in trend_days],
             "new_followers": [d["new_followers"] for d in trend_days],
         },
-        "diagnosis": _diagnosis(account_label, metrics),
-        "alerts": _alerts(account_label, metrics),
+        "diagnosis": _diagnosis(account_label, trend_metrics),
+        "alerts": _alerts(account_label, trend_metrics),
     }

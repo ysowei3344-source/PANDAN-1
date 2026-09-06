@@ -106,7 +106,7 @@ class AccountOverview(BaseModel):
     account_id: str
     account_label: str
     period_days: int
-    metrics: dict[str, MetricSummary]
+    today_metrics: dict[str, MetricSummary]
     trend: OverviewTrend
     diagnosis: OverviewDiagnosis
     alerts: list[str]
