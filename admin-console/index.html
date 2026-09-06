@@ -3,21 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>房车矩阵中枢 · 管理台</title>
+<title>矩阵中枢 · 管理台</title>
 <style>
   :root {
-    --bg: #eef4fc;
-    --card: #ffffff;
-    --ink: #1a2b3d;
-    --ink-soft: #8a94a6;
-    --line: #e7edf6;
-    --accent: #3e7bfa;
-    --accent-soft: #e4eefd;
-    --danger: #f35b6e;
-    --danger-soft: #fde3e7;
-    --success: #22b573;
-    --radius: 16px;
-    --shadow: 0 6px 20px rgba(31, 58, 94, 0.08);
+    --bg: #0f1218;
+    --sidebar: #12151f;
+    --card: #1a1e2b;
+    --card-2: #232838;
+    --line: #2a3040;
+    --ink: #e8eaf0;
+    --ink-soft: #8890a3;
+    --ink-faint: #5b6377;
+    --accent: #4f7dfa;
+    --accent-soft: rgba(79, 125, 250, 0.16);
+    --success: #34d399;
+    --success-soft: rgba(52, 211, 153, 0.14);
+    --danger: #f472b6;
+    --danger-soft: rgba(244, 114, 182, 0.14);
+    --warning: #eab308;
+    --warning-soft: rgba(234, 179, 8, 0.12);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --radius: 14px;
   }
   * { box-sizing: border-box; }
   body {
@@ -31,7 +37,7 @@
     cursor: pointer;
     border: none;
     border-radius: 10px;
-    padding: 10px 18px;
+    padding: 9px 18px;
     font-size: 14px;
     font-weight: 600;
     background: var(--accent);
@@ -39,11 +45,13 @@
   }
   button.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
   button.danger { background: var(--danger-soft); color: var(--danger); }
-  input[type="text"], input[type="password"], input[type="number"] {
+  input[type="text"], input[type="password"], input[type="number"], select {
     width: 100%;
     padding: 9px 12px;
     border-radius: 8px;
     border: 1px solid var(--line);
+    background: var(--card-2);
+    color: var(--ink);
     font-size: 14px;
   }
   label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
@@ -51,15 +59,11 @@
   .msg.error { color: var(--danger); }
   .msg.ok { color: var(--success); }
 
-  /* Login */
-  .login-wrap {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+  /* ---------- Login ---------- */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
   .login-card {
     background: var(--card);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 36px 32px;
@@ -71,87 +75,158 @@
   .login-card h1 { font-size: 18px; margin: 0 0 4px; }
   .login-card p.hint { font-size: 12px; color: var(--ink-soft); margin: 0 0 8px; }
 
-  /* Shell */
-  .topbar {
-    background: var(--card);
-    box-shadow: var(--shadow);
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-  .topbar .title { font-size: 16px; font-weight: 700; flex: 1; }
-  .role-badge {
-    font-size: 11px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .layout { display: flex; align-items: flex-start; max-width: 1080px; margin: 0 auto; padding: 24px 20px 80px; gap: 20px; }
-  nav.side {
-    width: 180px;
+  /* ---------- Shell ---------- */
+  .shell { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 220px;
     flex-shrink: 0;
-    background: var(--card);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 12px;
+    background: var(--sidebar);
+    border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    padding: 20px 14px;
   }
-  nav.side .nav-item {
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 14px;
-    color: var(--ink-soft);
+  .brand-block { display: flex; align-items: center; gap: 10px; padding: 0 8px 20px; }
+  .brand-mark {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; flex-shrink: 0;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.3; }
+  .brand-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .brand-sub { font-size: 10px; letter-spacing: 0.06em; color: var(--ink-faint); text-transform: uppercase; }
+  .brand-box {
+    border: 1px dashed transparent;
+    border-radius: 5px;
+    padding: 0 4px;
     cursor: pointer;
   }
-  nav.side .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  nav.side .nav-item.disabled { color: #c3cad6; cursor: default; }
-  nav.side .nav-item .tag { font-size: 10px; margin-left: 4px; }
-  main.content { flex: 1; min-width: 0; }
+  .brand-box.editable { border-color: var(--line); }
+  .brand-box.editable:hover { border-color: var(--accent); background: var(--accent-soft); }
+  #brandInput { width: 96px; padding: 1px 6px; font-size: 15px; font-weight: 700; border-radius: 5px; }
 
-  .panel {
-    background: var(--card);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 24px;
-    margin-bottom: 20px;
+  .nav-group-label { font-size: 11px; color: var(--ink-faint); padding: 14px 12px 6px; letter-spacing: 0.04em; }
+  .nav-item {
+    padding: 10px 12px; border-radius: 10px; font-size: 14px;
+    color: var(--ink-soft); cursor: pointer; display: flex; align-items: center; gap: 4px;
   }
-  .panel h2 { font-size: 16px; margin: 0 0 16px; }
+  .nav-item:hover { background: rgba(255, 255, 255, 0.04); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .nav-item .tag {
+    font-size: 10px; color: var(--ink-faint); background: rgba(255, 255, 255, 0.06);
+    padding: 1px 6px; border-radius: 999px; margin-left: auto;
+  }
+
+  .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .content-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid var(--line);
+    flex-wrap: wrap; gap: 12px;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .header-right { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--ink-soft); }
+  .role-badge { font-size: 11px; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px; }
+  .content-body { padding: 24px 28px 80px; max-width: 1200px; }
+
+  /* ---------- Account switcher ---------- */
+  .acc-switcher { position: relative; }
+  .acc-switcher-btn {
+    background: var(--card); border: 1px solid var(--line); color: var(--ink);
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px;
+    font-weight: 600; font-size: 14px;
+  }
+  .acc-avatar {
+    width: 22px; height: 22px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+  }
+  .chevron { color: var(--ink-faint); font-size: 11px; }
+  .acc-dropdown {
+    position: absolute; top: calc(100% + 6px); left: 0; min-width: 220px; max-height: 320px; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); z-index: 20;
+  }
+  .acc-dropdown-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 13px; cursor: pointer;
+  }
+  .acc-dropdown-item:hover { background: rgba(255, 255, 255, 0.05); }
+  .acc-dropdown-item .acc-sub { font-size: 11px; color: var(--ink-faint); margin-left: auto; }
+
+  /* ---------- Overview page ---------- */
+  .page-title { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  .page-sub { font-size: 13px; color: var(--ink-soft); margin: 0 0 20px; }
+
+  .alert-banner {
+    display: flex; align-items: center; gap: 10px; background: var(--warning-soft); border: 1px solid rgba(234,179,8,0.3);
+    color: var(--warning); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px;
+  }
+  .alert-banner .close-btn { margin-left: auto; background: transparent; color: var(--warning); padding: 0 4px; font-size: 15px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .kpi-label { font-size: 12px; color: var(--ink-soft); }
+  .kpi-value { font-size: 24px; font-weight: 700; }
+  .kpi-delta { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; display: inline-flex; align-items: center; gap: 2px; width: fit-content; }
+  .kpi-delta.up { background: var(--success-soft); color: var(--success); }
+  .kpi-delta.down { background: var(--danger-soft); color: var(--danger); }
+  .kpi-spark { width: 100%; height: 36px; }
+
+  .overview-lower { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; align-items: stretch; }
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; box-shadow: var(--shadow);
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 16px; }
+  .panel-head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .period-toggle { display: flex; gap: 4px; background: var(--card-2); border-radius: 8px; padding: 3px; }
+  .period-toggle button {
+    background: transparent; color: var(--ink-soft); padding: 5px 14px; font-size: 12px; border-radius: 6px;
+  }
+  .period-toggle button.active { background: var(--accent); color: #fff; }
+  .trend-chart { width: 100%; height: 220px; }
+
+  .diagnosis-meta { font-size: 11px; color: var(--ink-faint); margin-bottom: 14px; }
+  .diagnosis-block { display: flex; gap: 10px; margin-bottom: 16px; }
+  .diagnosis-tag {
+    flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 6px; height: fit-content;
+  }
+  .diagnosis-tag.risk { background: var(--danger-soft); color: var(--danger); }
+  .diagnosis-tag.opportunity { background: var(--success-soft); color: var(--success); }
+  .diagnosis-text { font-size: 13px; line-height: 1.7; color: var(--ink); }
+
+  /* ---------- Generic list / form panels (banners, users, accounts) ---------- */
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-grid .full { grid-column: 1 / -1; }
   .actions { margin-top: 16px; display: flex; gap: 10px; }
-
   .row-item { display: flex; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
   .row-item:last-child { border-bottom: none; }
-  .row-item img { width: 120px; height: 48px; object-fit: cover; border-radius: 8px; background: var(--bg); flex-shrink: 0; }
+  .row-item img { width: 120px; height: 48px; object-fit: cover; border-radius: 8px; background: var(--card-2); flex-shrink: 0; }
   .row-body { flex: 1; min-width: 0; }
   .row-title { font-weight: 600; font-size: 14px; }
   .row-sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
   .row-btns { display: flex; gap: 8px; }
   .row-btns button { padding: 6px 12px; font-size: 12px; }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0;
+  }
+  .badge-dark { background: #05070c; color: #fff; }
+  .badge-green { background: var(--success-soft); color: var(--success); }
+  .badge-pink { background: var(--danger-soft); color: var(--danger); }
+  .badge-blue { background: var(--accent-soft); color: var(--accent); }
 
   .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
 
-  .brand-edit { display: inline-flex; align-items: center; }
-  .brand-box {
-    border: 1px dashed var(--line);
-    border-radius: 6px;
-    padding: 2px 10px;
-    cursor: pointer;
+  @media (max-width: 1024px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    .overview-lower { grid-template-columns: 1fr; }
   }
-  .brand-box:hover { border-color: var(--accent); background: var(--accent-soft); }
-  .brand-edit input {
-    width: 140px;
-    padding: 2px 9px;
-    font-size: 16px;
-    font-weight: 700;
-    font-family: inherit;
-    border-radius: 6px;
-    border: 1px solid var(--accent);
+  @media (max-width: 640px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .sidebar { display: none; }
   }
 </style>
 </head>
@@ -175,47 +250,69 @@
 </div>
 
 <div id="appShell" hidden>
-  <div class="topbar">
-    <span class="title">
-      <span class="brand-edit">
-        <span id="brandPart" class="brand-box" ondblclick="startEditBrand()" title="双击编辑">房车</span>
-        <input type="text" id="brandInput" class="brand-box" hidden
-               onblur="saveBrand()"
-               onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}else if(event.key==='Escape'){cancelEditBrand();}">
-      </span>
-      矩阵中枢 · 管理台
-    </span>
-    <span class="role-badge" id="roleBadge"></span>
-    <span id="usernameLabel" style="font-size:13px;color:var(--ink-soft)"></span>
-    <button class="ghost" onclick="logout()">退出登录</button>
-  </div>
+  <div class="shell">
+    <nav class="sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">中</div>
+        <div class="brand-text">
+          <span class="brand-title">
+            <span id="brandPart" class="brand-box editable" ondblclick="startEditBrand()" title="双击编辑">房车</span><input
+              type="text" id="brandInput" hidden
+              onblur="saveBrand()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}else if(event.key==='Escape'){cancelEditBrand();}">矩阵中枢
+          </span>
+          <span class="brand-sub">MATRIX OPS CONSOLE</span>
+        </div>
+      </div>
 
-  <div class="layout">
-    <nav class="side" id="sideNav"></nav>
-    <main class="content">
-      <section id="section-banners"></section>
-      <section id="section-users" hidden></section>
-      <section id="section-stub" hidden></section>
+      <div class="nav-group-label">工作台</div>
+      <div id="navGroupWork"></div>
+      <div class="nav-group-label">系统管理</div>
+      <div id="navGroupSystem"></div>
+    </nav>
+
+    <main class="main-area">
+      <header class="content-header">
+        <div class="header-left" id="headerLeft"></div>
+        <div class="header-right">
+          <span class="role-badge" id="roleBadge"></span>
+          <span id="usernameLabel"></span>
+          <button class="ghost" onclick="logout()">退出登录</button>
+        </div>
+      </header>
+      <div class="content-body">
+        <section id="section-overview"></section>
+        <section id="section-accounts" hidden></section>
+        <section id="section-banners" hidden></section>
+        <section id="section-users" hidden></section>
+        <section id="section-stub" hidden></section>
+      </div>
     </main>
   </div>
 </div>
 
 <script>
 const API_BASE = '/admin/api/admin';
+const PUBLIC_API_BASE = '/admin/api';
 let currentUser = null;
-let banners = [];
-let users = [];
-let editingBannerId = null;
+let allAccounts = [];
+let currentAccountId = 'all';
+let overviewCache = {};
+let activeSection = 'overview';
+let trendPeriod = 7;
 
-const NAV_ITEMS = [
-  { key: 'banners', label: '轮播图管理' },
-  { key: 'users', label: '账号管理', roles: ['super_admin'] },
-  { key: 'accounts', label: '矩阵账号', stub: true },
-  { key: 'content', label: '内容分析', stub: true },
+const NAV_WORK = [
+  { key: 'overview', label: '经营分析总览' },
+  { key: 'accounts', label: '矩阵账号' },
+  { key: 'create', label: '内容创作台', stub: true },
+  { key: 'benchmark', label: '爆款视频库', stub: true },
   { key: 'service', label: 'AI 客服', stub: true },
   { key: 'orders', label: '订单跟踪', stub: true },
 ];
-let activeSection = 'banners';
+const NAV_SYSTEM = [
+  { key: 'banners', label: '轮播图管理' },
+  { key: 'users', label: '账号管理', roles: ['super_admin'] },
+];
 
 function token() { return localStorage.getItem('rv_admin_token') || ''; }
 function setToken(t) { t ? localStorage.setItem('rv_admin_token', t) : localStorage.removeItem('rv_admin_token'); }
@@ -239,6 +336,17 @@ async function api(path, options = {}) {
   return ct.includes('application/json') ? res.json() : null;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtNum(n) {
+  if (n === undefined || n === null) return '0';
+  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万';
+  return Math.round(n).toLocaleString('zh-CN');
+}
+function platformInitial(p) { return { douyin: '抖', video_channel: '视', xiaohongshu: '红' }[p] || '·'; }
+function platformBadge(p) { return { douyin: 'badge-dark', video_channel: 'badge-green', xiaohongshu: 'badge-pink' }[p] || 'badge-blue'; }
+
 function showLogin(msg) {
   document.getElementById('loginView').hidden = false;
   document.getElementById('appShell').hidden = true;
@@ -259,10 +367,7 @@ async function login() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || '登录失败');
-    }
+    if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || '登录失败'); }
     const data = await res.json();
     setToken(data.token);
     currentUser = data.user;
@@ -286,55 +391,297 @@ async function enterApp() {
   document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '运营';
   document.getElementById('usernameLabel').textContent = currentUser.username;
   renderNav();
-  await loadBanners();
-  renderBanners();
-  showSection('banners');
+  try { allAccounts = await fetch(`${PUBLIC_API_BASE}/accounts`).then((r) => r.json()); } catch (e) { allAccounts = []; }
+  await showSection('overview');
 }
 
 function renderNav() {
-  const nav = document.getElementById('sideNav');
-  nav.innerHTML = NAV_ITEMS
+  const work = document.getElementById('navGroupWork');
+  const sys = document.getElementById('navGroupSystem');
+  const render = (items) => items
     .filter((item) => !item.roles || item.roles.includes(currentUser.role))
     .map((item) => `
       <div class="nav-item ${item.key === activeSection ? 'active' : ''}" onclick="showSection('${item.key}')">
         ${item.label}${item.stub ? '<span class="tag">建设中</span>' : ''}
       </div>
-    `)
-    .join('');
+    `).join('');
+  work.innerHTML = render(NAV_WORK);
+  sys.innerHTML = render(NAV_SYSTEM);
 }
 
 async function showSection(key) {
   activeSection = key;
   renderNav();
-  document.getElementById('section-banners').hidden = key !== 'banners';
-  document.getElementById('section-users').hidden = key !== 'users';
-  document.getElementById('section-stub').hidden = key === 'banners' || key === 'users';
+  document.getElementById('headerLeft').innerHTML = '';
+  ['overview', 'accounts', 'banners', 'users', 'stub'].forEach((k) => {
+    document.getElementById(`section-${k}`).hidden = true;
+  });
 
-  if (key === 'users') {
+  if (key === 'overview') {
+    document.getElementById('section-overview').hidden = false;
+    renderAccountSwitcher();
+    await renderOverview();
+  } else if (key === 'accounts') {
+    document.getElementById('section-accounts').hidden = false;
+    renderAccountsPage();
+  } else if (key === 'banners') {
+    document.getElementById('section-banners').hidden = false;
+    await loadBanners();
+    renderBanners();
+  } else if (key === 'users') {
+    document.getElementById('section-users').hidden = false;
     await loadUsers();
     renderUsers();
-  } else if (key !== 'banners') {
-    const item = NAV_ITEMS.find((i) => i.key === key);
-    document.getElementById('section-stub').innerHTML = `
-      <div class="panel"><div class="empty-hint">「${item.label}」模块还在开发计划里，暂未上线。</div></div>
-    `;
+  } else {
+    document.getElementById('section-stub').hidden = false;
+    const item = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.key === key);
+    document.getElementById('section-stub').innerHTML = `<div class="panel"><div class="empty-hint">「${item.label}」模块还在开发计划里，暂未上线。</div></div>`;
   }
+}
+
+/* ---------------- Account switcher ---------------- */
+
+function renderAccountSwitcher() {
+  const current = allAccounts.find((a) => a.id === currentAccountId);
+  const label = currentAccountId === 'all' ? '全部账号' : (current ? current.nickname : currentAccountId);
+  const avatarText = currentAccountId === 'all' ? '全' : platformInitial(current ? current.platform : '');
+  document.getElementById('headerLeft').innerHTML = `
+    <div class="acc-switcher" id="accSwitcher">
+      <button class="acc-switcher-btn" onclick="toggleAccDropdown(event)">
+        <span class="acc-avatar">${avatarText}</span>
+        <span>${escapeHtml(label)}</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="acc-dropdown" id="accDropdown" hidden>
+        <div class="acc-dropdown-item" onclick="selectAccount('all')">
+          <span class="acc-avatar">全</span> 全部账号
+        </div>
+        ${allAccounts.map((a) => `
+          <div class="acc-dropdown-item" onclick="selectAccount('${a.id}')">
+            <span class="acc-avatar">${platformInitial(a.platform)}</span> ${escapeHtml(a.nickname)}
+            <span class="acc-sub">${fmtNum(a.follower_count)} 粉丝</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function toggleAccDropdown(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('accDropdown');
+  dd.hidden = !dd.hidden;
+}
+document.addEventListener('click', () => {
+  const dd = document.getElementById('accDropdown');
+  if (dd) dd.hidden = true;
+});
+
+async function selectAccount(id) {
+  currentAccountId = id;
+  renderAccountSwitcher();
+  await renderOverview();
+}
+
+/* ---------------- Overview (经营分析总览) ---------------- */
+
+async function fetchOverview(accountId, period) {
+  const key = `${accountId}:${period}`;
+  if (overviewCache[key]) return overviewCache[key];
+  const res = await fetch(
+    `${PUBLIC_API_BASE}/dashboard/overview?account_id=${encodeURIComponent(accountId)}&period=${period}`,
+    { headers: { Authorization: `Bearer ${token()}` } },
+  );
+  if (res.status === 401) { setToken(null); showLogin('登录已过期，请重新登录'); throw new Error('unauthorized'); }
+  if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.detail || res.statusText); }
+  const data = await res.json();
+  overviewCache[key] = data;
+  return data;
+}
+
+function sparklinePath(series, w, h) {
+  if (!series || series.length < 2) return '';
+  const min = Math.min(...series);
+  const max = Math.max(...series);
+  const range = max - min || 1;
+  const stepX = w / (series.length - 1);
+  return series.map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`).join(' ');
+}
+
+const KPI_DEFS = [
+  { key: 'plays', label: '播放量', fmt: (v) => fmtNum(v) },
+  { key: 'likes', label: '点赞数', fmt: (v) => fmtNum(v) },
+  { key: 'comments', label: '评论数', fmt: (v) => fmtNum(v) },
+  { key: 'shares', label: '分享数', fmt: (v) => fmtNum(v) },
+  { key: 'completion_rate', label: '完播率', fmt: (v) => (v * 100).toFixed(1) + '%' },
+  { key: 'new_followers', label: '涨粉数', fmt: (v) => fmtNum(v) },
+];
+
+async function renderOverview() {
+  const el = document.getElementById('section-overview');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  let data;
+  try {
+    data = await fetchOverview(currentAccountId, 7);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-hint">加载失败：${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  trendPeriod = 7;
+
+  const alertsHtml = data.alerts.length
+    ? `<div class="alert-banner" id="alertBanner">⚠ ${data.alerts.length}项经营异常需要关注：${data.alerts.map(escapeHtml).join(' · ')}
+        <button class="close-btn" onclick="document.getElementById('alertBanner').remove()">✕</button>
+      </div>`
+    : '';
+
+  el.innerHTML = `
+    <div class="page-title">经营分析总览</div>
+    <div class="page-sub">${escapeHtml(data.account_label)} · 数据每天自动更新一次</div>
+    ${alertsHtml}
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="overview-lower">
+      <div class="panel">
+        <div class="panel-head-row">
+          <h2>播放量 / 涨粉趋势</h2>
+          <div class="period-toggle">
+            <button id="pt7" class="active" onclick="setTrendPeriod(7)">7天</button>
+            <button id="pt30" onclick="setTrendPeriod(30)">30天</button>
+          </div>
+        </div>
+        <svg class="trend-chart" id="trendChart" viewBox="0 0 640 220" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="panel">
+        <h2>DeepSeek 智能经营诊断</h2>
+        <div class="diagnosis-meta">${data.diagnosis.model} · ${data.diagnosis.based_on}生成（示例分析，未接入真实模型）</div>
+        <div class="diagnosis-block">
+          <span class="diagnosis-tag risk">风险</span>
+          <span class="diagnosis-text">${escapeHtml(data.diagnosis.risk)}</span>
+        </div>
+        <div class="diagnosis-block">
+          <span class="diagnosis-tag opportunity">机会</span>
+          <span class="diagnosis-text">${escapeHtml(data.diagnosis.opportunity)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+  renderKpiGrid(data.metrics);
+  renderTrendChart(data.trend);
+}
+
+function renderKpiGrid(metrics) {
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = KPI_DEFS.map((def) => {
+    const m = metrics[def.key];
+    const up = m.change_pct >= 0;
+    const color = up ? '#34d399' : '#f472b6';
+    const path = sparklinePath(m.series, 200, 36);
+    return `
+      <div class="kpi-card">
+        <span class="kpi-label">${def.label}</span>
+        <span class="kpi-value">${def.fmt(m.value)}</span>
+        <span class="kpi-delta ${up ? 'up' : 'down'}">${up ? '↗' : '↘'} ${Math.abs(m.change_pct)}${def.key === 'completion_rate' ? 'pct' : '%'}</span>
+        <svg class="kpi-spark" viewBox="0 0 200 36" preserveAspectRatio="none">
+          <path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>
+        </svg>
+      </div>
+    `;
+  }).join('');
+}
+
+async function setTrendPeriod(period) {
+  trendPeriod = period;
+  document.getElementById('pt7').classList.toggle('active', period === 7);
+  document.getElementById('pt30').classList.toggle('active', period === 30);
+  const data = await fetchOverview(currentAccountId, period);
+  renderTrendChart(data.trend);
+}
+
+function renderTrendChart(trend) {
+  const svg = document.getElementById('trendChart');
+  if (!svg) return;
+  const W = 640, H = 220, padL = 56, padR = 16, padT = 16, padB = 28;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const all = [...trend.plays, ...trend.new_followers];
+  const max = Math.max(...all, 1);
+  const min = 0;
+  const n = trend.dates.length;
+  const stepX = n > 1 ? plotW / (n - 1) : 0;
+  const scaleY = (v) => padT + plotH - ((v - min) / (max - min || 1)) * plotH;
+  const scaleX = (i) => padL + i * stepX;
+
+  const line = (series) => series.map((v, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)},${scaleY(v).toFixed(1)}`).join(' ');
+
+  const gridLines = [0, 0.5, 1].map((f) => {
+    const y = padT + plotH * (1 - f);
+    const val = Math.round(max * f);
+    return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#2a3040" stroke-width="1"/>
+            <text x="${padL - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#5b6377">${fmtNum(val)}</text>`;
+  }).join('');
+
+  const xLabels = trend.dates.map((d, i) => {
+    if (n > 10 && i % Math.ceil(n / 6) !== 0) return '';
+    return `<text x="${scaleX(i)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="#5b6377">${d}</text>`;
+  }).join('');
+
+  const lastPlays = trend.plays[trend.plays.length - 1];
+  const lastFollowers = trend.new_followers[trend.new_followers.length - 1];
+
+  svg.innerHTML = `
+    ${gridLines}
+    ${xLabels}
+    <path d="${line(trend.plays)}" fill="none" stroke="#4f7dfa" stroke-width="2.5"/>
+    <path d="${line(trend.new_followers)}" fill="none" stroke="#f59e0b" stroke-width="2.5"/>
+    <circle cx="${scaleX(n - 1)}" cy="${scaleY(lastPlays)}" r="4" fill="#4f7dfa"/>
+    <circle cx="${scaleX(n - 1)}" cy="${scaleY(lastFollowers)}" r="4" fill="#f59e0b"/>
+    <text x="${scaleX(n - 1) - 8}" y="${scaleY(lastPlays) - 10}" text-anchor="end" font-size="11" fill="#4f7dfa" font-weight="700">${fmtNum(lastPlays)}</text>
+    <text x="${scaleX(n - 1) - 8}" y="${scaleY(lastFollowers) - 10}" text-anchor="end" font-size="11" fill="#f59e0b" font-weight="700">${fmtNum(lastFollowers)}</text>
+  `;
+}
+
+/* ---------------- 矩阵账号 ---------------- */
+
+function renderAccountsPage() {
+  const el = document.getElementById('section-accounts');
+  const platforms = ['douyin', 'video_channel', 'xiaohongshu'];
+  const labels = { douyin: '抖音', video_channel: '视频号', xiaohongshu: '小红书' };
+  el.innerHTML = `
+    <div class="page-title">矩阵账号</div>
+    <div class="page-sub">共 ${allAccounts.length} 个账号</div>
+    ${platforms.map((p) => {
+      const accs = allAccounts.filter((a) => a.platform === p);
+      if (!accs.length) return '';
+      return `
+        <div class="panel" style="margin-bottom:16px;">
+          <h2>${labels[p]}</h2>
+          ${accs.map((a) => `
+            <div class="row-item">
+              <div class="avatar ${platformBadge(a.platform)}">${platformInitial(a.platform)}</div>
+              <div class="row-body">
+                <div class="row-title">${escapeHtml(a.nickname)}</div>
+                <div class="row-sub">${fmtNum(a.video_count)} 条视频</div>
+              </div>
+              <div class="row-sub" style="font-weight:600;color:var(--ink);">${fmtNum(a.follower_count)} 粉丝</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }).join('')}
+  `;
 }
 
 /* ---------------- Banners ---------------- */
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
+let banners = [];
+let editingBannerId = null;
 
-async function loadBanners() {
-  banners = await api('/banners');
-}
+async function loadBanners() { banners = await api('/banners'); }
 
 function renderBanners() {
   const el = document.getElementById('section-banners');
   el.innerHTML = `
-    <div class="panel">
+    <div class="page-title">轮播图管理</div>
+    <div class="panel" style="margin-bottom:16px;">
       <h2 id="bannerFormTitle">新增轮播图</h2>
       <div class="form-grid">
         <div class="full"><label>标题</label><input type="text" id="fTitle"></div>
@@ -364,23 +711,19 @@ function renderBanners() {
 function renderBannerList() {
   const list = document.getElementById('bannerList');
   if (!banners.length) { list.innerHTML = '<div class="empty-hint">暂无轮播图</div>'; return; }
-  list.innerHTML = banners
-    .slice()
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((b) => `
-      <div class="row-item">
-        <img src="${b.image_url}" alt="">
-        <div class="row-body">
-          <div class="row-title">${escapeHtml(b.title)}</div>
-          <div class="row-sub">${escapeHtml(b.subtitle || '')} · 排序 ${b.sort_order}</div>
-        </div>
-        <div class="row-btns">
-          <button class="ghost" onclick="editBanner('${b.id}')">编辑</button>
-          <button class="danger" onclick="deleteBanner('${b.id}')">删除</button>
-        </div>
+  list.innerHTML = banners.slice().sort((a, b) => a.sort_order - b.sort_order).map((b) => `
+    <div class="row-item">
+      <img src="${b.image_url}" alt="">
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(b.title)}</div>
+        <div class="row-sub">${escapeHtml(b.subtitle || '')} · 排序 ${b.sort_order}</div>
       </div>
-    `)
-    .join('');
+      <div class="row-btns">
+        <button class="ghost" onclick="editBanner('${b.id}')">编辑</button>
+        <button class="danger" onclick="deleteBanner('${b.id}')">删除</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 function editBanner(id) {
@@ -399,11 +742,8 @@ function editBanner(id) {
 function resetBannerForm() {
   editingBannerId = null;
   document.getElementById('bannerFormTitle').textContent = '新增轮播图';
-  document.getElementById('fTitle').value = '';
-  document.getElementById('fSubtitle').value = '';
+  ['fTitle', 'fSubtitle', 'fLink', 'fImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('fSort').value = '0';
-  document.getElementById('fLink').value = '';
-  document.getElementById('fImageUrl').value = '';
   document.getElementById('fImage').value = '';
   document.getElementById('bannerFormMsg').textContent = '';
 }
@@ -455,21 +795,22 @@ async function submitBanner() {
 
 /* ---------------- Users ---------------- */
 
-async function loadUsers() {
-  users = await api('/users');
-}
+let users = [];
+
+async function loadUsers() { users = await api('/users'); }
 
 function renderUsers() {
   const el = document.getElementById('section-users');
   el.innerHTML = `
-    <div class="panel">
+    <div class="page-title">账号管理</div>
+    <div class="panel" style="margin-bottom:16px;">
       <h2>新增账号</h2>
       <div class="form-grid">
         <div><label>用户名</label><input type="text" id="uUsername"></div>
         <div><label>初始密码</label><input type="password" id="uPassword"></div>
         <div class="full">
           <label>角色</label>
-          <select id="uRole" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--line);font-size:14px;">
+          <select id="uRole">
             <option value="operator">运营（可管理内容，不能管账号）</option>
             <option value="super_admin">超级管理员（可管理全部，含账号）</option>
           </select>
@@ -489,19 +830,15 @@ function renderUsers() {
 function renderUserList() {
   const list = document.getElementById('userList');
   if (!users.length) { list.innerHTML = '<div class="empty-hint">暂无账号</div>'; return; }
-  list.innerHTML = users
-    .map((u) => `
-      <div class="row-item">
-        <div class="row-body">
-          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
-          <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
-        </div>
-        <div class="row-btns">
-          ${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}
-        </div>
+  list.innerHTML = users.map((u) => `
+    <div class="row-item">
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
+        <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
       </div>
-    `)
-    .join('');
+      <div class="row-btns">${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}</div>
+    </div>
+  `).join('');
 }
 
 async function submitUser() {
@@ -537,14 +874,12 @@ async function deleteUser(id) {
 /* ---------------- Brand name ---------------- */
 
 let brandName = '房车';
+let suppressBlurSave = false;
 
 async function loadSettings() {
   try {
-    const res = await fetch('/admin/api/settings');
-    if (res.ok) {
-      const data = await res.json();
-      brandName = data.brand_name || '房车';
-    }
+    const res = await fetch(`${PUBLIC_API_BASE}/settings`);
+    if (res.ok) { brandName = (await res.json()).brand_name || '房车'; }
   } catch (e) {}
   renderBrand();
 }
@@ -554,8 +889,6 @@ function renderBrand() {
   document.querySelectorAll('.brand-part-login').forEach((el) => { el.textContent = brandName; });
   document.title = `${brandName}矩阵中枢 · 管理台`;
 }
-
-let suppressBlurSave = false;
 
 function startEditBrand() {
   document.getElementById('brandPart').hidden = true;
@@ -582,11 +915,7 @@ async function saveBrand() {
   const val = document.getElementById('brandInput').value.trim();
   if (!val || val === brandName) { showBrandDisplay(); return; }
   try {
-    await api('/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ brand_name: val }),
-    });
+    await api('/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brand_name: val }) });
     brandName = val;
     renderBrand();
   } catch (e) {

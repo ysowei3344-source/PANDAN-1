@@ -82,6 +82,36 @@ class SettingsInput(BaseModel):
     brand_name: str
 
 
+class MetricSummary(BaseModel):
+    value: float
+    change_pct: float
+    series: list[float]
+
+
+class OverviewTrend(BaseModel):
+    dates: list[str]
+    plays: list[float]
+    new_followers: list[float]
+
+
+class OverviewDiagnosis(BaseModel):
+    model: str
+    generated_at: str
+    based_on: str
+    risk: str
+    opportunity: str
+
+
+class AccountOverview(BaseModel):
+    account_id: str
+    account_label: str
+    period_days: int
+    metrics: dict[str, MetricSummary]
+    trend: OverviewTrend
+    diagnosis: OverviewDiagnosis
+    alerts: list[str]
+
+
 class PlatformBreakdown(BaseModel):
     platform: Platform
     account_count: int

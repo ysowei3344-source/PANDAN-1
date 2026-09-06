@@ -1,7 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 
+from .. import timeseries
+from ..auth import get_current_user
 from ..mock_data import ACCOUNTS, TODAY_STATS, VIDEOS
-from ..schemas import DashboardSummary, Platform, PlatformBreakdown, TodayStats
+from ..schemas import AccountOverview, DashboardSummary, Platform, PlatformBreakdown, TodayStats
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -9,6 +11,16 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 @router.get("/today", response_model=TodayStats)
 def get_today_stats() -> TodayStats:
     return TODAY_STATS
+
+
+@router.get("/overview", response_model=AccountOverview, dependencies=[Depends(get_current_user)])
+def get_overview(account_id: str = "all", period: int = 7) -> dict:
+    if period not in (7, 30):
+        raise HTTPException(status_code=400, detail="period must be 7 or 30")
+    overview = timeseries.get_overview(account_id, period)
+    if overview is None:
+        raise HTTPException(status_code=404, detail="account not found")
+    return overview
 
 
 @router.get("/summary", response_model=DashboardSummary)
