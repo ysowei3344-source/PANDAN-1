@@ -14,7 +14,7 @@ from .mock_data import ACCOUNTS
 
 DAYS = 30
 TREND_KEYS = ["plays", "new_followers"]
-TODAY_METRIC_KEYS = ["videos_published", "plays", "likes", "comments", "shares", "ad_spend", "leads_count", "wechat_added"]
+TODAY_METRIC_KEYS = ["videos_published", "plays", "likes", "comments", "shares", "new_followers", "ad_spend", "leads_count", "wechat_added"]
 
 
 def _account_seed(account_id: str) -> int:

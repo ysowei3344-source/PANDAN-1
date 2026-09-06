@@ -162,7 +162,7 @@
   }
   .alert-banner .close-btn { margin-left: auto; background: transparent; color: var(--warning); padding: 0 4px; font-size: 15px; }
 
-  .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
   .kpi-card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 18px; display: flex; flex-direction: column; gap: 10px;
@@ -267,11 +267,7 @@
 
   .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
 
-  @media (max-width: 1024px) {
-    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
-  }
   @media (max-width: 640px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
     .sidebar { display: none; }
   }
 </style>
@@ -566,6 +562,7 @@ const KPI_DEFS = [
       { key: 'shares', label: '转发' },
     ],
   },
+  { key: 'new_followers', label: '今日账号关注数', fmt: (v) => fmtNum(v) },
   { key: 'ad_spend', label: '投流消耗', fmt: (v) => '¥' + fmtNum(v) },
   { key: 'leads_count', label: '后台线索数', fmt: (v) => fmtNum(v) },
   { key: 'wechat_added', label: '私信加微信客户数', fmt: (v) => fmtNum(v) },
