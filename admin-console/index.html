@@ -222,6 +222,7 @@
   .trend-chart { width: 100%; height: 220px; }
 
   .platform-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  #platformStatRow { margin-bottom: 16px; }
   .tab-chip {
     padding: 7px 20px; border-radius: 999px; font-size: 13px; font-weight: 600;
     color: var(--ink-soft); background: var(--card-2); cursor: pointer;
@@ -927,25 +928,13 @@ function renderIdentityDetail(id) {
       </div>
     </div>
     <div class="panel">
-      <h2>分平台明细</h2>
-      ${identity.accounts.map((a) => `
-        <div class="platform-detail-row">
-          <div class="avatar ${platformBadge(a.platform)}">${platformInitial(a.platform)}</div>
-          <div class="row-body">
-            <div class="row-title">${platformLabel(a.platform)} · ${escapeHtml(a.nickname)}</div>
-            <div class="row-sub">${fmtNum(a.video_count)} 条视频</div>
-          </div>
-          <div class="row-sub" style="font-weight:600;color:var(--ink);">${fmtNum(a.follower_count)} 粉丝</div>
-        </div>
-      `).join('')}
-    </div>
-    <div class="panel" style="margin-top:16px;">
       <h2>分平台内容</h2>
       <div class="platform-tabs" id="detailPlatformTabs">
         ${identity.accounts.map((a) => `
           <div class="tab-chip ${a.id === detailActiveAccountId ? 'active' : ''}" data-account-id="${a.id}" onclick="switchDetailPlatform('${a.id}')">${platformLabel(a.platform)}</div>
         `).join('')}
       </div>
+      <div id="platformStatRow"></div>
       <div class="video-grid" id="platformVideoGrid"><div class="empty-hint">加载中...</div></div>
       <div id="platformVideoDetail"></div>
     </div>
@@ -956,7 +945,24 @@ function renderIdentityDetail(id) {
   if (!detailActiveAccountId || !identity.accounts.some((a) => a.id === detailActiveAccountId)) {
     detailActiveAccountId = identity.accounts[0] ? identity.accounts[0].id : null;
   }
+  renderPlatformStatRow(identity, detailActiveAccountId);
   loadPlatformVideoGrid(detailActiveAccountId);
+}
+
+function renderPlatformStatRow(identity, accountId) {
+  const row = document.getElementById('platformStatRow');
+  const a = identity.accounts.find((x) => x.id === accountId);
+  if (!row || !a) return;
+  row.innerHTML = `
+    <div class="platform-detail-row">
+      <div class="avatar ${platformBadge(a.platform)}">${platformInitial(a.platform)}</div>
+      <div class="row-body">
+        <div class="row-title">${platformLabel(a.platform)} · ${escapeHtml(a.nickname)}</div>
+        <div class="row-sub">${fmtNum(a.video_count)} 条视频</div>
+      </div>
+      <div class="row-sub" style="font-weight:600;color:var(--ink);">${fmtNum(a.follower_count)} 粉丝</div>
+    </div>
+  `;
 }
 
 function switchDetailPlatform(accountId) {
@@ -965,6 +971,8 @@ function switchDetailPlatform(accountId) {
   document.querySelectorAll('#detailPlatformTabs .tab-chip').forEach((el) => {
     el.classList.toggle('active', el.dataset.accountId === accountId);
   });
+  const identity = allIdentities.find((i) => i.id === accountsDetailId);
+  if (identity) renderPlatformStatRow(identity, accountId);
   loadPlatformVideoGrid(accountId);
 }
 
