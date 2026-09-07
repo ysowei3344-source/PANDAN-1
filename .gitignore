@@ -8,3 +8,4 @@ env/
 .DS_Store
 backend/app/data/
 backend/app/static/uploads/
+ARCHIVE.md
