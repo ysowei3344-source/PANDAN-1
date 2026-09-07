@@ -385,6 +385,8 @@
         </div>
       </div>
 
+      <div class="nav-group-label">经营数据分析</div>
+      <div id="navGroupAnalytics"></div>
       <div class="nav-group-label">工作台</div>
       <div id="navGroupWork"></div>
       <div class="nav-group-label">系统管理</div>
@@ -423,8 +425,10 @@ let overviewCache = {};
 let activeSection = 'overview';
 let trendPeriod = 7;
 
-const NAV_WORK = [
+const NAV_ANALYTICS = [
   { key: 'overview', label: '经营分析总览' },
+];
+const NAV_WORK = [
   { key: 'accounts', label: '矩阵账号' },
   { key: 'create', label: '内容创作台', stub: true },
   { key: 'benchmark', label: '爆款视频库', stub: true },
@@ -535,6 +539,7 @@ function toggleNavGroup(key) {
 }
 
 function renderNav() {
+  const analytics = document.getElementById('navGroupAnalytics');
   const work = document.getElementById('navGroupWork');
   const sys = document.getElementById('navGroupSystem');
   const render = (items) => items
@@ -558,12 +563,13 @@ function renderNav() {
         </div>
       `;
     }).join('');
+  analytics.innerHTML = render(NAV_ANALYTICS);
   work.innerHTML = render(NAV_WORK);
   sys.innerHTML = render(NAV_SYSTEM);
 }
 
 function findNavItem(key) {
-  const all = [...NAV_WORK, ...NAV_SYSTEM];
+  const all = [...NAV_ANALYTICS, ...NAV_WORK, ...NAV_SYSTEM];
   for (const item of all) {
     if (item.key === key) return item;
     if (item.children) {
