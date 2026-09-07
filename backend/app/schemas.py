@@ -40,6 +40,7 @@ class IdentitySummary(BaseModel):
     id: str
     name: str
     phone_number: str | None = None
+    operator_username: str | None = None
     accounts: list[Account]
     total_followers: int
     total_videos: int

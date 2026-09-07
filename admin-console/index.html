@@ -398,6 +398,13 @@
   .identity-stats .num { font-size: 15px; font-weight: 700; }
   .identity-stats .label { font-size: 11px; color: var(--ink-soft); }
   .identity-chevron { color: var(--ink-faint); font-size: 16px; }
+  .identity-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--card-2); border: 1px solid var(--line);
+    color: var(--ink-soft); font-size: 14px; display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  }
+  .icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
 
   .platform-detail-row {
     display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line);
@@ -525,7 +532,7 @@ const NAV_WORK = [
   {
     key: 'accounts', label: '矩阵账号管理',
     children: [
-      { key: 'accounts-list', label: '矩阵账号' },
+      { key: 'accounts-list', label: '账号列表' },
       { key: 'accounts-add', label: '添加账号', roles: ['super_admin'] },
     ],
   },
@@ -1092,10 +1099,17 @@ function renderAccountsPage() {
   }
 }
 
+function identityPlatformIconsHtml(identity) {
+  return PLATFORM_DEFS.map((p) => {
+    const acc = identity.accounts.find((a) => a.platform === p.key);
+    return acc && acc.profile_url ? platformLogoHtml(p.key) : '';
+  }).join('');
+}
+
 function renderIdentityList() {
   const el = document.getElementById('section-accounts');
   el.innerHTML = `
-    <div class="page-title">矩阵账号</div>
+    <div class="page-title">账号列表</div>
     <div class="page-sub">共 ${allIdentities.length} 个矩阵号 · 一个号码/人设的内容会同步分发到它绑定的各个平台</div>
     <div class="panel">
       ${allIdentities.map((i) => `
@@ -1103,12 +1117,12 @@ function renderIdentityList() {
           <div class="identity-avatar">${escapeHtml(i.name[0])}</div>
           <div class="identity-info">
             <div class="identity-name">${escapeHtml(i.name)}</div>
-            ${i.phone_number ? `<div class="identity-sub">${escapeHtml(i.phone_number)}</div>` : ''}
-            <div class="identity-platforms">${platformTagsHtml(i)}</div>
+            <div class="identity-sub">管理员：${i.operator_username ? escapeHtml(i.operator_username) : '未分配'}</div>
+            <div class="identity-platforms">${identityPlatformIconsHtml(i)}</div>
           </div>
-          <div class="identity-stats">
-            <span class="num">${fmtNum(i.total_followers)}</span>
-            <span class="label">总粉丝 · ${i.accounts.length} 个平台</span>
+          <div class="identity-actions">
+            <button class="icon-btn" title="编辑" onclick="event.stopPropagation(); editIdentityInfo('${i.id}')">✎</button>
+            ${currentUser.role === 'super_admin' ? `<button class="icon-btn danger" title="删除" onclick="event.stopPropagation(); deleteIdentity('${i.id}')">🗑</button>` : ''}
           </div>
           <span class="identity-chevron">›</span>
         </div>
@@ -1334,7 +1348,7 @@ async function submitEditIdentity(id) {
     });
     allIdentities = await publicApi('/identities');
     closePasscodeModal();
-    renderIdentityDetail(id);
+    if (accountsDetailId) { renderIdentityDetail(id); } else { renderIdentityList(); }
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
@@ -2449,30 +2463,32 @@ async function renderCustomersPage() {
   el.innerHTML = `
     <div class="page-title">客户信息</div>
     <div class="page-sub">客户阶段可以随时手动调整；调到"成交客户"后去「订单信息」匹配商品，调到"交付客户"后去「售后运维」匹配</div>
-    <div class="panel" style="margin-bottom:16px;">
-      <h2 id="customerFormTitle">新增客户</h2>
-      <div class="form-grid">
-        <div><label>客户姓名</label><input type="text" id="cName"></div>
-        <div><label>联系电话</label><input type="text" id="cPhone"></div>
-        <div><label>来源渠道</label><input type="text" id="cSource" placeholder="例如：抖音私信"></div>
-        <div>
-          <label>客户阶段</label>
-          <select id="cStage">
-            ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
-          </select>
+    <div class="users-columns">
+      <div class="panel">
+        <h2>客户列表</h2>
+        <div id="customerList"></div>
+      </div>
+      <div class="panel">
+        <h2 id="customerFormTitle">新增客户</h2>
+        <div class="form-grid">
+          <div><label>客户姓名</label><input type="text" id="cName"></div>
+          <div><label>联系电话</label><input type="text" id="cPhone"></div>
+          <div><label>来源渠道</label><input type="text" id="cSource" placeholder="例如：抖音私信"></div>
+          <div>
+            <label>客户阶段</label>
+            <select id="cStage">
+              ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
+            </select>
+          </div>
+          <div><label>跟进人</label><input type="text" id="cAssigned"></div>
+          <div class="full"><label>备注</label><input type="text" id="cNotes"></div>
         </div>
-        <div><label>跟进人</label><input type="text" id="cAssigned"></div>
-        <div class="full"><label>备注</label><input type="text" id="cNotes"></div>
+        <div class="actions">
+          <button onclick="submitCustomer()">保存</button>
+          <button class="ghost" onclick="resetCustomerForm()">清空</button>
+        </div>
+        <p class="msg" id="customerFormMsg"></p>
       </div>
-      <div class="actions">
-        <button onclick="submitCustomer()">保存</button>
-        <button class="ghost" onclick="resetCustomerForm()">清空</button>
-      </div>
-      <p class="msg" id="customerFormMsg"></p>
-    </div>
-    <div class="panel">
-      <h2>客户列表</h2>
-      <div id="customerList"></div>
     </div>
   `;
   renderCustomerList();

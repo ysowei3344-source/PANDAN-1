@@ -21,10 +21,13 @@ def _summary(identity) -> IdentitySummary:
     total_customers_added = sum(d["wechat_added"] for d in days)
     total_deals_closed = round(total_customers_added * _MOCK_DEAL_CONVERSION_RATE)
 
+    operator = next((u for u in storage.list_users() if identity.id in u.get("identity_ids", [])), None)
+
     return IdentitySummary(
         id=identity.id,
         name=identity.name,
         phone_number=identity.phone_number,
+        operator_username=operator["username"] if operator else None,
         accounts=accounts,
         total_followers=sum(a.follower_count for a in accounts),
         total_videos=sum(a.video_count for a in accounts),
@@ -93,7 +96,7 @@ def create_identity(payload: IdentityInput, current: dict = Depends(require_role
 
 
 @router.put("/{identity_id}", response_model=IdentitySummary)
-def update_identity(identity_id: str, payload: IdentityInput, current: dict = Depends(require_role("super_admin"))) -> IdentitySummary:
+def update_identity(identity_id: str, payload: IdentityInput, current: dict = Depends(get_current_user)) -> IdentitySummary:
     identity = storage.update_identity(identity_id, {"name": payload.name, "phone_number": payload.phone_number})
     if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
