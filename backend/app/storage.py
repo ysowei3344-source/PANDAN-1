@@ -377,9 +377,16 @@ def _ensure_products_file() -> None:
         _write_json(PRODUCTS_FILE, [p.model_dump() for p in PRODUCTS])
 
 
+def _normalize_product(p: dict) -> dict:
+    if "main_image_urls" in p:
+        return p
+    old = p.get("main_image_url")
+    return {**p, "main_image_urls": [old] if old else []}
+
+
 def list_products() -> list[Product]:
     _ensure_products_file()
-    return [Product(**p) for p in _read_json(PRODUCTS_FILE)]
+    return [Product(**_normalize_product(p)) for p in _read_json(PRODUCTS_FILE)]
 
 
 def get_product(product_id: str) -> Product | None:

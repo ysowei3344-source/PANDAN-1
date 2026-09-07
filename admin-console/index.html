@@ -449,6 +449,31 @@
   .img-progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
   .img-progress-text { color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
 
+  .img-thumb-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .img-thumb-item { position: relative; width: 72px; height: 128px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--line); flex-shrink: 0; }
+  .img-thumb-9x16 { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-thumb-actions { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 2px; padding: 3px; background: rgba(6, 8, 12, 0.55); }
+  .img-thumb-btn { flex: 1; font-size: 10px; padding: 3px 0; border-radius: 4px; border: none; background: rgba(255, 255, 255, 0.18); color: #fff; cursor: pointer; }
+  .img-thumb-btn:hover { background: rgba(255, 255, 255, 0.32); }
+  .img-thumb-btn.danger { background: rgba(220, 70, 70, 0.55); }
+  .img-thumb-btn.danger:hover { background: rgba(220, 70, 70, 0.85); }
+  .img-thumb-add {
+    width: 72px; height: 128px; border-radius: 8px; border: 1px dashed var(--line); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    font-size: 12px; color: var(--ink-soft); cursor: pointer; text-align: center; line-height: 1.4;
+  }
+  .img-thumb-add:hover { border-color: var(--accent); color: var(--accent); }
+
+  .product-thumb-carousel { position: relative; width: 90px; height: 160px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0; }
+  .product-thumb-carousel img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .product-thumb-empty {
+    display: flex; align-items: center; justify-content: center; color: var(--ink-soft); font-size: 12px;
+    background: var(--card); border: 1px dashed var(--line); text-align: center; padding: 8px;
+  }
+  .carousel-dots { position: absolute; left: 0; right: 0; bottom: 6px; display: flex; justify-content: center; gap: 4px; }
+  .carousel-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.45); cursor: pointer; }
+  .carousel-dot.active { background: #fff; }
+
   .identity-kpi-grid { grid-template-columns: repeat(5, 1fr); }
   @media (max-width: 900px) {
     .identity-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
@@ -2400,9 +2425,9 @@ let aftersalesList = [];
 /* ---- 商品信息 ---- */
 
 let editingProductId = null;
-let pendingProductFiles = {}; // inputId -> cropped/compressed File, takes priority over the raw <input type=file>
-let pendingProductOriginals = {}; // inputId -> uncropped source File, kept so 编辑 can re-crop at full quality
+let mainImagesState = []; // { url?: string, file?: File, originalFile?: File, previewUrl?: string }[]
 let cropState = null;
+let cropConfirmCallback = null; // (blob) => void, set by whichever caller opened the cropper
 const CROP_VW = 270;
 const CROP_VH = 480;
 
@@ -2411,6 +2436,7 @@ async function renderProductsPage() {
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
   try { products = await api('/products'); } catch (e) { products = []; }
   editingProductId = null;
+  mainImagesState = [];
   el.innerHTML = `
     <div class="page-title">商品信息</div>
     <div class="page-sub">房车商品库，客户成交/交付时会从这里选商品匹配</div>
@@ -2427,22 +2453,13 @@ async function renderProductsPage() {
           <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
           <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
           <div>
-            <label>商品主图</label>
-            <input type="file" id="pMainImage" accept="image/*" onchange="handleProductImageSelect('pMainImage','pMainImagePreview','pMainImageName',true)">
-            <input type="hidden" id="pMainImageUrl">
-            <div class="img-preview-wrap">
-              <img id="pMainImagePreview" class="field-preview-img" src="" alt="预览" hidden>
-              <button type="button" class="img-edit-btn" id="pMainImageEditBtn" onclick="editProductImage('pMainImage','pMainImagePreview','pMainImageName')" hidden>编辑</button>
-              <div class="img-progress" id="pMainImageProgress" hidden>
-                <div class="img-progress-track"><div class="img-progress-bar" id="pMainImageProgressBar"></div></div>
-                <span class="img-progress-text" id="pMainImageProgressText">0%</span>
-              </div>
-            </div>
-            <div id="pMainImageName" class="row-sub" hidden></div>
+            <label>商品主图（可多张，列表按 9:16 轮播展示）</label>
+            <div class="img-thumb-row" id="pMainImageList"></div>
+            <input type="file" id="pMainImageAdd" accept="image/*" multiple hidden onchange="handleMainImagesSelect(event)">
           </div>
           <div>
             <label>配置布局</label>
-            <input type="file" id="pLayoutImage" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="handleProductImageSelect('pLayoutImage','pLayoutImagePreview','pLayoutImageName',false)">
+            <input type="file" id="pLayoutImage" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="previewProductFile('pLayoutImage','pLayoutImagePreview','pLayoutImageName')">
             <input type="hidden" id="pLayoutImageUrl">
             <div class="img-preview-wrap">
               <img id="pLayoutImagePreview" class="field-preview-img" src="" alt="预览" hidden>
@@ -2464,6 +2481,7 @@ async function renderProductsPage() {
       </div>
     </div>
   `;
+  renderMainImageThumbs();
   renderProductList();
 }
 
@@ -2487,11 +2505,6 @@ function previewProductFile(inputId, previewImgId, nameElId) {
     nameEl.hidden = false;
     nameEl.textContent = '已选择文件：' + file.name;
   }
-}
-
-function setImageEditButtonVisible(inputId, visible) {
-  const btn = document.getElementById(inputId + 'EditBtn');
-  if (btn) btn.hidden = !visible;
 }
 
 function loadImageFromFile(file) {
@@ -2534,64 +2547,81 @@ async function cropImageElementToBlob(imgEl, state) {
   return blob;
 }
 
-function setCroppedResult(inputId, previewImgId, nameElId, blob) {
-  pendingProductFiles[inputId] = new File([blob], 'crop-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-  const previewImg = document.getElementById(previewImgId);
-  const nameEl = document.getElementById(nameElId);
-  previewImg.src = URL.createObjectURL(blob);
-  previewImg.hidden = false;
-  nameEl.hidden = true;
-  nameEl.innerHTML = '';
-  setImageEditButtonVisible(inputId, true);
+function renderMainImageThumbs() {
+  const wrap = document.getElementById('pMainImageList');
+  if (!wrap) return;
+  wrap.innerHTML = mainImagesState.map((entry, idx) => `
+    <div class="img-thumb-item">
+      <img src="${entry.previewUrl || staticUrl(entry.url)}" class="img-thumb-9x16" alt="">
+      <div class="img-thumb-actions">
+        <button type="button" class="img-thumb-btn" onclick="editMainImageAt(${idx})">编辑</button>
+        <button type="button" class="img-thumb-btn danger" onclick="removeMainImageAt(${idx})">删除</button>
+      </div>
+      <div class="img-progress" id="mainImgProgress-${idx}" hidden>
+        <div class="img-progress-track"><div class="img-progress-bar" id="mainImgProgressBar-${idx}"></div></div>
+        <span class="img-progress-text" id="mainImgProgressText-${idx}">0%</span>
+      </div>
+    </div>
+  `).join('') + `<label class="img-thumb-add" for="pMainImageAdd">＋<br>添加</label>`;
 }
 
-async function autoCropAndSet(file, inputId, previewImgId, nameElId) {
-  const img = await loadImageFromFile(file);
-  const state = computeCoverCrop(img.naturalWidth, img.naturalHeight);
-  const blob = await cropImageElementToBlob(img, state);
-  URL.revokeObjectURL(img.src);
-  if (!blob) return;
-  setCroppedResult(inputId, previewImgId, nameElId, blob);
-}
-
-function handleProductImageSelect(inputId, previewImgId, nameElId, allowCrop) {
-  const file = document.getElementById(inputId).files[0];
-  if (!file) return;
-  if (file.type.startsWith('image/') && allowCrop) {
-    pendingProductOriginals[inputId] = file;
-    autoCropAndSet(file, inputId, previewImgId, nameElId);
-  } else {
-    delete pendingProductFiles[inputId];
-    delete pendingProductOriginals[inputId];
-    previewProductFile(inputId, previewImgId, nameElId);
-  }
-}
-
-async function editProductImage(inputId, previewImgId, nameElId) {
-  let file = pendingProductOriginals[inputId];
-  if (!file) {
-    const urlField = document.getElementById(inputId + 'Url');
-    const url = urlField ? urlField.value : '';
-    if (!url) return;
+async function handleMainImagesSelect(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = '';
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
     try {
-      const resp = await fetch(staticUrl(url));
+      const img = await loadImageFromFile(file);
+      const state = computeCoverCrop(img.naturalWidth, img.naturalHeight);
+      const blob = await cropImageElementToBlob(img, state);
+      URL.revokeObjectURL(img.src);
+      if (!blob) continue;
+      const croppedFile = new File([blob], 'crop-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.jpg', { type: 'image/jpeg' });
+      mainImagesState.push({ file: croppedFile, originalFile: file, previewUrl: URL.createObjectURL(blob), url: null });
+    } catch (e) { /* skip unreadable file */ }
+  }
+  renderMainImageThumbs();
+}
+
+function removeMainImageAt(idx) {
+  mainImagesState.splice(idx, 1);
+  renderMainImageThumbs();
+}
+
+async function editMainImageAt(idx) {
+  const entry = mainImagesState[idx];
+  if (!entry) return;
+  let sourceFile = entry.originalFile || entry.file;
+  if (!sourceFile && entry.url) {
+    try {
+      const resp = await fetch(staticUrl(entry.url));
       const blob = await resp.blob();
-      file = new File([blob], 'original.jpg', { type: blob.type || 'image/jpeg' });
+      sourceFile = new File([blob], 'original.jpg', { type: blob.type || 'image/jpeg' });
     } catch (e) {
       alert('无法加载原图，请重新上传');
       return;
     }
   }
-  openImageCropper(file, inputId, previewImgId, nameElId);
+  if (!sourceFile) return;
+  openImageCropper(sourceFile, '裁剪主图（9:16）', (blob) => {
+    mainImagesState[idx] = {
+      file: new File([blob], 'crop-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
+      originalFile: sourceFile,
+      previewUrl: URL.createObjectURL(blob),
+      url: null,
+    };
+    renderMainImageThumbs();
+  });
 }
 
-function openImageCropper(file, inputId, previewImgId, nameElId) {
+function openImageCropper(file, title, onConfirm) {
+  cropConfirmCallback = onConfirm;
   const reader = new FileReader();
   reader.onload = (e) => {
     const modal = document.getElementById('passcodeModal');
     modal.innerHTML = `
       <div class="modal-card wide" onclick="event.stopPropagation()">
-        <h2>裁剪主图（9:16）</h2>
+        <h2>${title}</h2>
         <div class="crop-viewport" id="cropViewport"><img id="cropImg" src="${e.target.result}" draggable="false"></div>
         <div class="crop-controls">
           <label class="row-sub">缩放</label>
@@ -2599,8 +2629,8 @@ function openImageCropper(file, inputId, previewImgId, nameElId) {
         </div>
         <p class="row-sub">拖动图片调整位置，拉动滑块缩放；保存时会自动裁剪为 9:16 并压缩到约 200KB</p>
         <div class="actions">
-          <button onclick="confirmCrop('${inputId}','${previewImgId}','${nameElId}')">裁剪并保存</button>
-          <button class="ghost" onclick="cancelCrop('${inputId}')">取消</button>
+          <button onclick="confirmCrop()">裁剪并保存</button>
+          <button class="ghost" onclick="cancelCrop()">取消</button>
         </div>
         <p class="msg" id="cropMsg"></p>
       </div>
@@ -2678,7 +2708,7 @@ function applyCropTransform() {
   img.style.top = cropState.top + 'px';
 }
 
-async function confirmCrop(inputId, previewImgId, nameElId) {
+async function confirmCrop() {
   if (!cropState) return;
   const msg = document.getElementById('cropMsg');
   msg.textContent = '处理中...';
@@ -2686,18 +2716,20 @@ async function confirmCrop(inputId, previewImgId, nameElId) {
   const img = document.getElementById('cropImg');
   const blob = await cropImageElementToBlob(img, cropState);
   if (!blob) { msg.textContent = '裁剪失败，请重试'; msg.className = 'msg error'; return; }
-  setCroppedResult(inputId, previewImgId, nameElId, blob);
   cropState = null;
+  const cb = cropConfirmCallback;
+  cropConfirmCallback = null;
+  closePasscodeModal();
+  if (cb) cb(blob);
+}
+
+function cancelCrop() {
+  cropState = null;
+  cropConfirmCallback = null;
   closePasscodeModal();
 }
 
-function cancelCrop(inputId) {
-  document.getElementById(inputId).value = '';
-  cropState = null;
-  closePasscodeModal();
-}
-
-function setFilePreview(url, previewImgId, nameElId, inputId) {
+function setFilePreview(url, previewImgId, nameElId) {
   const img = document.getElementById(previewImgId);
   const nameEl = document.getElementById(nameElId);
   if (url && isImageUrl(url)) {
@@ -2705,49 +2737,66 @@ function setFilePreview(url, previewImgId, nameElId, inputId) {
     img.hidden = false;
     nameEl.hidden = true;
     nameEl.innerHTML = '';
-    if (inputId) setImageEditButtonVisible(inputId, true);
   } else if (url) {
     img.hidden = true;
     img.src = '';
     nameEl.hidden = false;
     nameEl.innerHTML = `已上传文件：<a href="${staticUrl(url)}" target="_blank" rel="noopener">查看</a>`;
-    if (inputId) setImageEditButtonVisible(inputId, false);
   } else {
     img.hidden = true;
     img.src = '';
     nameEl.hidden = true;
     nameEl.innerHTML = '';
-    if (inputId) setImageEditButtonVisible(inputId, false);
   }
+}
+
+let productCarouselIndex = {}; // productId -> currently shown image index in 商品列表
+
+function setProductCarouselIndex(productId, idx) {
+  productCarouselIndex[productId] = idx;
+  renderProductList();
 }
 
 function renderProductList() {
   const list = document.getElementById('productList');
   if (!products.length) { list.innerHTML = '<div class="empty-hint">暂无商品</div>'; return; }
-  list.innerHTML = products.map((p) => `
-    <div class="row-item">
-      ${p.main_image_url && isImageUrl(p.main_image_url) ? `<img src="${staticUrl(p.main_image_url)}" alt="">` : `<div class="avatar badge-blue" style="width:120px;height:48px;border-radius:8px;font-size:12px;">暂无主图</div>`}
-      <div class="row-body">
-        <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? ` <span class="row-sub">编码 ${escapeHtml(p.internal_code)}</span>` : ''}</div>
-        <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? ' · 底盘号 ' + escapeHtml(p.chassis_number) : ''}</div>
-        ${p.standard_config ? `<div class="row-sub">标配：${escapeHtml(p.standard_config)}</div>` : ''}
-        ${p.customer_notes ? `<div class="row-sub">备注：${escapeHtml(p.customer_notes)}</div>` : ''}
-        ${p.layout_image_url ? `<div class="row-sub">配置布局：<a href="${staticUrl(p.layout_image_url)}" target="_blank" rel="noopener">查看</a></div>` : ''}
+  list.innerHTML = products.map((p) => {
+    const images = p.main_image_urls || [];
+    const curIdx = images.length ? Math.min(productCarouselIndex[p.id] || 0, images.length - 1) : 0;
+    const thumbHtml = images.length ? `
+      <div class="product-thumb-carousel">
+        <img src="${staticUrl(images[curIdx])}" alt="">
+        ${images.length > 1 ? `
+          <div class="carousel-dots">
+            ${images.map((_, i) => `<span class="carousel-dot ${i === curIdx ? 'active' : ''}" onclick="setProductCarouselIndex('${p.id}',${i})"></span>`).join('')}
+          </div>
+        ` : ''}
       </div>
-      <div class="row-btns">
-        <button class="ghost" onclick="editProduct('${p.id}')">编辑</button>
-        <button class="danger" onclick="deleteProduct('${p.id}')">删除</button>
+    ` : `<div class="product-thumb-carousel product-thumb-empty">暂无主图</div>`;
+    return `
+      <div class="row-item">
+        ${thumbHtml}
+        <div class="row-body">
+          <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? ` <span class="row-sub">编码 ${escapeHtml(p.internal_code)}</span>` : ''}</div>
+          <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? ' · 底盘号 ' + escapeHtml(p.chassis_number) : ''}</div>
+          ${p.standard_config ? `<div class="row-sub">标配：${escapeHtml(p.standard_config)}</div>` : ''}
+          ${p.customer_notes ? `<div class="row-sub">备注：${escapeHtml(p.customer_notes)}</div>` : ''}
+          ${p.layout_image_url ? `<div class="row-sub">配置布局：<a href="${staticUrl(p.layout_image_url)}" target="_blank" rel="noopener">查看</a></div>` : ''}
+        </div>
+        <div class="row-btns">
+          <button class="ghost" onclick="editProduct('${p.id}')">编辑</button>
+          <button class="danger" onclick="deleteProduct('${p.id}')">删除</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function editProduct(id) {
   const p = products.find((x) => x.id === id);
   if (!p) return;
   editingProductId = id;
-  pendingProductFiles = {};
-  pendingProductOriginals = {};
+  mainImagesState = (p.main_image_urls || []).map((url) => ({ url, file: null, originalFile: null, previewUrl: null }));
   document.getElementById('productFormTitle').textContent = '编辑商品';
   document.getElementById('pName').value = p.name;
   document.getElementById('pCode').value = p.internal_code || '';
@@ -2755,25 +2804,21 @@ function editProduct(id) {
   document.getElementById('pChassisNumber').value = p.chassis_number || '';
   document.getElementById('pStandardConfig').value = p.standard_config || '';
   document.getElementById('pCustomerNotes').value = p.customer_notes || '';
-  document.getElementById('pMainImage').value = '';
   document.getElementById('pLayoutImage').value = '';
-  document.getElementById('pMainImageUrl').value = p.main_image_url || '';
   document.getElementById('pLayoutImageUrl').value = p.layout_image_url || '';
-  setFilePreview(p.main_image_url, 'pMainImagePreview', 'pMainImageName', 'pMainImage');
-  setFilePreview(p.layout_image_url, 'pLayoutImagePreview', 'pLayoutImageName', 'pLayoutImage');
+  renderMainImageThumbs();
+  setFilePreview(p.layout_image_url, 'pLayoutImagePreview', 'pLayoutImageName');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function resetProductForm() {
   editingProductId = null;
-  pendingProductFiles = {};
-  pendingProductOriginals = {};
+  mainImagesState = [];
   document.getElementById('productFormTitle').textContent = '新增商品';
-  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pMainImageUrl', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
-  document.getElementById('pMainImage').value = '';
+  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('pLayoutImage').value = '';
-  setFilePreview(null, 'pMainImagePreview', 'pMainImageName', 'pMainImage');
-  setFilePreview(null, 'pLayoutImagePreview', 'pLayoutImageName', 'pLayoutImage');
+  renderMainImageThumbs();
+  setFilePreview(null, 'pLayoutImagePreview', 'pLayoutImageName');
   document.getElementById('productFormMsg').textContent = '';
 }
 
@@ -2806,7 +2851,7 @@ function uploadFileWithProgress(file, onProgress) {
 }
 
 async function uploadProductImage(inputId) {
-  const file = pendingProductFiles[inputId] || document.getElementById(inputId).files[0];
+  const file = document.getElementById(inputId).files[0];
   if (!file) return null;
   const progressWrap = document.getElementById(inputId + 'Progress');
   const progressBar = document.getElementById(inputId + 'ProgressBar');
@@ -2823,19 +2868,44 @@ async function uploadProductImage(inputId) {
   }
 }
 
+async function uploadAllMainImages() {
+  const urls = [];
+  for (let i = 0; i < mainImagesState.length; i++) {
+    const entry = mainImagesState[i];
+    if (entry.file) {
+      const progressWrap = document.getElementById('mainImgProgress-' + i);
+      const progressBar = document.getElementById('mainImgProgressBar-' + i);
+      const progressText = document.getElementById('mainImgProgressText-' + i);
+      if (progressWrap) { progressWrap.hidden = false; progressBar.style.width = '0%'; progressText.textContent = '0%'; }
+      try {
+        const res = await uploadFileWithProgress(entry.file, (pct) => {
+          if (progressBar) progressBar.style.width = pct + '%';
+          if (progressText) progressText.textContent = pct + '%';
+        });
+        urls.push(res.url);
+      } finally {
+        if (progressWrap) progressWrap.hidden = true;
+      }
+    } else if (entry.url) {
+      urls.push(entry.url);
+    }
+  }
+  return urls;
+}
+
 async function submitProduct() {
   const msg = document.getElementById('productFormMsg');
   msg.className = 'msg';
   msg.textContent = '保存中...';
   try {
-    const mainImageUrl = (await uploadProductImage('pMainImage')) || document.getElementById('pMainImageUrl').value || null;
+    const mainImageUrls = await uploadAllMainImages();
     const layoutImageUrl = (await uploadProductImage('pLayoutImage')) || document.getElementById('pLayoutImageUrl').value || null;
     const payload = {
       name: document.getElementById('pName').value.trim(),
       internal_code: document.getElementById('pCode').value.trim(),
       chassis_info: document.getElementById('pChassisInfo').value.trim(),
       chassis_number: document.getElementById('pChassisNumber').value.trim(),
-      main_image_url: mainImageUrl,
+      main_image_urls: mainImageUrls,
       layout_image_url: layoutImageUrl,
       standard_config: document.getElementById('pStandardConfig').value.trim(),
       customer_notes: document.getElementById('pCustomerNotes').value.trim(),
