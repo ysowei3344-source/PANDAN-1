@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from .api import accounts, admin, auth, banners, dashboard, identities, settings, users, videos
+from .api import accounts, admin, auth, banners, dashboard, identities, members, settings, users, videos
 
 app = FastAPI(title="RV Matrix Hub API", version="0.1.0")
 
@@ -23,6 +23,7 @@ app.include_router(banners.router)
 app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(members.router)
 app.include_router(settings.public_router)
 app.include_router(settings.admin_router)
 

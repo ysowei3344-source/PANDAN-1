@@ -554,7 +554,6 @@ async function showSection(key) {
     document.getElementById('section-users').hidden = false;
     await loadUsers();
     renderUsers();
-    startActivityLogPolling();
   } else {
     document.getElementById('section-stub').hidden = false;
     const item = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.key === key);
@@ -1251,11 +1250,41 @@ let activityLogTimer = null;
 
 async function loadUsers() { users = await api('/users'); }
 
+let userCategory = 'internal';
+
 function renderUsers() {
   const el = document.getElementById('section-users');
   el.innerHTML = `
     <div class="page-title">账号权限管理</div>
-    <div class="page-sub">每个运营账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
+    <div class="page-sub" style="margin-bottom:12px;">选择要管理的账号类型</div>
+    <select id="userCategorySelect" onchange="switchUserCategory()" style="max-width:240px;margin-bottom:20px;">
+      <option value="internal">内部账号管理</option>
+      <option value="external">外部账号管理</option>
+    </select>
+    <div id="userCategoryBody"></div>
+  `;
+  document.getElementById('userCategorySelect').value = userCategory;
+  renderUserCategoryBody();
+}
+
+function switchUserCategory() {
+  stopActivityLogPolling();
+  userCategory = document.getElementById('userCategorySelect').value;
+  renderUserCategoryBody();
+}
+
+function renderUserCategoryBody() {
+  if (userCategory === 'internal') {
+    renderInternalAccounts();
+  } else {
+    renderExternalAccounts();
+  }
+}
+
+function renderInternalAccounts() {
+  const el = document.getElementById('userCategoryBody');
+  el.innerHTML = `
+    <div class="page-sub" style="margin-bottom:16px;">每个运营账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
     <div class="users-columns">
       <div class="panel">
         <h2>新增账号</h2>
@@ -1300,6 +1329,62 @@ function renderUsers() {
   toggleOperatorFields();
   renderUserList();
   loadActivityLog();
+  startActivityLogPolling();
+}
+
+let members = [];
+
+async function renderExternalAccounts() {
+  const el = document.getElementById('userCategoryBody');
+  el.innerHTML = `
+    <div class="panel">
+      <h2>会员列表</h2>
+      <div class="page-sub" style="margin-bottom:16px;">前台 H5 / 小程序自主注册的会员。目前还没有真实的注册流程接入，以下为演示数据。</div>
+      <div id="memberList"><div class="empty-hint">加载中...</div></div>
+    </div>
+  `;
+  await loadMembers();
+  renderMemberList();
+}
+
+async function loadMembers() {
+  try {
+    members = await api('/members');
+  } catch (e) {
+    members = [];
+  }
+}
+
+function renderMemberList() {
+  const list = document.getElementById('memberList');
+  if (!list) return;
+  if (!members.length) { list.innerHTML = '<div class="empty-hint">暂无会员</div>'; return; }
+  list.innerHTML = members.map((m) => `
+    <div class="row-item">
+      <div class="avatar badge-blue">${escapeHtml(m.nickname[0])}</div>
+      <div class="row-body">
+        <div class="row-title">
+          ${escapeHtml(m.nickname)}
+          <span class="role-badge" style="${m.status === 'disabled' ? 'background:var(--danger-soft);color:var(--danger);' : ''}">${m.status === 'active' ? '正常' : '已禁用'}</span>
+        </div>
+        <div class="row-sub">${m.phone_masked} · 来自${m.source === 'h5' ? 'H5' : '小程序'} · 注册于 ${new Date(m.registered_at).toLocaleDateString('zh-CN')}</div>
+        <div class="row-sub">最近活跃：${new Date(m.last_active_at).toLocaleString('zh-CN')}</div>
+      </div>
+      <div class="row-btns">
+        <button class="${m.status === 'active' ? 'danger' : 'ghost'}" onclick="toggleMemberStatus('${m.id}','${m.status === 'active' ? 'disabled' : 'active'}')">${m.status === 'active' ? '禁用' : '启用'}</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleMemberStatus(id, newStatus) {
+  try {
+    await api(`/members/${id}/status?status=${newStatus}`, { method: 'PUT' });
+    await loadMembers();
+    renderMemberList();
+  } catch (e) {
+    alert('操作失败：' + e.message);
+  }
 }
 
 function toggleOperatorFields() {

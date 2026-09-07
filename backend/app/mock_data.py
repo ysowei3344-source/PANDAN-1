@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from .schemas import Account, Banner, Identity, TodayStats, VideoStat
+from .schemas import Account, Banner, Identity, Member, TodayStats, VideoStat
 
 # 矩阵号：一个手机号/一个人设，内容同源分发到它注册的各个平台。
 IDENTITIES: list[Identity] = [
@@ -123,3 +123,37 @@ TODAY_STATS = TodayStats(
     dm_conversations=86,
     wechat_added=23,
 )
+
+# 前台会员——目前没有真实的注册流程，这批是占位数据，等 H5/小程序做了注册再换真实来源。
+MEMBERS: list[Member] = [
+    Member(
+        id="mem-1", nickname="爱旅行的老张", phone_masked="138****2201", source="mini_program",
+        registered_at=(_now - timedelta(days=12)).isoformat(), last_active_at=(_now - timedelta(hours=3)).isoformat(),
+        status="active",
+    ),
+    Member(
+        id="mem-2", nickname="房车小白", phone_masked="159****7734", source="h5",
+        registered_at=(_now - timedelta(days=8)).isoformat(), last_active_at=(_now - timedelta(days=1)).isoformat(),
+        status="active",
+    ),
+    Member(
+        id="mem-3", nickname="周末去哪玩", phone_masked="187****5588", source="mini_program",
+        registered_at=(_now - timedelta(days=25)).isoformat(), last_active_at=(_now - timedelta(days=6)).isoformat(),
+        status="active",
+    ),
+    Member(
+        id="mem-4", nickname="退休环游党", phone_masked="135****9012", source="h5",
+        registered_at=(_now - timedelta(days=40)).isoformat(), last_active_at=(_now - timedelta(days=20)).isoformat(),
+        status="disabled",
+    ),
+    Member(
+        id="mem-5", nickname="带娃自驾家庭", phone_masked="177****3345", source="mini_program",
+        registered_at=(_now - timedelta(days=3)).isoformat(), last_active_at=(_now - timedelta(hours=10)).isoformat(),
+        status="active",
+    ),
+    Member(
+        id="mem-6", nickname="改装发烧友", phone_masked="150****6678", source="h5",
+        registered_at=(_now - timedelta(days=60)).isoformat(), last_active_at=(_now - timedelta(days=45)).isoformat(),
+        status="disabled",
+    ),
+]

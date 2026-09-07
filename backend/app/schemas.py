@@ -112,6 +112,24 @@ class ActivityLogEntry(BaseModel):
     created_at: str
 
 
+MemberSource = Literal["h5", "mini_program"]
+MemberStatus = Literal["active", "disabled"]
+
+
+class Member(BaseModel):
+    """A front-end registered customer/member — distinct from admin console
+    users (operators/super_admin). No real registration flow exists yet;
+    this is seeded mock data standing in for it."""
+
+    id: str
+    nickname: str
+    phone_masked: str
+    source: MemberSource
+    registered_at: str
+    last_active_at: str
+    status: MemberStatus
+
+
 class VerifyPasscodeInput(BaseModel):
     passcode: str
 

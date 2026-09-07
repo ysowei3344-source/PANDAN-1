@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .schemas import Banner, Settings
+from .schemas import Banner, Member, Settings
 
 DATA_DIR = Path(__file__).parent / "data"
 BANNERS_FILE = DATA_DIR / "banners.json"
@@ -12,6 +12,7 @@ SESSIONS_FILE = DATA_DIR / "sessions.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 ACTIVITY_FILE = DATA_DIR / "activity_log.json"
 ACTIVITY_MAX_ENTRIES = 2000
+MEMBERS_FILE = DATA_DIR / "members.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -136,6 +137,31 @@ def delete_session(token: str) -> None:
     sessions = _read_json(SESSIONS_FILE)
     remaining = [s for s in sessions if s["token"] != token]
     _write_json(SESSIONS_FILE, remaining)
+
+
+# ---- Members (front-end registered users) ----
+
+def _ensure_members_file() -> None:
+    if not MEMBERS_FILE.exists():
+        from .mock_data import MEMBERS
+
+        _write_json(MEMBERS_FILE, [m.model_dump() for m in MEMBERS])
+
+
+def list_members() -> list[Member]:
+    _ensure_members_file()
+    return [Member(**m) for m in _read_json(MEMBERS_FILE)]
+
+
+def update_member_status(member_id: str, status: str) -> Member | None:
+    _ensure_members_file()
+    items = _read_json(MEMBERS_FILE)
+    for i, m in enumerate(items):
+        if m["id"] == member_id:
+            items[i] = {**m, "status": status}
+            _write_json(MEMBERS_FILE, items)
+            return Member(**items[i])
+    return None
 
 
 # ---- Activity log ----
