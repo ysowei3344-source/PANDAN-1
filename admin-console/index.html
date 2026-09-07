@@ -221,6 +221,24 @@
   .period-toggle button.active { background: var(--accent); color: #fff; }
   .trend-chart { width: 100%; height: 220px; }
 
+  .platform-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab-chip {
+    padding: 7px 20px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    color: var(--ink-soft); background: var(--card-2); cursor: pointer;
+  }
+  .tab-chip.active { color: #fff; background: var(--accent); }
+
+  .video-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .grid-thumb {
+    position: relative; border-radius: 10px; overflow: hidden; cursor: pointer;
+    aspect-ratio: 3 / 4; background: var(--card-2);
+  }
+  .grid-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .grid-thumb .grid-overlay {
+    position: absolute; left: 8px; bottom: 8px; font-size: 12px; font-weight: 600; color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  }
+
   .diagnosis-meta { font-size: 11px; color: var(--ink-faint); margin-bottom: 14px; }
   .diagnosis-block { display: flex; gap: 10px; margin-bottom: 16px; }
   .diagnosis-tag {
@@ -841,6 +859,9 @@ function renderTrendChart(trend) {
 /* ---------------- 矩阵账号 ---------------- */
 
 let accountsDetailId = null;
+let detailActiveAccountId = null;
+let detailSelectedVideoId = null;
+let detailVideos = [];
 
 function renderAccountsPage() {
   if (accountsDetailId) {
@@ -877,6 +898,8 @@ function renderIdentityList() {
 
 function openIdentityDetail(id) {
   accountsDetailId = id;
+  detailActiveAccountId = null;
+  detailSelectedVideoId = null;
   renderIdentityDetail(id);
 }
 
@@ -917,7 +940,70 @@ function renderIdentityDetail(id) {
       `).join('')}
     </div>
     <div class="panel" style="margin-top:16px;">
+      <h2>分平台内容</h2>
+      <div class="platform-tabs" id="detailPlatformTabs">
+        ${identity.accounts.map((a) => `
+          <div class="tab-chip ${a.id === detailActiveAccountId ? 'active' : ''}" data-account-id="${a.id}" onclick="switchDetailPlatform('${a.id}')">${platformLabel(a.platform)}</div>
+        `).join('')}
+      </div>
+      <div class="video-grid" id="platformVideoGrid"><div class="empty-hint">加载中...</div></div>
+      <div id="platformVideoDetail"></div>
+    </div>
+    <div class="panel" style="margin-top:16px;">
       <button onclick="viewIdentityOverview('${identity.id}')">查看该矩阵号的经营分析总览 →</button>
+    </div>
+  `;
+  if (!detailActiveAccountId || !identity.accounts.some((a) => a.id === detailActiveAccountId)) {
+    detailActiveAccountId = identity.accounts[0] ? identity.accounts[0].id : null;
+  }
+  loadPlatformVideoGrid(detailActiveAccountId);
+}
+
+function switchDetailPlatform(accountId) {
+  detailActiveAccountId = accountId;
+  detailSelectedVideoId = null;
+  document.querySelectorAll('#detailPlatformTabs .tab-chip').forEach((el) => {
+    el.classList.toggle('active', el.dataset.accountId === accountId);
+  });
+  loadPlatformVideoGrid(accountId);
+}
+
+async function loadPlatformVideoGrid(accountId) {
+  const grid = document.getElementById('platformVideoGrid');
+  const detail = document.getElementById('platformVideoDetail');
+  if (!grid) return;
+  detail.innerHTML = '';
+  if (!accountId) { grid.innerHTML = '<div class="empty-hint">该矩阵号还没有绑定平台</div>'; return; }
+  try {
+    detailVideos = await fetch(`${PUBLIC_API_BASE}/accounts/${accountId}/videos`).then((r) => r.json());
+  } catch (e) {
+    detailVideos = [];
+  }
+  if (!detailVideos.length) { grid.innerHTML = '<div class="empty-hint">该平台暂无视频数据</div>'; return; }
+  grid.innerHTML = detailVideos.map((v) => `
+    <div class="grid-thumb" data-video-id="${v.id}" onclick="selectDetailVideo('${v.id}')">
+      <img src="${staticUrl(v.thumbnail_url)}" alt="">
+      <div class="grid-overlay">▶ ${fmtNum(v.plays)}</div>
+    </div>
+  `).join('');
+}
+
+function selectDetailVideo(id) {
+  detailSelectedVideoId = id;
+  const video = detailVideos.find((v) => v.id === id);
+  const detail = document.getElementById('platformVideoDetail');
+  if (!video || !detail) return;
+  detail.innerHTML = `
+    <div class="row-title" style="margin-top:16px;">${escapeHtml(video.title)}</div>
+    <div class="video-stats-row">
+      <span>播放 ${fmtNum(video.plays)}</span>
+      <span>赞 ${fmtNum(video.likes)}</span>
+      <span>评论 ${fmtNum(video.comments)}</span>
+      <span>转发 ${fmtNum(video.shares)}</span>
+    </div>
+    <div class="diagnosis-block">
+      <span class="diagnosis-tag opportunity">DeepSeek 分析</span>
+      <span class="diagnosis-text">${escapeHtml(video.deepseek_analysis)}</span>
     </div>
   `;
 }
