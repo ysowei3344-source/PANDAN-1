@@ -1141,7 +1141,7 @@ function toggleLinkLock(inputId, btnId) {
   const display = document.getElementById(inputId + 'Display');
   if (input.disabled) {
     input.disabled = false;
-    input.hidden = false;
+    input.style.visibility = 'visible';
     display.hidden = true;
     btn.textContent = '确定添加';
     btn.classList.remove('locked-btn');
@@ -1149,7 +1149,7 @@ function toggleLinkLock(inputId, btnId) {
     if (!input.value.trim()) { alert('您还没有输入网址'); return; }
     const url = input.value.trim();
     input.disabled = true;
-    input.hidden = true;
+    input.style.visibility = 'hidden';
     display.textContent = url;
     display.hidden = false;
     btn.textContent = '修改编辑';
@@ -1219,7 +1219,6 @@ async function renderAddAccountForm() {
             <div class="full">
               <label>主页链接</label>
               <input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接">
-              <div class="link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
             </div>
             <div class="full">
               <label style="visibility:hidden;">操作</label>
@@ -1228,6 +1227,7 @@ async function renderAddAccountForm() {
                 <button type="button" class="link-confirm-btn" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
               </div>
             </div>
+            <div class="full link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
           </div>
         </div>
       `).join('')}
