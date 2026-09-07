@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from .. import storage
 from ..auth import hash_password, require_role
-from ..schemas import ActivityLogEntry, BindIdentityInput, UserCreateInput, UserOut
+from ..schemas import ActivityLogEntry, BindIdentityInput, UserCreateInput, UserOut, UserUpdateInput
 
 router = APIRouter(prefix="/api/admin/users", tags=["users"])
 
@@ -50,6 +50,34 @@ def create_user(payload: UserCreateInput, current: dict = Depends(require_role("
     storage.create_user(user)
     storage.log_activity(current["id"], current["username"], "创建账号", f"{payload.username}（{payload.role}）")
     return _public(user)
+
+
+@router.put("/{user_id}", response_model=UserOut)
+def update_user(user_id: str, payload: UserUpdateInput, current: dict = Depends(require_role("super_admin"))) -> dict:
+    user = storage.get_user(user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="user not found")
+
+    updates: dict = {}
+    if payload.username and payload.username != user["username"]:
+        existing = storage.get_user_by_username(payload.username)
+        if existing and existing["id"] != user_id:
+            raise HTTPException(status_code=400, detail="用户名已存在")
+        updates["username"] = payload.username
+    if payload.password:
+        password_hash, salt = hash_password(payload.password)
+        updates["password_hash"] = password_hash
+        updates["salt"] = salt
+    if payload.passcode:
+        passcode_hash, passcode_salt = hash_password(payload.passcode)
+        updates["passcode_hash"] = passcode_hash
+        updates["passcode_salt"] = passcode_salt
+
+    if not updates:
+        return _public(user)
+    updated = storage.update_user(user_id, updates)
+    storage.log_activity(current["id"], current["username"], "编辑账号", updated["username"])
+    return _public(updated)
 
 
 @router.delete("/{user_id}")

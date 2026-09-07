@@ -137,6 +137,15 @@ class UserCreateInput(BaseModel):
     passcode: str | None = None
 
 
+class UserUpdateInput(BaseModel):
+    """All fields optional — only what's provided gets changed.
+    password/passcode are write-only resets, never round-tripped back out."""
+
+    username: str | None = None
+    password: str | None = None
+    passcode: str | None = None
+
+
 class BindIdentityInput(BaseModel):
     identity_id: str
 

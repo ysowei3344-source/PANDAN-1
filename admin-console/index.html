@@ -2376,16 +2376,63 @@ function renderUserList() {
       `;
     return `
       <div class="row-item">
+        <div class="avatar ${u.role === 'super_admin' ? 'badge-dark' : 'badge-blue'}">${escapeHtml((u.username[0] || '?').toUpperCase())}</div>
         <div class="row-body">
           <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '销售'}</span></div>
           ${u.role === 'operator' ? `<div class="row-sub">${u.has_passcode ? '已设置管理口令' : '未设置管理口令'}</div>` : ''}
           ${bindingHtml}
           <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
         </div>
-        <div class="row-btns">${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}</div>
+        <div class="row-btns">
+          <button class="ghost" onclick="openEditUserModal('${u.id}')">编辑</button>
+          ${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}
+        </div>
       </div>
     `;
   }).join('');
+}
+
+function openEditUserModal(userId) {
+  const u = users.find((x) => x.id === userId);
+  if (!u) return;
+  const modal = document.getElementById('passcodeModal');
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2>编辑账号</h2>
+      <div class="form-grid">
+        <div class="full"><label>用户名</label><input type="text" id="euUsername" value="${escapeHtml(u.username)}"></div>
+        <div class="full"><label>重置密码</label><input type="password" id="euPassword" placeholder="留空则不修改"></div>
+        ${u.role === 'operator' ? `<div class="full"><label>重置管理口令</label><input type="text" id="euPasscode" placeholder="留空则不修改"></div>` : ''}
+      </div>
+      <div class="actions">
+        <button onclick="submitEditUser('${u.id}')">保存</button>
+        <button class="ghost" onclick="closePasscodeModal()">取消</button>
+      </div>
+      <p class="msg" id="editUserMsg"></p>
+    </div>
+  `;
+  modal.hidden = false;
+}
+
+async function submitEditUser(userId) {
+  const msg = document.getElementById('editUserMsg');
+  const payload = { username: document.getElementById('euUsername').value.trim() };
+  const password = document.getElementById('euPassword').value;
+  if (password) payload.password = password;
+  const passcodeEl = document.getElementById('euPasscode');
+  if (passcodeEl && passcodeEl.value) payload.passcode = passcodeEl.value;
+  if (!payload.username) { msg.textContent = '请填写用户名'; msg.className = 'msg error'; return; }
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
+  try {
+    await api(`/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    closePasscodeModal();
+    await loadUsers();
+    renderUserList();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
 }
 
 async function bindIdentityFromSelect(userId, selectEl) {
