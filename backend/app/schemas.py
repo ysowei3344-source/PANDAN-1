@@ -249,3 +249,100 @@ class DashboardSummary(BaseModel):
     total_followers: int
     by_platform: list[PlatformBreakdown]
     top_videos: list[VideoStat]
+
+
+# ---- Order tracking (M5) ----
+# 产品信息 -> 客户信息 (8 手动阶段) -> 订单信息 (成交客户×产品的匹配结果)
+# -> 售后运维 (交付客户×产品的匹配结果)。没有真实订单系统对接前，这一整套
+# 都是人工在后台维护的记录，不是自动生成的。
+
+class Product(BaseModel):
+    id: str
+    name: str
+    model: str = ""
+    price: float = 0
+    description: str = ""
+    created_at: str
+
+
+class ProductInput(BaseModel):
+    name: str
+    model: str = ""
+    price: float = 0
+    description: str = ""
+
+
+CustomerStage = Literal[
+    "initial_chat",  # 1 初聊客户
+    "deep_chat",  # 2 深聊客户
+    "phone_call",  # 3 电话客户
+    "video_call",  # 4 视频客户
+    "car_viewing",  # 5 看车客户
+    "deposit",  # 6 定金客户
+    "deal_closed",  # 7 成交客户
+    "delivered",  # 8 交付客户
+]
+
+
+class Customer(BaseModel):
+    id: str
+    name: str
+    phone: str = ""
+    source: str = ""
+    stage: CustomerStage = "initial_chat"
+    assigned_to: str = ""
+    notes: str = ""
+    created_at: str
+    updated_at: str
+
+
+class CustomerInput(BaseModel):
+    name: str
+    phone: str = ""
+    source: str = ""
+    stage: CustomerStage = "initial_chat"
+    assigned_to: str = ""
+    notes: str = ""
+
+
+class Order(BaseModel):
+    """Created by manually matching a stage=deal_closed customer to a product."""
+
+    id: str
+    customer_id: str
+    product_id: str
+    amount: float = 0
+    signed_at: str
+    notes: str = ""
+    created_at: str
+
+
+class OrderInput(BaseModel):
+    customer_id: str
+    product_id: str
+    amount: float = 0
+    signed_at: str
+    notes: str = ""
+
+
+class AfterSalesRecord(BaseModel):
+    """Created by manually matching a stage=delivered customer to a product."""
+
+    id: str
+    customer_id: str
+    product_id: str
+    order_id: str | None = None
+    delivered_at: str
+    status: str = "质保中"
+    notes: str = ""
+    created_at: str
+    updated_at: str
+
+
+class AfterSalesInput(BaseModel):
+    customer_id: str
+    product_id: str
+    order_id: str | None = None
+    delivered_at: str
+    status: str = "质保中"
+    notes: str = ""

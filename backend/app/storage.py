@@ -3,7 +3,18 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .schemas import Account, Banner, Identity, Member, Settings, Tutorial
+from .schemas import (
+    Account,
+    AfterSalesRecord,
+    Banner,
+    Customer,
+    Identity,
+    Member,
+    Order,
+    Product,
+    Settings,
+    Tutorial,
+)
 
 DATA_DIR = Path(__file__).parent / "data"
 BANNERS_FILE = DATA_DIR / "banners.json"
@@ -16,6 +27,10 @@ MEMBERS_FILE = DATA_DIR / "members.json"
 IDENTITIES_FILE = DATA_DIR / "identities.json"
 ACCOUNTS_FILE = DATA_DIR / "accounts.json"
 TUTORIALS_FILE = DATA_DIR / "tutorials.json"
+PRODUCTS_FILE = DATA_DIR / "products.json"
+CUSTOMERS_FILE = DATA_DIR / "customers.json"
+ORDERS_FILE = DATA_DIR / "orders.json"
+AFTERSALES_FILE = DATA_DIR / "aftersales.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -350,6 +365,190 @@ def delete_tutorial(tutorial_id: str) -> bool:
     if len(remaining) == len(items):
         return False
     _write_json(TUTORIALS_FILE, remaining)
+    return True
+
+
+# ---- Order tracking (products / customers / orders / after-sales) ----
+
+def _ensure_products_file() -> None:
+    if not PRODUCTS_FILE.exists():
+        from .mock_data import PRODUCTS
+
+        _write_json(PRODUCTS_FILE, [p.model_dump() for p in PRODUCTS])
+
+
+def list_products() -> list[Product]:
+    _ensure_products_file()
+    return [Product(**p) for p in _read_json(PRODUCTS_FILE)]
+
+
+def get_product(product_id: str) -> Product | None:
+    return next((p for p in list_products() if p.id == product_id), None)
+
+
+def create_product(data: dict) -> Product:
+    _ensure_products_file()
+    items = _read_json(PRODUCTS_FILE)
+    product = {**data, "id": f"prod-{uuid.uuid4().hex[:8]}", "created_at": datetime.now(timezone.utc).isoformat()}
+    items.append(product)
+    _write_json(PRODUCTS_FILE, items)
+    return Product(**product)
+
+
+def update_product(product_id: str, data: dict) -> Product | None:
+    items = _read_json(PRODUCTS_FILE)
+    for i, p in enumerate(items):
+        if p["id"] == product_id:
+            items[i] = {**p, **data, "id": product_id}
+            _write_json(PRODUCTS_FILE, items)
+            return Product(**items[i])
+    return None
+
+
+def delete_product(product_id: str) -> bool:
+    items = _read_json(PRODUCTS_FILE)
+    remaining = [p for p in items if p["id"] != product_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(PRODUCTS_FILE, remaining)
+    return True
+
+
+def _ensure_customers_file() -> None:
+    if not CUSTOMERS_FILE.exists():
+        from .mock_data import CUSTOMERS
+
+        _write_json(CUSTOMERS_FILE, [c.model_dump() for c in CUSTOMERS])
+
+
+def list_customers() -> list[Customer]:
+    _ensure_customers_file()
+    return [Customer(**c) for c in _read_json(CUSTOMERS_FILE)]
+
+
+def get_customer(customer_id: str) -> Customer | None:
+    return next((c for c in list_customers() if c.id == customer_id), None)
+
+
+def create_customer(data: dict) -> Customer:
+    _ensure_customers_file()
+    items = _read_json(CUSTOMERS_FILE)
+    now = datetime.now(timezone.utc).isoformat()
+    customer = {**data, "id": f"cust-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
+    items.append(customer)
+    _write_json(CUSTOMERS_FILE, items)
+    return Customer(**customer)
+
+
+def update_customer(customer_id: str, data: dict) -> Customer | None:
+    items = _read_json(CUSTOMERS_FILE)
+    for i, c in enumerate(items):
+        if c["id"] == customer_id:
+            items[i] = {**c, **data, "id": customer_id, "updated_at": datetime.now(timezone.utc).isoformat()}
+            _write_json(CUSTOMERS_FILE, items)
+            return Customer(**items[i])
+    return None
+
+
+def delete_customer(customer_id: str) -> bool:
+    items = _read_json(CUSTOMERS_FILE)
+    remaining = [c for c in items if c["id"] != customer_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(CUSTOMERS_FILE, remaining)
+    return True
+
+
+def _ensure_orders_file() -> None:
+    if not ORDERS_FILE.exists():
+        from .mock_data import ORDERS
+
+        _write_json(ORDERS_FILE, [o.model_dump() for o in ORDERS])
+
+
+def list_orders() -> list[Order]:
+    _ensure_orders_file()
+    return [Order(**o) for o in _read_json(ORDERS_FILE)]
+
+
+def get_order(order_id: str) -> Order | None:
+    return next((o for o in list_orders() if o.id == order_id), None)
+
+
+def get_order_by_customer(customer_id: str) -> Order | None:
+    return next((o for o in list_orders() if o.customer_id == customer_id), None)
+
+
+def create_order(data: dict) -> Order:
+    _ensure_orders_file()
+    items = _read_json(ORDERS_FILE)
+    order = {**data, "id": f"order-{uuid.uuid4().hex[:8]}", "created_at": datetime.now(timezone.utc).isoformat()}
+    items.append(order)
+    _write_json(ORDERS_FILE, items)
+    return Order(**order)
+
+
+def update_order(order_id: str, data: dict) -> Order | None:
+    items = _read_json(ORDERS_FILE)
+    for i, o in enumerate(items):
+        if o["id"] == order_id:
+            items[i] = {**o, **data, "id": order_id}
+            _write_json(ORDERS_FILE, items)
+            return Order(**items[i])
+    return None
+
+
+def delete_order(order_id: str) -> bool:
+    items = _read_json(ORDERS_FILE)
+    remaining = [o for o in items if o["id"] != order_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(ORDERS_FILE, remaining)
+    return True
+
+
+def _ensure_aftersales_file() -> None:
+    if not AFTERSALES_FILE.exists():
+        from .mock_data import AFTERSALES
+
+        _write_json(AFTERSALES_FILE, [a.model_dump() for a in AFTERSALES])
+
+
+def list_aftersales() -> list[AfterSalesRecord]:
+    _ensure_aftersales_file()
+    return [AfterSalesRecord(**a) for a in _read_json(AFTERSALES_FILE)]
+
+
+def get_aftersales_by_customer(customer_id: str) -> AfterSalesRecord | None:
+    return next((a for a in list_aftersales() if a.customer_id == customer_id), None)
+
+
+def create_aftersales(data: dict) -> AfterSalesRecord:
+    _ensure_aftersales_file()
+    items = _read_json(AFTERSALES_FILE)
+    now = datetime.now(timezone.utc).isoformat()
+    record = {**data, "id": f"as-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
+    items.append(record)
+    _write_json(AFTERSALES_FILE, items)
+    return AfterSalesRecord(**record)
+
+
+def update_aftersales(aftersales_id: str, data: dict) -> AfterSalesRecord | None:
+    items = _read_json(AFTERSALES_FILE)
+    for i, a in enumerate(items):
+        if a["id"] == aftersales_id:
+            items[i] = {**a, **data, "id": aftersales_id, "updated_at": datetime.now(timezone.utc).isoformat()}
+            _write_json(AFTERSALES_FILE, items)
+            return AfterSalesRecord(**items[i])
+    return None
+
+
+def delete_aftersales(aftersales_id: str) -> bool:
+    items = _read_json(AFTERSALES_FILE)
+    remaining = [a for a in items if a["id"] != aftersales_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(AFTERSALES_FILE, remaining)
     return True
 
 

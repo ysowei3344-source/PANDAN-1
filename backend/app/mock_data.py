@@ -1,6 +1,17 @@
 from datetime import datetime, timedelta
 
-from .schemas import Account, Banner, Identity, Member, TodayStats, VideoStat
+from .schemas import (
+    Account,
+    AfterSalesRecord,
+    Banner,
+    Customer,
+    Identity,
+    Member,
+    Order,
+    Product,
+    TodayStats,
+    VideoStat,
+)
 
 # 矩阵号：一个手机号/一个人设，内容同源分发到它注册的各个平台。
 IDENTITIES: list[Identity] = [
@@ -155,5 +166,90 @@ MEMBERS: list[Member] = [
         id="mem-6", nickname="改装发烧友", phone_masked="150****6678", source="h5",
         registered_at=(_now - timedelta(days=60)).isoformat(), last_active_at=(_now - timedelta(days=45)).isoformat(),
         status="disabled",
+    ),
+]
+
+# 订单跟踪（M5）：产品 -> 客户（8 阶段，手动改）-> 订单（成交客户匹配产品）
+# -> 售后（交付客户匹配产品）。没有真实订单系统对接前全靠人工维护，这批是演示数据。
+PRODUCTS: list[Product] = [
+    Product(
+        id="prod-1", name="大通 V90 房车版", model="C型 6座", price=398000,
+        description="紧凑型 C 型房车，适合家庭自驾露营，带独立卫浴。",
+        created_at=(_now - timedelta(days=90)).isoformat(),
+    ),
+    Product(
+        id="prod-2", name="江铃途睿欧 C型", model="C型 4座", price=598000,
+        description="进口底盘，长途穿越首选，带太阳能板和大容量水箱。",
+        created_at=(_now - timedelta(days=90)).isoformat(),
+    ),
+    Product(
+        id="prod-3", name="上汽大通 RG10", model="B型 2座", price=328000,
+        description="B型房车，灵活好开，适合城市通勤+周末露营两用。",
+        created_at=(_now - timedelta(days=60)).isoformat(),
+    ),
+]
+
+CUSTOMERS: list[Customer] = [
+    Customer(
+        id="cust-1", name="张先生", phone="139****1101", source="抖音私信",
+        stage="initial_chat", assigned_to="牛牛", notes="问了下大通V90的价格，还在比较阶段",
+        created_at=(_now - timedelta(days=1)).isoformat(), updated_at=(_now - timedelta(days=1)).isoformat(),
+    ),
+    Customer(
+        id="cust-2", name="李女士", phone="138****2202", source="小红书私信",
+        stage="deep_chat", assigned_to="牛牛", notes="聊了预算和用车场景，倾向B型",
+        created_at=(_now - timedelta(days=3)).isoformat(), updated_at=(_now - timedelta(days=2)).isoformat(),
+    ),
+    Customer(
+        id="cust-3", name="王先生", phone="137****3303", source="视频号私信",
+        stage="phone_call", assigned_to="牛牛", notes="已电话沟通，约了本周视频看车",
+        created_at=(_now - timedelta(days=5)).isoformat(), updated_at=(_now - timedelta(days=1)).isoformat(),
+    ),
+    Customer(
+        id="cust-4", name="陈女士", phone="136****4404", source="抖音私信",
+        stage="video_call", assigned_to="牛牛", notes="视频看过内饰，约到店试车",
+        created_at=(_now - timedelta(days=7)).isoformat(), updated_at=(_now - timedelta(days=2)).isoformat(),
+    ),
+    Customer(
+        id="cust-5", name="刘先生", phone="135****5505", source="朋友介绍",
+        stage="car_viewing", assigned_to="牛牛", notes="到店试驾了大通V90，很满意，在考虑定金",
+        created_at=(_now - timedelta(days=10)).isoformat(), updated_at=(_now - timedelta(hours=20)).isoformat(),
+    ),
+    Customer(
+        id="cust-6", name="赵女士", phone="134****6606", source="小红书私信",
+        stage="deposit", assigned_to="牛牛", notes="已付定金5000元，等提车安排",
+        created_at=(_now - timedelta(days=14)).isoformat(), updated_at=(_now - timedelta(days=3)).isoformat(),
+    ),
+    Customer(
+        id="cust-7", name="孙先生", phone="133****7707", source="抖音私信",
+        stage="deal_closed", assigned_to="牛牛", notes="已签合同，等排产交车",
+        created_at=(_now - timedelta(days=20)).isoformat(), updated_at=(_now - timedelta(days=5)).isoformat(),
+    ),
+    Customer(
+        id="cust-8", name="周女士", phone="132****8808", source="视频号私信",
+        stage="delivered", assigned_to="牛牛", notes="已提车，首保待安排",
+        created_at=(_now - timedelta(days=45)).isoformat(), updated_at=(_now - timedelta(days=10)).isoformat(),
+    ),
+]
+
+ORDERS: list[Order] = [
+    Order(
+        id="order-1", customer_id="cust-7", product_id="prod-1", amount=395000,
+        signed_at=(_now - timedelta(days=5)).isoformat(), notes="谈价5000元优惠",
+        created_at=(_now - timedelta(days=5)).isoformat(),
+    ),
+    Order(
+        id="order-2", customer_id="cust-8", product_id="prod-2", amount=598000,
+        signed_at=(_now - timedelta(days=30)).isoformat(), notes="",
+        created_at=(_now - timedelta(days=30)).isoformat(),
+    ),
+]
+
+AFTERSALES: list[AfterSalesRecord] = [
+    AfterSalesRecord(
+        id="as-1", customer_id="cust-8", product_id="prod-2", order_id="order-2",
+        delivered_at=(_now - timedelta(days=10)).isoformat(), status="质保中",
+        notes="交付时说明了保养周期，等首保预约",
+        created_at=(_now - timedelta(days=10)).isoformat(), updated_at=(_now - timedelta(days=10)).isoformat(),
     ),
 ]
