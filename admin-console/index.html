@@ -433,6 +433,22 @@
   .crop-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .crop-controls input[type="range"] { flex: 1; }
 
+  .img-preview-wrap { position: relative; display: inline-block; margin-top: 10px; }
+  .img-preview-wrap .field-preview-img { margin-top: 0; }
+  .img-edit-btn {
+    position: absolute; right: 6px; bottom: 6px; z-index: 2;
+    background: rgba(6, 8, 12, 0.6); color: #fff; border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px; font-size: 12px; padding: 4px 10px; cursor: pointer; line-height: 1.4;
+  }
+  .img-edit-btn:hover { background: rgba(6, 8, 12, 0.85); }
+  .img-progress {
+    position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 6px; background: rgba(6, 8, 12, 0.7); border-radius: 8px;
+  }
+  .img-progress-track { width: 80%; height: 6px; background: rgba(255, 255, 255, 0.25); border-radius: 4px; overflow: hidden; }
+  .img-progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
+  .img-progress-text { color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+
   .identity-kpi-grid { grid-template-columns: repeat(5, 1fr); }
   @media (max-width: 900px) {
     .identity-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
@@ -523,6 +539,7 @@
 </div>
 
 <div class="modal-overlay" id="passcodeModal" hidden onclick="closePasscodeModal()"></div>
+<div class="modal-overlay" id="tutorialModal" hidden onclick="closeTutorialModal()"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script>
@@ -1184,8 +1201,12 @@ function toggleLinkLock(inputId, btnId) {
   }
 }
 
+function closeTutorialModal() {
+  document.getElementById('tutorialModal').hidden = true;
+}
+
 async function showTutorialModal(platformKey) {
-  const modal = document.getElementById('passcodeModal');
+  const modal = document.getElementById('tutorialModal');
   const label = (PLATFORM_DEFS.find((p) => p.key === platformKey) || {}).label || platformKey;
   modal.innerHTML = `<div class="modal-card wide" onclick="event.stopPropagation()"><div class="empty-hint">加载中...</div></div>`;
   modal.hidden = false;
@@ -1204,7 +1225,7 @@ async function showTutorialModal(platformKey) {
         <div class="tutorial-title">${escapeHtml(t.title)}</div>
         <div class="tutorial-content">${t.content}</div>
       ` : `<div class="empty-hint">还没有${label}的绑定教程，去「系统管理 → 使用教程管理」添加一篇</div>`}
-      <div class="actions" style="margin-top:16px;"><button class="ghost" onclick="closePasscodeModal()">关闭</button></div>
+      <div class="actions" style="margin-top:16px;"><button class="ghost" onclick="closeTutorialModal()">关闭</button></div>
     </div>
   `;
 }
@@ -2313,6 +2334,7 @@ let aftersalesList = [];
 
 let editingProductId = null;
 let pendingProductFiles = {}; // inputId -> cropped/compressed File, takes priority over the raw <input type=file>
+let pendingProductOriginals = {}; // inputId -> uncropped source File, kept so 编辑 can re-crop at full quality
 let cropState = null;
 const CROP_VW = 270;
 const CROP_VH = 480;
@@ -2339,16 +2361,29 @@ async function renderProductsPage() {
           <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
           <div>
             <label>商品主图</label>
-            <input type="file" id="pMainImage" accept="image/*" onchange="handleProductImageSelect('pMainImage','pMainImagePreview','pMainImageName')">
+            <input type="file" id="pMainImage" accept="image/*" onchange="handleProductImageSelect('pMainImage','pMainImagePreview','pMainImageName',true)">
             <input type="hidden" id="pMainImageUrl">
-            <img id="pMainImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+            <div class="img-preview-wrap">
+              <img id="pMainImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+              <button type="button" class="img-edit-btn" id="pMainImageEditBtn" onclick="editProductImage('pMainImage','pMainImagePreview','pMainImageName')" hidden>编辑</button>
+              <div class="img-progress" id="pMainImageProgress" hidden>
+                <div class="img-progress-track"><div class="img-progress-bar" id="pMainImageProgressBar"></div></div>
+                <span class="img-progress-text" id="pMainImageProgressText">0%</span>
+              </div>
+            </div>
             <div id="pMainImageName" class="row-sub" hidden></div>
           </div>
           <div>
             <label>配置布局</label>
-            <input type="file" id="pLayoutImage" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="previewProductFile('pLayoutImage','pLayoutImagePreview','pLayoutImageName')">
+            <input type="file" id="pLayoutImage" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="handleProductImageSelect('pLayoutImage','pLayoutImagePreview','pLayoutImageName',false)">
             <input type="hidden" id="pLayoutImageUrl">
-            <img id="pLayoutImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+            <div class="img-preview-wrap">
+              <img id="pLayoutImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+              <div class="img-progress" id="pLayoutImageProgress" hidden>
+                <div class="img-progress-track"><div class="img-progress-bar" id="pLayoutImageProgressBar"></div></div>
+                <span class="img-progress-text" id="pLayoutImageProgressText">0%</span>
+              </div>
+            </div>
             <div id="pLayoutImageName" class="row-sub" hidden></div>
           </div>
           <div class="full"><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
@@ -2387,15 +2422,100 @@ function previewProductFile(inputId, previewImgId, nameElId) {
   }
 }
 
-function handleProductImageSelect(inputId, previewImgId, nameElId) {
+function setImageEditButtonVisible(inputId, visible) {
+  const btn = document.getElementById(inputId + 'EditBtn');
+  if (btn) btn.hidden = !visible;
+}
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function computeCoverCrop(nw, nh) {
+  const minScale = Math.max(CROP_VW / nw, CROP_VH / nh);
+  return {
+    naturalW: nw, naturalH: nh, scale: minScale, minScale, maxScale: minScale * 3,
+    left: (CROP_VW - nw * minScale) / 2,
+    top: (CROP_VH - nh * minScale) / 2,
+  };
+}
+
+async function cropImageElementToBlob(imgEl, state) {
+  const OUT_W = 720, OUT_H = 1280;
+  const canvas = document.createElement('canvas');
+  canvas.width = OUT_W;
+  canvas.height = OUT_H;
+  const ctx = canvas.getContext('2d');
+  const sx = -state.left / state.scale;
+  const sy = -state.top / state.scale;
+  const sw = CROP_VW / state.scale;
+  const sh = CROP_VH / state.scale;
+  ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H);
+
+  const maxBytes = 200 * 1024;
+  let quality = 0.9;
+  let blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
+  while (blob && blob.size > maxBytes && quality > 0.3) {
+    quality -= 0.1;
+    blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
+  }
+  return blob;
+}
+
+function setCroppedResult(inputId, previewImgId, nameElId, blob) {
+  pendingProductFiles[inputId] = new File([blob], 'crop-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+  const previewImg = document.getElementById(previewImgId);
+  const nameEl = document.getElementById(nameElId);
+  previewImg.src = URL.createObjectURL(blob);
+  previewImg.hidden = false;
+  nameEl.hidden = true;
+  nameEl.innerHTML = '';
+  setImageEditButtonVisible(inputId, true);
+}
+
+async function autoCropAndSet(file, inputId, previewImgId, nameElId) {
+  const img = await loadImageFromFile(file);
+  const state = computeCoverCrop(img.naturalWidth, img.naturalHeight);
+  const blob = await cropImageElementToBlob(img, state);
+  URL.revokeObjectURL(img.src);
+  if (!blob) return;
+  setCroppedResult(inputId, previewImgId, nameElId, blob);
+}
+
+function handleProductImageSelect(inputId, previewImgId, nameElId, allowCrop) {
   const file = document.getElementById(inputId).files[0];
   if (!file) return;
-  if (file.type.startsWith('image/')) {
-    openImageCropper(file, inputId, previewImgId, nameElId);
+  if (file.type.startsWith('image/') && allowCrop) {
+    pendingProductOriginals[inputId] = file;
+    autoCropAndSet(file, inputId, previewImgId, nameElId);
   } else {
     delete pendingProductFiles[inputId];
+    delete pendingProductOriginals[inputId];
     previewProductFile(inputId, previewImgId, nameElId);
   }
+}
+
+async function editProductImage(inputId, previewImgId, nameElId) {
+  let file = pendingProductOriginals[inputId];
+  if (!file) {
+    const urlField = document.getElementById(inputId + 'Url');
+    const url = urlField ? urlField.value : '';
+    if (!url) return;
+    try {
+      const resp = await fetch(staticUrl(url));
+      const blob = await resp.blob();
+      file = new File([blob], 'original.jpg', { type: blob.type || 'image/jpeg' });
+    } catch (e) {
+      alert('无法加载原图，请重新上传');
+      return;
+    }
+  }
+  openImageCropper(file, inputId, previewImgId, nameElId);
 }
 
 function openImageCropper(file, inputId, previewImgId, nameElId) {
@@ -2497,33 +2617,9 @@ async function confirmCrop(inputId, previewImgId, nameElId) {
   msg.textContent = '处理中...';
   msg.className = 'msg';
   const img = document.getElementById('cropImg');
-  const OUT_W = 720, OUT_H = 1280;
-  const canvas = document.createElement('canvas');
-  canvas.width = OUT_W;
-  canvas.height = OUT_H;
-  const ctx = canvas.getContext('2d');
-  const sx = -cropState.left / cropState.scale;
-  const sy = -cropState.top / cropState.scale;
-  const sw = CROP_VW / cropState.scale;
-  const sh = CROP_VH / cropState.scale;
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H);
-
-  const maxBytes = 200 * 1024;
-  let quality = 0.9;
-  let blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
-  while (blob && blob.size > maxBytes && quality > 0.3) {
-    quality -= 0.1;
-    blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
-  }
+  const blob = await cropImageElementToBlob(img, cropState);
   if (!blob) { msg.textContent = '裁剪失败，请重试'; msg.className = 'msg error'; return; }
-
-  pendingProductFiles[inputId] = new File([blob], 'crop-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-  const previewImg = document.getElementById(previewImgId);
-  const nameEl = document.getElementById(nameElId);
-  previewImg.src = URL.createObjectURL(blob);
-  previewImg.hidden = false;
-  nameEl.hidden = true;
-  nameEl.innerHTML = '';
+  setCroppedResult(inputId, previewImgId, nameElId, blob);
   cropState = null;
   closePasscodeModal();
 }
@@ -2534,7 +2630,7 @@ function cancelCrop(inputId) {
   closePasscodeModal();
 }
 
-function setFilePreview(url, previewImgId, nameElId) {
+function setFilePreview(url, previewImgId, nameElId, inputId) {
   const img = document.getElementById(previewImgId);
   const nameEl = document.getElementById(nameElId);
   if (url && isImageUrl(url)) {
@@ -2542,16 +2638,19 @@ function setFilePreview(url, previewImgId, nameElId) {
     img.hidden = false;
     nameEl.hidden = true;
     nameEl.innerHTML = '';
+    if (inputId) setImageEditButtonVisible(inputId, true);
   } else if (url) {
     img.hidden = true;
     img.src = '';
     nameEl.hidden = false;
     nameEl.innerHTML = `已上传文件：<a href="${staticUrl(url)}" target="_blank" rel="noopener">查看</a>`;
+    if (inputId) setImageEditButtonVisible(inputId, false);
   } else {
     img.hidden = true;
     img.src = '';
     nameEl.hidden = true;
     nameEl.innerHTML = '';
+    if (inputId) setImageEditButtonVisible(inputId, false);
   }
 }
 
@@ -2581,6 +2680,7 @@ function editProduct(id) {
   if (!p) return;
   editingProductId = id;
   pendingProductFiles = {};
+  pendingProductOriginals = {};
   document.getElementById('productFormTitle').textContent = '编辑商品';
   document.getElementById('pName').value = p.name;
   document.getElementById('pCode').value = p.internal_code || '';
@@ -2592,30 +2692,68 @@ function editProduct(id) {
   document.getElementById('pLayoutImage').value = '';
   document.getElementById('pMainImageUrl').value = p.main_image_url || '';
   document.getElementById('pLayoutImageUrl').value = p.layout_image_url || '';
-  setFilePreview(p.main_image_url, 'pMainImagePreview', 'pMainImageName');
-  setFilePreview(p.layout_image_url, 'pLayoutImagePreview', 'pLayoutImageName');
+  setFilePreview(p.main_image_url, 'pMainImagePreview', 'pMainImageName', 'pMainImage');
+  setFilePreview(p.layout_image_url, 'pLayoutImagePreview', 'pLayoutImageName', 'pLayoutImage');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function resetProductForm() {
   editingProductId = null;
   pendingProductFiles = {};
+  pendingProductOriginals = {};
   document.getElementById('productFormTitle').textContent = '新增商品';
   ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pMainImageUrl', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('pMainImage').value = '';
   document.getElementById('pLayoutImage').value = '';
-  setFilePreview(null, 'pMainImagePreview', 'pMainImageName');
-  setFilePreview(null, 'pLayoutImagePreview', 'pLayoutImageName');
+  setFilePreview(null, 'pMainImagePreview', 'pMainImageName', 'pMainImage');
+  setFilePreview(null, 'pLayoutImagePreview', 'pLayoutImageName', 'pLayoutImage');
   document.getElementById('productFormMsg').textContent = '';
+}
+
+function uploadFileWithProgress(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE}/upload`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token()}`);
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) onProgress(Math.round((ev.loaded / ev.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText)); } catch (e) { reject(new Error('解析响应失败')); }
+      } else if (xhr.status === 401) {
+        setToken(null);
+        showLogin('登录已过期，请重新登录');
+        reject(new Error('unauthorized'));
+      } else {
+        let detail = xhr.statusText || ('HTTP ' + xhr.status);
+        try { detail = JSON.parse(xhr.responseText).detail || detail; } catch (e) {}
+        reject(new Error(detail));
+      }
+    };
+    xhr.onerror = () => reject(new Error('网络错误'));
+    const fd = new FormData();
+    fd.append('file', file);
+    xhr.send(fd);
+  });
 }
 
 async function uploadProductImage(inputId) {
   const file = pendingProductFiles[inputId] || document.getElementById(inputId).files[0];
   if (!file) return null;
-  const fd = new FormData();
-  fd.append('file', file);
-  const res = await api('/upload', { method: 'POST', body: fd });
-  return res.url;
+  const progressWrap = document.getElementById(inputId + 'Progress');
+  const progressBar = document.getElementById(inputId + 'ProgressBar');
+  const progressText = document.getElementById(inputId + 'ProgressText');
+  if (progressWrap) { progressWrap.hidden = false; progressBar.style.width = '0%'; progressText.textContent = '0%'; }
+  try {
+    const res = await uploadFileWithProgress(file, (pct) => {
+      if (progressBar) progressBar.style.width = pct + '%';
+      if (progressText) progressText.textContent = pct + '%';
+    });
+    return res.url;
+  } finally {
+    if (progressWrap) progressWrap.hidden = true;
+  }
 }
 
 async function submitProduct() {
