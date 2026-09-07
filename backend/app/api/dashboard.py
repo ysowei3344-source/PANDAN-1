@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from .. import timeseries
+from .. import storage, timeseries
 from ..auth import get_current_user
-from ..mock_data import ACCOUNTS, TODAY_STATS, VIDEOS
+from ..mock_data import TODAY_STATS, VIDEOS
 from ..schemas import AccountOverview, DashboardSummary, Platform, PlatformBreakdown, TodayStats
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -25,11 +25,12 @@ def get_overview(account_id: str = "all", period: int = 7) -> dict:
 
 @router.get("/summary", response_model=DashboardSummary)
 def get_summary() -> DashboardSummary:
+    accounts = storage.list_accounts()
     platforms: list[Platform] = ["douyin", "video_channel", "xiaohongshu"]
 
     by_platform = []
     for platform in platforms:
-        platform_accounts = [a for a in ACCOUNTS if a.platform == platform]
+        platform_accounts = [a for a in accounts if a.platform == platform]
         platform_videos = [v for v in VIDEOS if v.platform == platform]
         by_platform.append(
             PlatformBreakdown(
@@ -43,10 +44,10 @@ def get_summary() -> DashboardSummary:
     top_videos = sorted(VIDEOS, key=lambda v: v.plays, reverse=True)[:5]
 
     return DashboardSummary(
-        total_accounts=len(ACCOUNTS),
+        total_accounts=len(accounts),
         total_videos=len(VIDEOS),
         total_plays=sum(v.plays for v in VIDEOS),
-        total_followers=sum(a.follower_count for a in ACCOUNTS),
+        total_followers=sum(a.follower_count for a in accounts),
         by_platform=by_platform,
         top_videos=top_videos,
     )

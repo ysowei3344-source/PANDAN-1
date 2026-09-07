@@ -10,7 +10,7 @@ import math
 import random
 from datetime import datetime, timedelta, timezone
 
-from .mock_data import ACCOUNTS, IDENTITIES
+from . import storage
 
 DAYS = 30
 TREND_KEYS = ["plays", "new_followers"]
@@ -83,14 +83,16 @@ def _combine(accounts: list) -> list[dict]:
 def get_daily_series(scope_id: str) -> list[dict]:
     """scope_id is "all", a matrix identity id (aggregates its platform
     accounts), or a single raw account id (kept for platform-level drill-down)."""
-    if scope_id == "all":
-        return _combine(ACCOUNTS)
+    all_accounts = storage.list_accounts()
 
-    if any(i.id == scope_id for i in IDENTITIES):
-        accounts = [a for a in ACCOUNTS if a.identity_id == scope_id]
+    if scope_id == "all":
+        return _combine(all_accounts)
+
+    if storage.get_identity(scope_id) is not None:
+        accounts = [a for a in all_accounts if a.identity_id == scope_id]
         return _combine(accounts)
 
-    account = next((a for a in ACCOUNTS if a.id == scope_id), None)
+    account = next((a for a in all_accounts if a.id == scope_id), None)
     if account is None:
         return []
     return _daily_series(account.id, account.follower_count)
@@ -171,11 +173,11 @@ def get_overview(account_id: str, period: int) -> dict | None:
     if account_id == "all":
         account_label = "全部账号"
     else:
-        identity = next((i for i in IDENTITIES if i.id == account_id), None)
+        identity = storage.get_identity(account_id)
         if identity is not None:
             account_label = identity.name
         else:
-            account = next((a for a in ACCOUNTS if a.id == account_id), None)
+            account = storage.get_account(account_id)
             account_label = account.nickname if account else account_id
 
     today_metrics = {key: _today_summary(days, key) for key in TODAY_METRIC_KEYS}

@@ -428,7 +428,13 @@ const NAV_ANALYTICS = [
   { key: 'overview', label: '经营分析总览' },
 ];
 const NAV_WORK = [
-  { key: 'accounts', label: '矩阵账号' },
+  {
+    key: 'accounts', label: '矩阵账号管理',
+    children: [
+      { key: 'accounts-list', label: '矩阵账号' },
+      { key: 'accounts-add', label: '添加账号', roles: ['super_admin'] },
+    ],
+  },
   { key: 'create', label: '内容创作台', stub: true },
   { key: 'benchmark', label: '爆款视频库', stub: true },
   { key: 'service', label: 'AI 客服', stub: true },
@@ -449,8 +455,8 @@ let expandedNavGroups = new Set();
 function token() { return localStorage.getItem('rv_admin_token') || ''; }
 function setToken(t) { t ? localStorage.setItem('rv_admin_token', t) : localStorage.removeItem('rv_admin_token'); }
 
-async function api(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+async function api(path, options = {}, base = API_BASE) {
+  const res = await fetch(`${base}${path}`, {
     ...options,
     headers: { ...(options.headers || {}), Authorization: `Bearer ${token()}` },
   });
@@ -466,6 +472,10 @@ async function api(path, options = {}) {
   }
   const ct = res.headers.get('content-type') || '';
   return ct.includes('application/json') ? res.json() : null;
+}
+
+function publicApi(path, options = {}) {
+  return api(path, options, PUBLIC_API_BASE);
 }
 
 function escapeHtml(s) {
@@ -551,9 +561,11 @@ function renderNav() {
             ${item.label}
             <span class="nav-caret">${expanded ? '▾' : '▸'}</span>
           </div>
-          ${expanded ? item.children.map((c) => `
-            <div class="nav-item nav-child ${c.key === activeSection ? 'active' : ''}" onclick="showSection('${c.key}')">${c.label}</div>
-          `).join('') : ''}
+          ${expanded ? item.children
+            .filter((c) => !c.roles || c.roles.includes(currentUser.role))
+            .map((c) => `
+              <div class="nav-item nav-child ${c.key === activeSection ? 'active' : ''}" onclick="showSection('${c.key}')">${c.label}</div>
+            `).join('') : ''}
         `;
       }
       return `
@@ -581,7 +593,7 @@ function findNavItem(key) {
 
 async function showSection(key) {
   activeSection = key;
-  const parentGroup = NAV_SYSTEM.find((i) => i.children && i.children.some((c) => c.key === key));
+  const parentGroup = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.children && i.children.some((c) => c.key === key));
   if (parentGroup) expandedNavGroups.add(parentGroup.key);
   renderNav();
   document.getElementById('headerLeft').innerHTML = '';
@@ -594,9 +606,12 @@ async function showSection(key) {
     document.getElementById('section-overview').hidden = false;
     renderAccountSwitcher();
     await renderOverview();
-  } else if (key === 'accounts') {
+  } else if (key === 'accounts-list') {
     document.getElementById('section-accounts').hidden = false;
     renderAccountsPage();
+  } else if (key === 'accounts-add') {
+    document.getElementById('section-accounts').hidden = false;
+    renderAddAccountForm();
   } else if (key === 'banners') {
     document.getElementById('section-banners').hidden = false;
     await loadBanners();
@@ -977,6 +992,87 @@ function renderIdentityList() {
       `).join('')}
     </div>
   `;
+}
+
+const PLATFORM_DEFS = [
+  { key: 'douyin', label: '抖音' },
+  { key: 'video_channel', label: '视频号' },
+  { key: 'xiaohongshu', label: '小红书' },
+];
+
+function renderAddAccountForm() {
+  const el = document.getElementById('section-accounts');
+  el.innerHTML = `
+    <div class="page-title">添加账号</div>
+    <div class="page-sub">新增一个矩阵号（一个手机号/人设），并登记它在三个平台上的账号数据</div>
+    <div class="panel">
+      <h2>矩阵号信息</h2>
+      <div class="form-grid">
+        <div><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张"></div>
+        <div><label>手机号</label><input type="text" id="newIdentityPhone" placeholder="登录/身份用手机号"></div>
+      </div>
+    </div>
+    ${PLATFORM_DEFS.map((p) => `
+      <div class="panel" style="margin-top:16px;">
+        <h2>${p.label}账号 <span style="font-weight:400;color:var(--ink-faint);font-size:12px;">还没有就留空</span></h2>
+        <div class="form-grid">
+          <div class="full"><label>昵称</label><input type="text" id="newAcc_${p.key}_nickname"></div>
+          <div><label>粉丝数</label><input type="number" id="newAcc_${p.key}_followers" value="0"></div>
+          <div><label>视频数</label><input type="number" id="newAcc_${p.key}_videos" value="0"></div>
+        </div>
+      </div>
+    `).join('')}
+    <div class="panel" style="margin-top:16px;">
+      <div class="actions">
+        <button onclick="submitNewIdentity()">保存</button>
+        <button class="ghost" onclick="renderAddAccountForm()">清空</button>
+      </div>
+      <p class="msg" id="newIdentityMsg"></p>
+    </div>
+  `;
+}
+
+async function submitNewIdentity() {
+  const msg = document.getElementById('newIdentityMsg');
+  msg.className = 'msg';
+  msg.textContent = '保存中...';
+
+  const name = document.getElementById('newIdentityName').value.trim();
+  const phone = document.getElementById('newIdentityPhone').value.trim();
+  if (!name || !phone) {
+    msg.textContent = '请填写矩阵号名称和手机号';
+    msg.className = 'msg error';
+    return;
+  }
+
+  const platformAccounts = PLATFORM_DEFS.map((p) => ({
+    platform: p.key,
+    nickname: document.getElementById(`newAcc_${p.key}_nickname`).value.trim(),
+    follower_count: Number(document.getElementById(`newAcc_${p.key}_followers`).value) || 0,
+    video_count: Number(document.getElementById(`newAcc_${p.key}_videos`).value) || 0,
+  })).filter((a) => a.nickname);
+
+  try {
+    const identity = await publicApi('/identities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone_number: phone }),
+    });
+    for (const a of platformAccounts) {
+      await publicApi('/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity_id: identity.id, ...a }),
+      });
+    }
+    allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json());
+    msg.textContent = '添加成功';
+    msg.className = 'msg ok';
+    setTimeout(() => showSection('accounts-list'), 600);
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
 }
 
 function openIdentityDetail(id) {

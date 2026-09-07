@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from .. import storage, timeseries
-from ..auth import MASTER_PASSCODE, get_current_user, verify_password
-from ..mock_data import ACCOUNTS, IDENTITIES, VIDEOS
-from ..schemas import IdentitySummary, VerifyPasscodeInput, VideoStat
+from ..auth import MASTER_PASSCODE, get_current_user, require_role, verify_password
+from ..mock_data import VIDEOS
+from ..schemas import IdentityInput, IdentitySummary, VerifyPasscodeInput, VideoStat
 
 router = APIRouter(prefix="/api/identities", tags=["identities"])
 
@@ -14,7 +14,7 @@ _MOCK_DEAL_CONVERSION_RATE = 0.15
 
 
 def _summary(identity) -> IdentitySummary:
-    accounts = [a for a in ACCOUNTS if a.identity_id == identity.id]
+    accounts = [a for a in storage.list_accounts() if a.identity_id == identity.id]
 
     days = timeseries.get_daily_series(identity.id)
     total_ad_spend = round(sum(d["ad_spend"] for d in days), 2)
@@ -36,12 +36,12 @@ def _summary(identity) -> IdentitySummary:
 
 @router.get("", response_model=list[IdentitySummary])
 def list_identities() -> list[IdentitySummary]:
-    return [_summary(i) for i in IDENTITIES]
+    return [_summary(i) for i in storage.list_identities()]
 
 
 @router.get("/{identity_id}", response_model=IdentitySummary)
 def get_identity(identity_id: str) -> IdentitySummary:
-    identity = next((i for i in IDENTITIES if i.id == identity_id), None)
+    identity = storage.get_identity(identity_id)
     if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
     return _summary(identity)
@@ -49,15 +49,15 @@ def get_identity(identity_id: str) -> IdentitySummary:
 
 @router.get("/{identity_id}/videos", response_model=list[VideoStat])
 def list_identity_videos(identity_id: str) -> list[VideoStat]:
-    if not any(i.id == identity_id for i in IDENTITIES):
+    if storage.get_identity(identity_id) is None:
         raise HTTPException(status_code=404, detail="identity not found")
-    account_ids = {a.id for a in ACCOUNTS if a.identity_id == identity_id}
+    account_ids = {a.id for a in storage.list_accounts() if a.identity_id == identity_id}
     return [v for v in VIDEOS if v.account_id in account_ids]
 
 
 @router.post("/{identity_id}/verify-passcode")
 def verify_identity_passcode(identity_id: str, payload: VerifyPasscodeInput, current: dict = Depends(get_current_user)) -> dict:
-    identity = next((i for i in IDENTITIES if i.id == identity_id), None)
+    identity = storage.get_identity(identity_id)
     if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
 
@@ -73,3 +73,29 @@ def verify_identity_passcode(identity_id: str, payload: VerifyPasscodeInput, cur
 
     storage.log_activity(current["id"], current["username"], "口令验证失败", identity.name)
     raise HTTPException(status_code=403, detail="管理口令不正确")
+
+
+@router.post("", response_model=IdentitySummary)
+def create_identity(payload: IdentityInput, current: dict = Depends(require_role("super_admin"))) -> IdentitySummary:
+    identity = storage.create_identity(payload.model_dump())
+    storage.log_activity(current["id"], current["username"], "新增矩阵号", identity.name)
+    return _summary(identity)
+
+
+@router.put("/{identity_id}", response_model=IdentitySummary)
+def update_identity(identity_id: str, payload: IdentityInput, current: dict = Depends(require_role("super_admin"))) -> IdentitySummary:
+    identity = storage.update_identity(identity_id, payload.model_dump())
+    if identity is None:
+        raise HTTPException(status_code=404, detail="identity not found")
+    storage.log_activity(current["id"], current["username"], "编辑矩阵号", identity.name)
+    return _summary(identity)
+
+
+@router.delete("/{identity_id}")
+def delete_identity(identity_id: str, current: dict = Depends(require_role("super_admin"))) -> dict:
+    identity = storage.get_identity(identity_id)
+    if identity is None or not storage.delete_identity(identity_id):
+        raise HTTPException(status_code=404, detail="identity not found")
+    storage.delete_accounts_by_identity(identity_id)
+    storage.log_activity(current["id"], current["username"], "删除矩阵号", identity.name)
+    return {"ok": True}

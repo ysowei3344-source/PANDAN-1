@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .schemas import Banner, Member, Settings
+from .schemas import Account, Banner, Identity, Member, Settings
 
 DATA_DIR = Path(__file__).parent / "data"
 BANNERS_FILE = DATA_DIR / "banners.json"
@@ -13,6 +13,8 @@ SETTINGS_FILE = DATA_DIR / "settings.json"
 ACTIVITY_FILE = DATA_DIR / "activity_log.json"
 ACTIVITY_MAX_ENTRIES = 2000
 MEMBERS_FILE = DATA_DIR / "members.json"
+IDENTITIES_FILE = DATA_DIR / "identities.json"
+ACCOUNTS_FILE = DATA_DIR / "accounts.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -162,6 +164,105 @@ def update_member_status(member_id: str, status: str) -> Member | None:
             _write_json(MEMBERS_FILE, items)
             return Member(**items[i])
     return None
+
+
+# ---- Matrix identities + platform accounts ----
+# Seeded once from mock_data on first read, then this file is the source of
+# truth — editing/adding/deleting here is how real accounts replace the demo
+# data, no code change needed.
+
+def _ensure_identities_file() -> None:
+    if not IDENTITIES_FILE.exists():
+        from .mock_data import IDENTITIES
+
+        _write_json(IDENTITIES_FILE, [i.model_dump() for i in IDENTITIES])
+
+
+def _ensure_accounts_file() -> None:
+    if not ACCOUNTS_FILE.exists():
+        from .mock_data import ACCOUNTS
+
+        _write_json(ACCOUNTS_FILE, [a.model_dump() for a in ACCOUNTS])
+
+
+def list_identities() -> list[Identity]:
+    _ensure_identities_file()
+    return [Identity(**i) for i in _read_json(IDENTITIES_FILE)]
+
+
+def get_identity(identity_id: str) -> Identity | None:
+    return next((i for i in list_identities() if i.id == identity_id), None)
+
+
+def create_identity(data: dict) -> Identity:
+    _ensure_identities_file()
+    items = _read_json(IDENTITIES_FILE)
+    identity = {**data, "id": f"iden-{uuid.uuid4().hex[:8]}"}
+    items.append(identity)
+    _write_json(IDENTITIES_FILE, items)
+    return Identity(**identity)
+
+
+def update_identity(identity_id: str, data: dict) -> Identity | None:
+    items = _read_json(IDENTITIES_FILE)
+    for i, item in enumerate(items):
+        if item["id"] == identity_id:
+            items[i] = {**data, "id": identity_id}
+            _write_json(IDENTITIES_FILE, items)
+            return Identity(**items[i])
+    return None
+
+
+def delete_identity(identity_id: str) -> bool:
+    items = _read_json(IDENTITIES_FILE)
+    remaining = [i for i in items if i["id"] != identity_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(IDENTITIES_FILE, remaining)
+    return True
+
+
+def list_accounts() -> list[Account]:
+    _ensure_accounts_file()
+    return [Account(**a) for a in _read_json(ACCOUNTS_FILE)]
+
+
+def get_account(account_id: str) -> Account | None:
+    return next((a for a in list_accounts() if a.id == account_id), None)
+
+
+def create_account(data: dict) -> Account:
+    _ensure_accounts_file()
+    items = _read_json(ACCOUNTS_FILE)
+    account = {**data, "id": f"acc-{uuid.uuid4().hex[:8]}"}
+    items.append(account)
+    _write_json(ACCOUNTS_FILE, items)
+    return Account(**account)
+
+
+def update_account(account_id: str, data: dict) -> Account | None:
+    items = _read_json(ACCOUNTS_FILE)
+    for i, item in enumerate(items):
+        if item["id"] == account_id:
+            items[i] = {**item, **data, "id": account_id}
+            _write_json(ACCOUNTS_FILE, items)
+            return Account(**items[i])
+    return None
+
+
+def delete_account(account_id: str) -> bool:
+    items = _read_json(ACCOUNTS_FILE)
+    remaining = [a for a in items if a["id"] != account_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(ACCOUNTS_FILE, remaining)
+    return True
+
+
+def delete_accounts_by_identity(identity_id: str) -> None:
+    items = _read_json(ACCOUNTS_FILE)
+    remaining = [a for a in items if a["identity_id"] != identity_id]
+    _write_json(ACCOUNTS_FILE, remaining)
 
 
 # ---- Activity log ----

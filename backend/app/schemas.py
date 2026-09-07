@@ -39,6 +39,27 @@ class IdentitySummary(BaseModel):
     total_deals_closed: int
 
 
+class IdentityInput(BaseModel):
+    name: str
+    phone_number: str
+
+
+class AccountCreateInput(BaseModel):
+    identity_id: str
+    platform: Platform
+    nickname: str
+    avatar_url: str | None = None
+    follower_count: int = 0
+    video_count: int = 0
+
+
+class AccountUpdateInput(BaseModel):
+    nickname: str
+    avatar_url: str | None = None
+    follower_count: int = 0
+    video_count: int = 0
+
+
 class VideoStat(BaseModel):
     id: str
     account_id: str
