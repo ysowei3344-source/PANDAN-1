@@ -173,18 +173,27 @@ MEMBERS: list[Member] = [
 # -> 售后（交付客户匹配产品）。没有真实订单系统对接前全靠人工维护，这批是演示数据。
 PRODUCTS: list[Product] = [
     Product(
-        id="prod-1", name="大通 V90 房车版", model="C型 6座", price=398000,
-        description="紧凑型 C 型房车，适合家庭自驾露营，带独立卫浴。",
+        id="prod-1", name="大通 V90 房车版",
+        internal_code="DT-V90-C6", chassis_info="大通 V90 2.0T 自动挡 C型底盘",
+        chassis_number="LSJA00000A000001",
+        standard_config="独立卫浴、6座、太阳能板200W、二类底盘、行车/驻车空调",
+        customer_notes="紧凑型 C 型房车，适合家庭自驾露营。",
         created_at=(_now - timedelta(days=90)).isoformat(),
     ),
     Product(
-        id="prod-2", name="江铃途睿欧 C型", model="C型 4座", price=598000,
-        description="进口底盘，长途穿越首选，带太阳能板和大容量水箱。",
+        id="prod-2", name="江铃途睿欧 C型",
+        internal_code="JL-TRO-C4", chassis_info="江铃途睿欧 2.0T 进口底盘",
+        chassis_number="LJXA00000B000002",
+        standard_config="4座、大容量水箱、太阳能板300W、越野胎",
+        customer_notes="进口底盘，长途穿越首选。",
         created_at=(_now - timedelta(days=90)).isoformat(),
     ),
     Product(
-        id="prod-3", name="上汽大通 RG10", model="B型 2座", price=328000,
-        description="B型房车，灵活好开，适合城市通勤+周末露营两用。",
+        id="prod-3", name="上汽大通 RG10",
+        internal_code="SAIC-RG10-B2", chassis_info="上汽大通 RG10 B型底盘",
+        chassis_number="LSAA00000C000003",
+        standard_config="2座、灵活车身、城市通勤+露营两用配置",
+        customer_notes="B型房车，灵活好开。",
         created_at=(_now - timedelta(days=60)).isoformat(),
     ),
 ]

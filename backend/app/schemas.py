@@ -258,18 +258,26 @@ class DashboardSummary(BaseModel):
 
 class Product(BaseModel):
     id: str
-    name: str
-    model: str = ""
-    price: float = 0
-    description: str = ""
+    name: str  # 商品名称
+    internal_code: str = ""  # 内部编码
+    chassis_info: str = ""  # 底盘信息
+    chassis_number: str = ""  # 底盘编号
+    main_image_url: str | None = None  # 商品主图
+    layout_image_url: str | None = None  # 配置布局图
+    standard_config: str = ""  # 标准配置
+    customer_notes: str = ""  # 客户备注
     created_at: str
 
 
 class ProductInput(BaseModel):
     name: str
-    model: str = ""
-    price: float = 0
-    description: str = ""
+    internal_code: str = ""
+    chassis_info: str = ""
+    chassis_number: str = ""
+    main_image_url: str | None = None
+    layout_image_url: str | None = None
+    standard_config: str = ""
+    customer_notes: str = ""
 
 
 CustomerStage = Literal[
