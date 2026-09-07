@@ -20,6 +20,18 @@ export function getAccounts() {
   return request('/api/accounts')
 }
 
+export function getIdentities() {
+  return request('/api/identities')
+}
+
+export function getIdentity(id) {
+  return request(`/api/identities/${id}`)
+}
+
+export function getIdentityVideos(id) {
+  return request(`/api/identities/${id}/videos`)
+}
+
 export function getVideos(platform) {
   return request('/api/videos', platform ? { platform } : null)
 }

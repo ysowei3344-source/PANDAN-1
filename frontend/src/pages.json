@@ -13,6 +13,12 @@
 			}
 		},
 		{
+			"path": "pages/accounts/detail",
+			"style": {
+				"navigationBarTitleText": "矩阵号详情"
+			}
+		},
+		{
 			"path": "pages/create/create",
 			"style": {
 				"navigationBarTitleText": "创作"
