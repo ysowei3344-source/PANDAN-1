@@ -46,6 +46,7 @@
   }
   button.ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
   button.danger { background: var(--danger-soft); color: var(--danger); }
+  button.locked-btn { background: var(--card-2); color: var(--accent); border: 1px solid var(--line); }
   input[type="text"], input[type="password"], input[type="number"], select {
     width: 100%;
     padding: 9px 12px;
@@ -1135,10 +1136,12 @@ function toggleLinkLock(inputId, btnId) {
   if (input.disabled) {
     input.disabled = false;
     btn.textContent = '确定添加';
+    btn.classList.remove('locked-btn');
   } else {
     if (!input.value.trim()) return;
     input.disabled = true;
     btn.textContent = '修改地址';
+    btn.classList.add('locked-btn');
   }
 }
 
@@ -1204,7 +1207,7 @@ async function renderAddAccountForm() {
             <div class="full"><label>主页链接</label><input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接"></div>
             <div class="full link-row">
               <a class="link-tutorial" href="javascript:void(0)" onclick="showTutorialModal('${p.key}')">绑定教程</a>
-              <button type="button" class="ghost" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
+              <button type="button" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
             </div>
           </div>
         </div>
