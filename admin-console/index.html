@@ -1141,7 +1141,7 @@ function toggleLinkLock(inputId, btnId) {
   const display = document.getElementById(inputId + 'Display');
   if (input.disabled) {
     input.disabled = false;
-    input.style.visibility = 'visible';
+    input.hidden = false;
     display.hidden = true;
     btn.textContent = '确定添加';
     btn.classList.remove('locked-btn');
@@ -1149,7 +1149,7 @@ function toggleLinkLock(inputId, btnId) {
     if (!input.value.trim()) { alert('您还没有输入网址'); return; }
     const url = input.value.trim();
     input.disabled = true;
-    input.style.visibility = 'hidden';
+    input.hidden = true;
     display.textContent = url;
     display.hidden = false;
     btn.textContent = '修改编辑';
@@ -1219,6 +1219,7 @@ async function renderAddAccountForm() {
             <div class="full">
               <label>主页链接</label>
               <input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接">
+              <div class="link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
             </div>
             <div class="full">
               <label style="visibility:hidden;">操作</label>
@@ -1227,7 +1228,6 @@ async function renderAddAccountForm() {
                 <button type="button" class="link-confirm-btn" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
               </div>
             </div>
-            <div class="full link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
           </div>
         </div>
       `).join('')}
@@ -2256,21 +2256,23 @@ async function renderProductsPage() {
       <div class="panel">
         <h2 id="productFormTitle">新增商品</h2>
         <div class="form-grid">
-          <div class="full"><label>商品名称</label><input type="text" id="pName"></div>
+          <div><label>商品名称</label><input type="text" id="pName"></div>
           <div><label>内部编码</label><input type="text" id="pCode"></div>
           <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
-          <div class="full"><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
-          <div class="full">
+          <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
+          <div>
             <label>商品主图</label>
-            <input type="file" id="pMainImage" accept="image/*" onchange="previewProductImage('pMainImage','pMainImagePreview')">
+            <input type="file" id="pMainImage" accept="image/*" onchange="previewProductFile('pMainImage','pMainImagePreview','pMainImageName')">
             <input type="hidden" id="pMainImageUrl">
             <img id="pMainImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+            <div id="pMainImageName" class="row-sub" hidden></div>
           </div>
-          <div class="full">
-            <label>配置布局（图）</label>
-            <input type="file" id="pLayoutImage" accept="image/*" onchange="previewProductImage('pLayoutImage','pLayoutImagePreview')">
+          <div>
+            <label>配置布局</label>
+            <input type="file" id="pLayoutImage" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="previewProductFile('pLayoutImage','pLayoutImagePreview','pLayoutImageName')">
             <input type="hidden" id="pLayoutImageUrl">
             <img id="pLayoutImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+            <div id="pLayoutImageName" class="row-sub" hidden></div>
           </div>
           <div class="full"><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
           <div class="full"><label>客户备注</label><textarea id="pCustomerNotes" rows="2"></textarea></div>
@@ -2286,12 +2288,47 @@ async function renderProductsPage() {
   renderProductList();
 }
 
-function previewProductImage(inputId, previewId) {
+function isImageUrl(url) {
+  return /\.(png|jpe?g|gif|svg|webp)$/i.test(url || '');
+}
+
+function previewProductFile(inputId, previewImgId, nameElId) {
   const file = document.getElementById(inputId).files[0];
-  const preview = document.getElementById(previewId);
-  if (!file) { preview.hidden = true; preview.src = ''; return; }
-  preview.src = URL.createObjectURL(file);
-  preview.hidden = false;
+  const img = document.getElementById(previewImgId);
+  const nameEl = document.getElementById(nameElId);
+  if (!file) { img.hidden = true; img.src = ''; nameEl.hidden = true; nameEl.textContent = ''; return; }
+  if (file.type.startsWith('image/')) {
+    img.src = URL.createObjectURL(file);
+    img.hidden = false;
+    nameEl.hidden = true;
+    nameEl.textContent = '';
+  } else {
+    img.hidden = true;
+    img.src = '';
+    nameEl.hidden = false;
+    nameEl.textContent = '已选择文件：' + file.name;
+  }
+}
+
+function setFilePreview(url, previewImgId, nameElId) {
+  const img = document.getElementById(previewImgId);
+  const nameEl = document.getElementById(nameElId);
+  if (url && isImageUrl(url)) {
+    img.src = staticUrl(url);
+    img.hidden = false;
+    nameEl.hidden = true;
+    nameEl.innerHTML = '';
+  } else if (url) {
+    img.hidden = true;
+    img.src = '';
+    nameEl.hidden = false;
+    nameEl.innerHTML = `已上传文件：<a href="${staticUrl(url)}" target="_blank" rel="noopener">查看</a>`;
+  } else {
+    img.hidden = true;
+    img.src = '';
+    nameEl.hidden = true;
+    nameEl.innerHTML = '';
+  }
 }
 
 function renderProductList() {
@@ -2299,12 +2336,13 @@ function renderProductList() {
   if (!products.length) { list.innerHTML = '<div class="empty-hint">暂无商品</div>'; return; }
   list.innerHTML = products.map((p) => `
     <div class="row-item">
-      ${p.main_image_url ? `<img src="${staticUrl(p.main_image_url)}" alt="">` : `<div class="avatar badge-blue" style="width:120px;height:48px;border-radius:8px;font-size:12px;">暂无主图</div>`}
+      ${p.main_image_url && isImageUrl(p.main_image_url) ? `<img src="${staticUrl(p.main_image_url)}" alt="">` : `<div class="avatar badge-blue" style="width:120px;height:48px;border-radius:8px;font-size:12px;">暂无主图</div>`}
       <div class="row-body">
         <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? ` <span class="row-sub">编码 ${escapeHtml(p.internal_code)}</span>` : ''}</div>
         <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? ' · 底盘号 ' + escapeHtml(p.chassis_number) : ''}</div>
         ${p.standard_config ? `<div class="row-sub">标配：${escapeHtml(p.standard_config)}</div>` : ''}
         ${p.customer_notes ? `<div class="row-sub">备注：${escapeHtml(p.customer_notes)}</div>` : ''}
+        ${p.layout_image_url ? `<div class="row-sub">配置布局：<a href="${staticUrl(p.layout_image_url)}" target="_blank" rel="noopener">查看</a></div>` : ''}
       </div>
       <div class="row-btns">
         <button class="ghost" onclick="editProduct('${p.id}')">编辑</button>
@@ -2329,10 +2367,8 @@ function editProduct(id) {
   document.getElementById('pLayoutImage').value = '';
   document.getElementById('pMainImageUrl').value = p.main_image_url || '';
   document.getElementById('pLayoutImageUrl').value = p.layout_image_url || '';
-  const mainPreview = document.getElementById('pMainImagePreview');
-  const layoutPreview = document.getElementById('pLayoutImagePreview');
-  if (p.main_image_url) { mainPreview.src = staticUrl(p.main_image_url); mainPreview.hidden = false; } else { mainPreview.hidden = true; mainPreview.src = ''; }
-  if (p.layout_image_url) { layoutPreview.src = staticUrl(p.layout_image_url); layoutPreview.hidden = false; } else { layoutPreview.hidden = true; layoutPreview.src = ''; }
+  setFilePreview(p.main_image_url, 'pMainImagePreview', 'pMainImageName');
+  setFilePreview(p.layout_image_url, 'pLayoutImagePreview', 'pLayoutImageName');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2342,10 +2378,8 @@ function resetProductForm() {
   ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pMainImageUrl', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('pMainImage').value = '';
   document.getElementById('pLayoutImage').value = '';
-  document.getElementById('pMainImagePreview').hidden = true;
-  document.getElementById('pMainImagePreview').src = '';
-  document.getElementById('pLayoutImagePreview').hidden = true;
-  document.getElementById('pLayoutImagePreview').src = '';
+  setFilePreview(null, 'pMainImagePreview', 'pMainImageName');
+  setFilePreview(null, 'pLayoutImagePreview', 'pLayoutImageName');
   document.getElementById('productFormMsg').textContent = '';
 }
 
