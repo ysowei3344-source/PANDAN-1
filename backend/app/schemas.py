@@ -172,6 +172,11 @@ class VerifyPasscodeInput(BaseModel):
     passcode: str
 
 
+class ScrapeProfileInput(BaseModel):
+    platform: Platform
+    url: str
+
+
 TutorialPlatform = Literal["general", "douyin", "video_channel", "xiaohongshu"]
 
 
@@ -298,8 +303,11 @@ class Customer(BaseModel):
     name: str
     phone: str = ""
     source: str = ""
+    financial_status: str = ""  # 经济状况
     stage: CustomerStage = "initial_chat"
-    assigned_to: str = ""
+    intended_product_id: str | None = None  # 意向车型，关联 Product
+    assigned_to: str = ""  # 跟进运营
+    wechat: str = ""  # 客户微信
     notes: str = ""
     created_at: str
     updated_at: str
@@ -309,8 +317,11 @@ class CustomerInput(BaseModel):
     name: str
     phone: str = ""
     source: str = ""
+    financial_status: str = ""
     stage: CustomerStage = "initial_chat"
+    intended_product_id: str | None = None
     assigned_to: str = ""
+    wechat: str = ""
     notes: str = ""
 
 

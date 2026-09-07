@@ -1,3 +1,7 @@
+import json
+import os
+import urllib.error
+import urllib.request
 import uuid
 from pathlib import Path
 
@@ -5,9 +9,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from .. import storage
 from ..auth import get_current_user
-from ..schemas import Banner, BannerInput, Tutorial, TutorialInput
+from ..schemas import Banner, BannerInput, ScrapeProfileInput, Tutorial, TutorialInput
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+# Internal scraper service (separate box, see ARCHIVE.md 九) — the bearer
+# token lives only in this process's environment, never sent to the browser.
+SCRAPER_SERVICE_URL = os.environ.get("SCRAPER_SERVICE_URL", "")
+SCRAPER_SERVICE_TOKEN = os.environ.get("SCRAPER_SERVICE_TOKEN", "")
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 ALLOWED_UPLOAD_EXT = {
@@ -72,6 +81,35 @@ def admin_delete_tutorial(tutorial_id: str, current: dict = Depends(get_current_
         raise HTTPException(status_code=404, detail="tutorial not found")
     storage.log_activity(current["id"], current["username"], "删除教程", tutorial_id)
     return {"ok": True}
+
+
+@router.post("/scrape-profile")
+def admin_scrape_profile(payload: ScrapeProfileInput, current: dict = Depends(get_current_user)) -> dict:
+    if not SCRAPER_SERVICE_URL or not SCRAPER_SERVICE_TOKEN:
+        raise HTTPException(status_code=503, detail="抓取服务没配置（SCRAPER_SERVICE_URL/SCRAPER_SERVICE_TOKEN 环境变量缺失）")
+
+    body = json.dumps({"platform": payload.platform, "url": payload.url}).encode("utf-8")
+    req = urllib.request.Request(
+        SCRAPER_SERVICE_URL,
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {SCRAPER_SERVICE_TOKEN}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        try:
+            detail = json.loads(detail).get("error", detail)
+        except ValueError:
+            pass
+        raise HTTPException(status_code=502, detail=f"抓取失败：{detail}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"抓取服务连不上：{e}")
+
+    storage.log_activity(current["id"], current["username"], "抓取平台账号信息", f"{payload.platform} {payload.url}")
+    return result
 
 
 @router.post("/upload")

@@ -3065,6 +3065,7 @@ async function renderCustomersPage() {
   const el = document.getElementById('section-orders');
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
   try { customers = await api('/customers'); } catch (e) { customers = []; }
+  try { products = await api('/products'); } catch (e) { products = products || []; }
   editingCustomerId = null;
   el.innerHTML = `
     <div class="page-title">客户信息</div>
@@ -3080,13 +3081,22 @@ async function renderCustomersPage() {
           <div><label>客户姓名</label><input type="text" id="cName"></div>
           <div><label>联系电话</label><input type="text" id="cPhone"></div>
           <div><label>来源渠道</label><input type="text" id="cSource" placeholder="例如：抖音私信"></div>
+          <div><label>经济状况</label><input type="text" id="cFinancial" placeholder="例如：预算30万内，全款"></div>
           <div>
             <label>客户阶段</label>
             <select id="cStage">
               ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
             </select>
           </div>
-          <div><label>跟进人</label><input type="text" id="cAssigned"></div>
+          <div>
+            <label>意向车型</label>
+            <select id="cIntendedProduct">
+              <option value="">未选择</option>
+              ${products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div><label>跟进运营</label><input type="text" id="cAssigned"></div>
+          <div><label>客户微信</label><input type="text" id="cWechat"></div>
           <div class="full"><label>备注</label><input type="text" id="cNotes"></div>
         </div>
         <div class="actions">
@@ -3100,6 +3110,11 @@ async function renderCustomersPage() {
   renderCustomerList();
 }
 
+function productNameById(id) {
+  const p = products.find((x) => x.id === id);
+  return p ? p.name : '';
+}
+
 function renderCustomerList() {
   const list = document.getElementById('customerList');
   if (!customers.length) { list.innerHTML = '<div class="empty-hint">暂无客户</div>'; return; }
@@ -3107,7 +3122,8 @@ function renderCustomerList() {
     <div class="row-item">
       <div class="row-body">
         <div class="row-title">${escapeHtml(c.name)}${c.phone ? ` <span class="row-sub">${escapeHtml(c.phone)}</span>` : ''}</div>
-        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进人 ' + escapeHtml(c.assigned_to) : ''}</div>
+        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进运营 ' + escapeHtml(c.assigned_to) : ''}${c.wechat ? ' · 微信 ' + escapeHtml(c.wechat) : ''}</div>
+        ${c.financial_status || c.intended_product_id ? `<div class="row-sub">${c.financial_status ? '经济状况：' + escapeHtml(c.financial_status) : ''}${c.intended_product_id ? (c.financial_status ? ' · ' : '') + '意向车型：' + escapeHtml(productNameById(c.intended_product_id)) : ''}</div>` : ''}
         ${c.notes ? `<div class="row-sub">${escapeHtml(c.notes)}</div>` : ''}
       </div>
       <select class="bind-select" onchange="changeCustomerStage('${c.id}', this.value)">
@@ -3128,7 +3144,11 @@ async function changeCustomerStage(id, newStage) {
     await api(`/customers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: c.name, phone: c.phone, source: c.source, stage: newStage, assigned_to: c.assigned_to, notes: c.notes }),
+      body: JSON.stringify({
+        name: c.name, phone: c.phone, source: c.source, financial_status: c.financial_status,
+        stage: newStage, intended_product_id: c.intended_product_id, assigned_to: c.assigned_to,
+        wechat: c.wechat, notes: c.notes,
+      }),
     });
     customers = await api('/customers');
     renderCustomerList();
@@ -3146,8 +3166,11 @@ function editCustomer(id) {
   document.getElementById('cName').value = c.name;
   document.getElementById('cPhone').value = c.phone;
   document.getElementById('cSource').value = c.source;
+  document.getElementById('cFinancial').value = c.financial_status || '';
   document.getElementById('cStage').value = c.stage;
+  document.getElementById('cIntendedProduct').value = c.intended_product_id || '';
   document.getElementById('cAssigned').value = c.assigned_to;
+  document.getElementById('cWechat').value = c.wechat || '';
   document.getElementById('cNotes').value = c.notes;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -3155,8 +3178,9 @@ function editCustomer(id) {
 function resetCustomerForm() {
   editingCustomerId = null;
   document.getElementById('customerFormTitle').textContent = '新增客户';
-  ['cName', 'cPhone', 'cSource', 'cAssigned', 'cNotes'].forEach((id) => { document.getElementById(id).value = ''; });
+  ['cName', 'cPhone', 'cSource', 'cFinancial', 'cAssigned', 'cWechat', 'cNotes'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('cStage').value = 'initial_chat';
+  document.getElementById('cIntendedProduct').value = '';
   document.getElementById('customerFormMsg').textContent = '';
 }
 
@@ -3166,8 +3190,11 @@ async function submitCustomer() {
     name: document.getElementById('cName').value.trim(),
     phone: document.getElementById('cPhone').value.trim(),
     source: document.getElementById('cSource').value.trim(),
+    financial_status: document.getElementById('cFinancial').value.trim(),
     stage: document.getElementById('cStage').value,
+    intended_product_id: document.getElementById('cIntendedProduct').value || null,
     assigned_to: document.getElementById('cAssigned').value.trim(),
+    wechat: document.getElementById('cWechat').value.trim(),
     notes: document.getElementById('cNotes').value.trim(),
   };
   if (!payload.name) { msg.textContent = '请填写客户姓名'; msg.className = 'msg error'; return; }
