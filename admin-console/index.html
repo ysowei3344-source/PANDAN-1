@@ -1382,8 +1382,13 @@ async function submitNewIdentity() {
 
       allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json());
       editingIdentityId = null;
-      if (!msg.className.includes('error')) { msg.textContent = '已保存'; msg.className = 'msg ok'; }
-      setTimeout(() => showSection('accounts-list'), 800);
+      const hadError = msg.className.includes('error');
+      if (!hadError) { msg.textContent = '已保存'; msg.className = 'msg ok'; }
+      setTimeout(() => {
+        if (hadError) return;
+        closePasscodeModal();
+        if (accountsDetailId) { renderIdentityDetail(id); } else { renderIdentityList(); }
+      }, hadError ? 0 : 800);
     } else {
       const identity = await publicApi('/identities', {
         method: 'POST',
@@ -1426,13 +1431,75 @@ function closeIdentityDetail() {
 }
 
 async function editIdentityInfo(id) {
+  const identity = allIdentities.find((i) => i.id === id);
+  if (!identity) return;
   editingIdentityId = id;
-  activeSection = 'accounts-add';
-  const parentGroup = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.children && i.children.some((c) => c.key === 'accounts-add'));
-  if (parentGroup) expandedNavGroups.add(parentGroup.key);
-  renderNav();
-  document.getElementById('section-accounts').hidden = false;
-  await renderAddAccountForm();
+
+  const modal = document.getElementById('passcodeModal');
+  modal.innerHTML = `<div class="modal-card wide" onclick="event.stopPropagation()"><div class="empty-hint">加载中...</div></div>`;
+  modal.hidden = false;
+
+  let operators = [];
+  try {
+    const users = await api('/users');
+    operators = users.filter((u) => u.role === 'operator');
+  } catch (e) {
+    operators = [];
+  }
+  const boundOperator = operators.find((u) => u.identity_ids.includes(identity.id));
+  editingOperatorOriginalId = boundOperator ? boundOperator.id : null;
+
+  modal.innerHTML = `
+    <div class="modal-card wide" onclick="event.stopPropagation()">
+      <h2>编辑账号</h2>
+      <div class="page-sub" style="margin-bottom:16px;">编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联运营账号和三个平台的主页链接</div>
+      <div class="panel" style="background:var(--card-2);margin-bottom:16px;">
+        <h2>矩阵号信息</h2>
+        <div class="form-grid">
+          <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" value="${escapeHtml(identity.name)}"></div>
+          <div class="full">
+            <label>关联运营账号（可选）</label>
+            <select id="newIdentityOperator">
+              <option value="">不绑定</option>
+              ${operators.map((u) => `<option value="${u.id}" ${editingOperatorOriginalId === u.id ? 'selected' : ''}>${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+      ${PLATFORM_DEFS.map((p) => `
+        <div class="panel" style="background:var(--card-2);margin-bottom:16px;">
+          <h2>${platformLogoHtml(p.key)}${p.label}账号</h2>
+          <div class="form-grid">
+            <div class="full">
+              <label>主页链接</label>
+              <input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接">
+              <div class="link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
+            </div>
+            <div class="full">
+              <label style="visibility:hidden;">操作</label>
+              <div class="link-row">
+                <a class="link-tutorial" href="javascript:void(0)" onclick="showTutorialModal('${p.key}')">绑定教程</a>
+                <button type="button" class="link-confirm-btn" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+      <div class="actions">
+        <button onclick="submitNewIdentity()">保存</button>
+        <button class="ghost" onclick="editingIdentityId = null; closePasscodeModal();">取消</button>
+      </div>
+      <p class="msg" id="newIdentityMsg"></p>
+    </div>
+  `;
+
+  PLATFORM_DEFS.forEach((p) => {
+    const acc = identity.accounts.find((a) => a.platform === p.key);
+    if (acc && acc.profile_url) {
+      document.getElementById(`newAcc_${p.key}_url`).value = acc.profile_url;
+      toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`);
+    }
+  });
 }
 
 async function deleteIdentity(id) {
