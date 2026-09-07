@@ -55,17 +55,21 @@ def list_identity_videos(identity_id: str) -> list[VideoStat]:
     return [v for v in VIDEOS if v.account_id in account_ids]
 
 
-@router.post("/{identity_id}/verify-passcode", dependencies=[Depends(get_current_user)])
-def verify_identity_passcode(identity_id: str, payload: VerifyPasscodeInput) -> dict:
-    if not any(i.id == identity_id for i in IDENTITIES):
+@router.post("/{identity_id}/verify-passcode")
+def verify_identity_passcode(identity_id: str, payload: VerifyPasscodeInput, current: dict = Depends(get_current_user)) -> dict:
+    identity = next((i for i in IDENTITIES if i.id == identity_id), None)
+    if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
 
     if payload.passcode == MASTER_PASSCODE:
+        storage.log_activity(current["id"], current["username"], "口令验证成功（万能码）", identity.name)
         return {"ok": True}
 
     for user in storage.list_users():
         if user.get("identity_id") == identity_id and user.get("passcode_hash"):
             if verify_password(payload.passcode, user["passcode_salt"], user["passcode_hash"]):
+                storage.log_activity(current["id"], current["username"], "口令验证成功", identity.name)
                 return {"ok": True}
 
+    storage.log_activity(current["id"], current["username"], "口令验证失败", identity.name)
     raise HTTPException(status_code=403, detail="管理口令不正确")

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from .. import storage
 from ..auth import hash_password, require_role
-from ..schemas import UserCreateInput, UserOut
+from ..schemas import ActivityLogEntry, UserCreateInput, UserOut
 
 router = APIRouter(prefix="/api/admin/users", tags=["users"])
 
@@ -26,8 +26,8 @@ def list_users() -> list[dict]:
     return [_public(u) for u in storage.list_users()]
 
 
-@router.post("", response_model=UserOut, dependencies=[Depends(require_role("super_admin"))])
-def create_user(payload: UserCreateInput) -> dict:
+@router.post("", response_model=UserOut)
+def create_user(payload: UserCreateInput, current: dict = Depends(require_role("super_admin"))) -> dict:
     if storage.get_user_by_username(payload.username):
         raise HTTPException(status_code=400, detail="用户名已存在")
     password_hash, salt = hash_password(payload.password)
@@ -48,6 +48,7 @@ def create_user(payload: UserCreateInput) -> dict:
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     storage.create_user(user)
+    storage.log_activity(current["id"], current["username"], "创建账号", f"{payload.username}（{payload.role}）")
     return _public(user)
 
 
@@ -55,6 +56,13 @@ def create_user(payload: UserCreateInput) -> dict:
 def delete_user(user_id: str, current: dict = Depends(require_role("super_admin"))) -> dict:
     if user_id == current["id"]:
         raise HTTPException(status_code=400, detail="不能删除自己")
+    target = storage.get_user(user_id)
     if not storage.delete_user(user_id):
         raise HTTPException(status_code=404, detail="user not found")
+    storage.log_activity(current["id"], current["username"], "删除账号", target["username"] if target else user_id)
     return {"ok": True}
+
+
+@router.get("/activity-log", response_model=list[ActivityLogEntry], dependencies=[Depends(require_role("super_admin"))])
+def get_activity_log() -> list[dict]:
+    return storage.list_activity(limit=300)

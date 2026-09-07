@@ -22,13 +22,20 @@ def login(payload: LoginInput) -> dict:
     if user is None or not verify_password(payload.password, user["salt"], user["password_hash"]):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     token = create_session(user["id"])
+    storage.log_activity(user["id"], user["username"], "登录")
     return {"token": token, "user": _public(user)}
 
 
 @router.post("/logout")
 def logout(authorization: str | None = Header(default=None)) -> dict:
     if authorization and authorization.startswith("Bearer "):
-        storage.delete_session(authorization.removeprefix("Bearer "))
+        token = authorization.removeprefix("Bearer ")
+        session = storage.get_session(token)
+        if session:
+            user = storage.get_user(session["user_id"])
+            if user:
+                storage.log_activity(user["id"], user["username"], "退出登录")
+        storage.delete_session(token)
     return {"ok": True}
 
 

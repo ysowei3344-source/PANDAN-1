@@ -271,6 +271,16 @@
   /* ---------- Generic list / form panels (banners, users, accounts) ---------- */
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .form-grid .full { grid-column: 1 / -1; }
+  .users-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 900px) {
+    .users-columns { grid-template-columns: 1fr; }
+  }
+  .activity-row { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .activity-row:last-child { border-bottom: none; }
+  .activity-time { color: var(--ink-faint); font-size: 12px; white-space: nowrap; flex-shrink: 0; width: 70px; }
+  .activity-user { font-weight: 600; flex-shrink: 0; }
+  .activity-action { color: var(--ink-soft); flex-shrink: 0; }
+  .activity-detail { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .actions { margin-top: 16px; display: flex; gap: 10px; }
   .row-item { display: flex; gap: 14px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
   .row-item:last-child { border-bottom: none; }
@@ -524,6 +534,7 @@ async function showSection(key) {
   activeSection = key;
   renderNav();
   document.getElementById('headerLeft').innerHTML = '';
+  stopActivityLogPolling();
   ['overview', 'accounts', 'banners', 'users', 'stub'].forEach((k) => {
     document.getElementById(`section-${k}`).hidden = true;
   });
@@ -543,6 +554,7 @@ async function showSection(key) {
     document.getElementById('section-users').hidden = false;
     await loadUsers();
     renderUsers();
+    startActivityLogPolling();
   } else {
     document.getElementById('section-stub').hidden = false;
     const item = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.key === key);
@@ -1235,6 +1247,7 @@ async function submitBanner() {
 /* ---------------- Users ---------------- */
 
 let users = [];
+let activityLogTimer = null;
 
 async function loadUsers() { users = await api('/users'); }
 
@@ -1243,40 +1256,50 @@ function renderUsers() {
   el.innerHTML = `
     <div class="page-title">账号权限管理</div>
     <div class="page-sub">每个运营账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
-    <div class="panel" style="margin-bottom:16px;">
-      <h2>新增账号</h2>
-      <div class="form-grid">
-        <div><label>用户名</label><input type="text" id="uUsername"></div>
-        <div><label>初始密码（登录用）</label><input type="password" id="uPassword"></div>
-        <div class="full">
-          <label>角色</label>
-          <select id="uRole" onchange="toggleOperatorFields()">
-            <option value="operator">运营（对应管理一个矩阵号）</option>
-            <option value="super_admin">超级管理员（可管理全部，含账号权限）</option>
-          </select>
+    <div class="users-columns">
+      <div class="panel">
+        <h2>新增账号</h2>
+        <div class="form-grid">
+          <div><label>用户名</label><input type="text" id="uUsername"></div>
+          <div><label>初始密码（登录用）</label><input type="password" id="uPassword"></div>
+          <div class="full">
+            <label>角色</label>
+            <select id="uRole" onchange="toggleOperatorFields()">
+              <option value="operator">运营（对应管理一个矩阵号）</option>
+              <option value="super_admin">超级管理员（可管理全部，含账号权限）</option>
+            </select>
+          </div>
+          <div class="full" id="uIdentityField">
+            <label>关联矩阵账号</label>
+            <select id="uIdentity">
+              <option value="">-- 选择矩阵号 --</option>
+              ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}（${i.phone_number}）</option>`).join('')}
+            </select>
+          </div>
+          <div class="full" id="uPasscodeField">
+            <label>管理口令（进入矩阵账号列表时需要输入，超级管理员可用万能码通行）</label>
+            <input type="text" id="uPasscode" placeholder="例如 1234">
+          </div>
         </div>
-        <div class="full" id="uIdentityField">
-          <label>关联矩阵账号</label>
-          <select id="uIdentity">
-            <option value="">-- 选择矩阵号 --</option>
-            ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}（${i.phone_number}）</option>`).join('')}
-          </select>
-        </div>
-        <div class="full" id="uPasscodeField">
-          <label>管理口令（进入矩阵账号列表时需要输入，超级管理员可用万能码通行）</label>
-          <input type="text" id="uPasscode" placeholder="例如 1234">
-        </div>
+        <div class="actions"><button onclick="submitUser()">创建账号</button></div>
+        <p class="msg" id="userFormMsg"></p>
       </div>
-      <div class="actions"><button onclick="submitUser()">创建账号</button></div>
-      <p class="msg" id="userFormMsg"></p>
+      <div class="panel">
+        <h2>现有账号</h2>
+        <div id="userList"></div>
+      </div>
     </div>
-    <div class="panel">
-      <h2>现有账号</h2>
-      <div id="userList"></div>
+    <div class="panel" style="margin-top:16px;">
+      <div class="panel-head-row">
+        <h2>操作日志</h2>
+        <span class="page-sub" id="activityLogMeta"></span>
+      </div>
+      <div id="activityLogList"><div class="empty-hint">加载中...</div></div>
     </div>
   `;
   toggleOperatorFields();
   renderUserList();
+  loadActivityLog();
 }
 
 function toggleOperatorFields() {
@@ -1340,6 +1363,46 @@ async function deleteUser(id) {
   await api(`/users/${id}`, { method: 'DELETE' });
   await loadUsers();
   renderUserList();
+}
+
+/* ---------------- Activity log ---------------- */
+
+function formatLogTime(iso) {
+  return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadActivityLog() {
+  const list = document.getElementById('activityLogList');
+  const meta = document.getElementById('activityLogMeta');
+  if (!list) return;
+  try {
+    const entries = await api('/users/activity-log');
+    list.innerHTML = entries.length
+      ? entries.map((e) => `
+          <div class="activity-row" title="${new Date(e.created_at).toLocaleString('zh-CN')}">
+            <span class="activity-time">${formatLogTime(e.created_at)}</span>
+            <span class="activity-user">${escapeHtml(e.username)}</span>
+            <span class="activity-action">${escapeHtml(e.action)}</span>
+            <span class="activity-detail">${escapeHtml(e.detail || '')}</span>
+          </div>
+        `).join('')
+      : '<div class="empty-hint">暂无操作记录</div>';
+    if (meta) meta.textContent = `每分钟自动刷新 · 上次更新 ${new Date().toLocaleTimeString('zh-CN')}`;
+  } catch (e) {
+    list.innerHTML = `<div class="empty-hint">加载失败：${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function startActivityLogPolling() {
+  stopActivityLogPolling();
+  activityLogTimer = setInterval(loadActivityLog, 60000);
+}
+
+function stopActivityLogPolling() {
+  if (activityLogTimer) {
+    clearInterval(activityLogTimer);
+    activityLogTimer = null;
+  }
 }
 
 /* ---------------- Brand name ---------------- */

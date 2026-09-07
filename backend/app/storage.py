@@ -10,6 +10,8 @@ BANNERS_FILE = DATA_DIR / "banners.json"
 USERS_FILE = DATA_DIR / "users.json"
 SESSIONS_FILE = DATA_DIR / "sessions.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
+ACTIVITY_FILE = DATA_DIR / "activity_log.json"
+ACTIVITY_MAX_ENTRIES = 2000
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -134,3 +136,27 @@ def delete_session(token: str) -> None:
     sessions = _read_json(SESSIONS_FILE)
     remaining = [s for s in sessions if s["token"] != token]
     _write_json(SESSIONS_FILE, remaining)
+
+
+# ---- Activity log ----
+
+def log_activity(user_id: str, username: str, action: str, detail: str = "") -> None:
+    entries = _read_json(ACTIVITY_FILE)
+    entries.append(
+        {
+            "id": f"log-{uuid.uuid4().hex[:10]}",
+            "user_id": user_id,
+            "username": username,
+            "action": action,
+            "detail": detail,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+    if len(entries) > ACTIVITY_MAX_ENTRIES:
+        entries = entries[-ACTIVITY_MAX_ENTRIES:]
+    _write_json(ACTIVITY_FILE, entries)
+
+
+def list_activity(limit: int = 200) -> list[dict]:
+    entries = _read_json(ACTIVITY_FILE)
+    return list(reversed(entries))[:limit]

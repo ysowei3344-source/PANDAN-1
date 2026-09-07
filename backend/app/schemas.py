@@ -103,6 +103,15 @@ class UserCreateInput(BaseModel):
     passcode: str | None = None
 
 
+class ActivityLogEntry(BaseModel):
+    id: str
+    user_id: str
+    username: str
+    action: str
+    detail: str = ""
+    created_at: str
+
+
 class VerifyPasscodeInput(BaseModel):
     passcode: str
 
