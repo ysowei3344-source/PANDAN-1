@@ -285,6 +285,13 @@
   @media (max-width: 900px) {
     .users-columns { grid-template-columns: 1fr; }
   }
+  .add-account-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+  @media (max-width: 1100px) {
+    .add-account-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .add-account-grid { grid-template-columns: 1fr; }
+  }
   .activity-row { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
   .activity-row:last-child { border-bottom: none; }
   .activity-time { color: var(--ink-faint); font-size: 12px; white-space: nowrap; flex-shrink: 0; width: 70px; }
@@ -1038,33 +1045,32 @@ async function renderAddAccountForm() {
 
   el.innerHTML = `
     <div class="page-title">添加账号</div>
-    <div class="page-sub">新增一个矩阵号（一个人设），可以关联一个还没绑定矩阵号的运营账号，并登记它在三个平台上的账号数据</div>
-    <div class="panel">
-      <h2>矩阵号信息</h2>
-      <div class="form-grid">
-        <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张"></div>
-        <div class="full">
-          <label>关联运营账号（可选）</label>
-          <select id="newIdentityOperator">
-            <option value="">不绑定</option>
-            ${operators.map((u) => `<option value="${u.id}">${escapeHtml(u.username)}</option>`).join('')}
-          </select>
-          ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">「内部账号管理」里没有还没绑定矩阵号的运营账号，可以先去那边新建一个</div>' : ''}
-        </div>
-      </div>
-    </div>
-    ${PLATFORM_DEFS.map((p) => `
-      <div class="panel" style="margin-top:16px;">
-        <h2>${p.label}账号 <span style="font-weight:400;color:var(--ink-faint);font-size:12px;">还没有就留空</span></h2>
+    <div class="page-sub">新增一个矩阵号（一个人设），可以关联一个还没绑定矩阵号的运营账号，并登记它在三个平台上的主页链接</div>
+    <div class="add-account-grid">
+      <div class="panel">
+        <h2>矩阵号信息</h2>
         <div class="form-grid">
-          <div class="full"><label>主页链接</label><input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接"></div>
-          <div class="full" style="font-size:12px;color:var(--ink-faint);">${p.label}还没有官方数据接口权限，链接会先存起来，下面几项数据目前需要手动填，接口打通后会改成自动抓取</div>
-          <div class="full"><label>昵称</label><input type="text" id="newAcc_${p.key}_nickname"></div>
-          <div><label>粉丝数</label><input type="number" id="newAcc_${p.key}_followers" value="0"></div>
-          <div><label>视频数</label><input type="number" id="newAcc_${p.key}_videos" value="0"></div>
+          <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张"></div>
+          <div class="full">
+            <label>关联运营账号（可选）</label>
+            <select id="newIdentityOperator">
+              <option value="">不绑定</option>
+              ${operators.map((u) => `<option value="${u.id}">${escapeHtml(u.username)}</option>`).join('')}
+            </select>
+            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">没有还没绑定矩阵号的运营账号，可以先去「内部账号管理」新建一个</div>' : ''}
+          </div>
         </div>
       </div>
-    `).join('')}
+      ${PLATFORM_DEFS.map((p) => `
+        <div class="panel">
+          <h2>${p.label}账号</h2>
+          <div class="form-grid">
+            <div class="full"><label>主页链接</label><input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接"></div>
+            <div class="full" style="font-size:12px;color:var(--ink-faint);">还没有就留空。${p.label}暂无官方数据接口权限，昵称/粉丝数/视频数等接口打通后自动补上，现在先只存链接</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
     <div class="panel" style="margin-top:16px;">
       <div class="actions">
         <button onclick="submitNewIdentity()">保存</button>
@@ -1091,10 +1097,7 @@ async function submitNewIdentity() {
   const platformAccounts = PLATFORM_DEFS.map((p) => ({
     platform: p.key,
     profile_url: document.getElementById(`newAcc_${p.key}_url`).value.trim() || null,
-    nickname: document.getElementById(`newAcc_${p.key}_nickname`).value.trim(),
-    follower_count: Number(document.getElementById(`newAcc_${p.key}_followers`).value) || 0,
-    video_count: Number(document.getElementById(`newAcc_${p.key}_videos`).value) || 0,
-  })).filter((a) => a.nickname || a.profile_url);
+  })).filter((a) => a.profile_url);
 
   try {
     const identity = await publicApi('/identities', {
