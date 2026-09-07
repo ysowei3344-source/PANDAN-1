@@ -494,8 +494,8 @@
   .panel-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
   .panel-header-row h2 { margin: 0; }
   .product-list-tools { display: flex; align-items: center; gap: 8px; }
-  .product-search-input { width: 160px; }
-  .product-list-tools select { width: auto; }
+  .product-search-input { width: 160px; font-size: 12px; }
+  .product-list-tools select { width: auto; font-size: 12px; padding: 6px 8px; }
 
   .sticky-edit-panel { position: sticky; top: 20px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; }
   @media (max-width: 900px) { .sticky-edit-panel { position: static; max-height: none; overflow-y: visible; } }
@@ -2867,7 +2867,7 @@ function renderProductList() {
         ${thumbHtml}
         <div class="row-body">
           <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? `<span class="row-code-inline">${escapeHtml(p.internal_code)}</span>` : ''}</div>
-          <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? `<span class="row-gap-5">底盘号：${escapeHtml(p.chassis_number)}</span><button type="button" class="copy-icon-btn" onclick="copyChassisNumber(event,'${chassisNumberJs}')" title="复制底盘号">📋</button>` : ''}</div>
+          <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? `<span class="row-gap-5">底盘号：${escapeHtml(p.chassis_number)}</span><button type="button" class="copy-icon-btn" onclick="copyChassisNumber(event,'${chassisNumberJs}')" title="复制底盘号">${COPY_ICON_SVG}</button>` : ''}</div>
           <div class="row-sub">${p.layout_image_url ? `配置布局：<a href="${staticUrl(p.layout_image_url)}" target="_blank" rel="noopener">查看</a>` : ''}</div>
           <div class="row-sub">${p.standard_config ? `<span class="row-label-bold">标准配置：</span>${escapeHtml(p.standard_config)}` : ''}</div>
           <div class="row-notes-line">
@@ -2883,12 +2883,14 @@ function renderProductList() {
   }).join('');
 }
 
+const COPY_ICON_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+const CHECK_ICON_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
 function copyChassisNumber(evt, text) {
   const btn = evt.currentTarget;
   const showCopied = () => {
-    const original = btn.textContent;
-    btn.textContent = '✓';
-    setTimeout(() => { btn.textContent = original; }, 1200);
+    btn.innerHTML = CHECK_ICON_SVG;
+    setTimeout(() => { btn.innerHTML = COPY_ICON_SVG; }, 1200);
   };
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(showCopied).catch(() => { fallbackCopyText(text); showCopied(); });
