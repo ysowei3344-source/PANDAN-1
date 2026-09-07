@@ -319,6 +319,16 @@
 
   .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
 
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(6, 8, 12, 0.65);
+    display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px;
+  }
+  .modal-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 28px; width: 100%; max-width: 340px;
+  }
+  .modal-card h2 { margin: 0 0 8px; }
+
   .identity-kpi-grid { grid-template-columns: repeat(5, 1fr); }
   @media (max-width: 900px) {
     .identity-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
@@ -388,6 +398,8 @@
     </main>
   </div>
 </div>
+
+<div class="modal-overlay" id="passcodeModal" hidden onclick="closePasscodeModal()"></div>
 
 <script>
 const API_BASE = '/admin/api/admin';
@@ -903,13 +915,13 @@ function renderIdentityList() {
 }
 
 function openIdentityDetail(id) {
-  accountsDetailId = id;
-  detailActiveAccountId = null;
-  detailSelectedVideoId = null;
   if (unlockedIdentities.has(id)) {
+    accountsDetailId = id;
+    detailActiveAccountId = null;
+    detailSelectedVideoId = null;
     renderIdentityDetail(id);
   } else {
-    renderPasscodeGate(id);
+    showPasscodeModal(id);
   }
 }
 
@@ -918,21 +930,30 @@ function closeIdentityDetail() {
   renderIdentityList();
 }
 
-function renderPasscodeGate(id) {
+function showPasscodeModal(id) {
   const identity = allIdentities.find((i) => i.id === id);
-  const el = document.getElementById('section-accounts');
-  el.innerHTML = `
-    <button class="diagnosis-back" onclick="closeIdentityDetail()">‹ 返回矩阵账号列表</button>
-    <div class="panel" style="max-width:360px;">
+  const modal = document.getElementById('passcodeModal');
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()">
       <h2>需要管理口令</h2>
       <div class="page-sub" style="margin-bottom:16px;">进入「${escapeHtml(identity ? identity.name : id)}」需要输入这个矩阵号的管理口令</div>
       <input type="text" id="identityPasscodeInput" placeholder="输入管理口令"
              onkeydown="if(event.key==='Enter'){submitIdentityPasscode('${id}')}">
-      <div class="actions"><button onclick="submitIdentityPasscode('${id}')">进入</button></div>
+      <div class="actions">
+        <button onclick="submitIdentityPasscode('${id}')">进入</button>
+        <button class="ghost" onclick="closePasscodeModal()">取消</button>
+      </div>
       <p class="msg" id="identityPasscodeMsg"></p>
     </div>
   `;
+  modal.hidden = false;
   document.getElementById('identityPasscodeInput').focus();
+}
+
+function closePasscodeModal() {
+  const modal = document.getElementById('passcodeModal');
+  modal.hidden = true;
+  modal.innerHTML = '';
 }
 
 async function submitIdentityPasscode(id) {
@@ -953,6 +974,10 @@ async function submitIdentityPasscode(id) {
       throw new Error(body.detail || '验证失败');
     }
     unlockedIdentities.add(id);
+    closePasscodeModal();
+    accountsDetailId = id;
+    detailActiveAccountId = null;
+    detailSelectedVideoId = null;
     renderIdentityDetail(id);
   } catch (e) {
     msg.textContent = e.message;
