@@ -117,6 +117,8 @@
     font-size: 10px; color: var(--ink-faint); background: rgba(255, 255, 255, 0.06);
     padding: 1px 6px; border-radius: 999px; margin-left: auto;
   }
+  .nav-item .nav-caret { margin-left: auto; font-size: 11px; color: var(--ink-faint); }
+  .nav-item.nav-child { padding-left: 28px; font-size: 13px; }
 
   .main-area { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .content-header {
@@ -431,8 +433,15 @@ const NAV_WORK = [
 ];
 const NAV_SYSTEM = [
   { key: 'banners', label: '轮播图管理' },
-  { key: 'users', label: '账号权限管理', roles: ['super_admin'] },
+  {
+    key: 'users', label: '账号权限管理', roles: ['super_admin'],
+    children: [
+      { key: 'users-internal', label: '内部账号管理' },
+      { key: 'users-external', label: '外部账号管理' },
+    ],
+  },
 ];
+let expandedNavGroups = new Set();
 
 function token() { return localStorage.getItem('rv_admin_token') || ''; }
 function setToken(t) { t ? localStorage.setItem('rv_admin_token', t) : localStorage.removeItem('rv_admin_token'); }
@@ -516,22 +525,59 @@ async function enterApp() {
   await showSection('overview');
 }
 
+function toggleNavGroup(key) {
+  if (expandedNavGroups.has(key)) {
+    expandedNavGroups.delete(key);
+  } else {
+    expandedNavGroups.add(key);
+  }
+  renderNav();
+}
+
 function renderNav() {
   const work = document.getElementById('navGroupWork');
   const sys = document.getElementById('navGroupSystem');
   const render = (items) => items
     .filter((item) => !item.roles || item.roles.includes(currentUser.role))
-    .map((item) => `
-      <div class="nav-item ${item.key === activeSection ? 'active' : ''}" onclick="showSection('${item.key}')">
-        ${item.label}${item.stub ? '<span class="tag">建设中</span>' : ''}
-      </div>
-    `).join('');
+    .map((item) => {
+      if (item.children) {
+        const expanded = expandedNavGroups.has(item.key);
+        return `
+          <div class="nav-item" onclick="toggleNavGroup('${item.key}')">
+            ${item.label}
+            <span class="nav-caret">${expanded ? '▾' : '▸'}</span>
+          </div>
+          ${expanded ? item.children.map((c) => `
+            <div class="nav-item nav-child ${c.key === activeSection ? 'active' : ''}" onclick="showSection('${c.key}')">${c.label}</div>
+          `).join('') : ''}
+        `;
+      }
+      return `
+        <div class="nav-item ${item.key === activeSection ? 'active' : ''}" onclick="showSection('${item.key}')">
+          ${item.label}${item.stub ? '<span class="tag">建设中</span>' : ''}
+        </div>
+      `;
+    }).join('');
   work.innerHTML = render(NAV_WORK);
   sys.innerHTML = render(NAV_SYSTEM);
 }
 
+function findNavItem(key) {
+  const all = [...NAV_WORK, ...NAV_SYSTEM];
+  for (const item of all) {
+    if (item.key === key) return item;
+    if (item.children) {
+      const child = item.children.find((c) => c.key === key);
+      if (child) return child;
+    }
+  }
+  return null;
+}
+
 async function showSection(key) {
   activeSection = key;
+  const parentGroup = NAV_SYSTEM.find((i) => i.children && i.children.some((c) => c.key === key));
+  if (parentGroup) expandedNavGroups.add(parentGroup.key);
   renderNav();
   document.getElementById('headerLeft').innerHTML = '';
   stopActivityLogPolling();
@@ -550,14 +596,17 @@ async function showSection(key) {
     document.getElementById('section-banners').hidden = false;
     await loadBanners();
     renderBanners();
-  } else if (key === 'users') {
+  } else if (key === 'users-internal') {
     document.getElementById('section-users').hidden = false;
     await loadUsers();
-    renderUsers();
+    renderInternalAccounts();
+  } else if (key === 'users-external') {
+    document.getElementById('section-users').hidden = false;
+    await renderExternalAccounts();
   } else {
     document.getElementById('section-stub').hidden = false;
-    const item = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.key === key);
-    document.getElementById('section-stub').innerHTML = `<div class="panel"><div class="empty-hint">「${item.label}」模块还在开发计划里，暂未上线。</div></div>`;
+    const item = findNavItem(key);
+    document.getElementById('section-stub').innerHTML = `<div class="panel"><div class="empty-hint">「${item ? item.label : key}」模块还在开发计划里，暂未上线。</div></div>`;
   }
 }
 
@@ -1250,40 +1299,10 @@ let activityLogTimer = null;
 
 async function loadUsers() { users = await api('/users'); }
 
-let userCategory = 'internal';
-
-function renderUsers() {
+function renderInternalAccounts() {
   const el = document.getElementById('section-users');
   el.innerHTML = `
-    <div class="page-title">账号权限管理</div>
-    <div class="page-sub" style="margin-bottom:12px;">选择要管理的账号类型</div>
-    <select id="userCategorySelect" onchange="switchUserCategory()" style="max-width:240px;margin-bottom:20px;">
-      <option value="internal">内部账号管理</option>
-      <option value="external">外部账号管理</option>
-    </select>
-    <div id="userCategoryBody"></div>
-  `;
-  document.getElementById('userCategorySelect').value = userCategory;
-  renderUserCategoryBody();
-}
-
-function switchUserCategory() {
-  stopActivityLogPolling();
-  userCategory = document.getElementById('userCategorySelect').value;
-  renderUserCategoryBody();
-}
-
-function renderUserCategoryBody() {
-  if (userCategory === 'internal') {
-    renderInternalAccounts();
-  } else {
-    renderExternalAccounts();
-  }
-}
-
-function renderInternalAccounts() {
-  const el = document.getElementById('userCategoryBody');
-  el.innerHTML = `
+    <div class="page-title">内部账号管理</div>
     <div class="page-sub" style="margin-bottom:16px;">每个运营账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
     <div class="users-columns">
       <div class="panel">
@@ -1335,9 +1354,10 @@ function renderInternalAccounts() {
 let members = [];
 
 async function renderExternalAccounts() {
-  const el = document.getElementById('userCategoryBody');
+  const el = document.getElementById('section-users');
   el.innerHTML = `
-    <div class="panel">
+    <div class="page-title">外部账号管理</div>
+    <div class="panel" style="margin-top:16px;">
       <h2>会员列表</h2>
       <div class="page-sub" style="margin-bottom:16px;">前台 H5 / 小程序自主注册的会员。目前还没有真实的注册流程接入，以下为演示数据。</div>
       <div id="memberList"><div class="empty-hint">加载中...</div></div>
