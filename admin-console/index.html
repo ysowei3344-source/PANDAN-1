@@ -1625,28 +1625,30 @@ function renderBanners() {
   const el = document.getElementById('section-banners');
   el.innerHTML = `
     <div class="page-title">轮播图管理</div>
-    <div class="panel" style="margin-bottom:16px;">
-      <h2 id="bannerFormTitle">新增轮播图</h2>
-      <div class="form-grid">
-        <div class="full"><label>标题</label><input type="text" id="fTitle"></div>
-        <div class="full"><label>副标题</label><input type="text" id="fSubtitle"></div>
-        <div><label>排序（数字越小越靠前）</label><input type="number" id="fSort" value="0"></div>
-        <div><label>跳转链接（可选）</label><input type="text" id="fLink"></div>
-        <div class="full">
-          <label>图片</label>
-          <input type="file" id="fImage" accept="image/*,.svg">
-          <input type="hidden" id="fImageUrl">
+    <div class="users-columns">
+      <div class="panel">
+        <h2>当前轮播图（按排序号显示）</h2>
+        <div id="bannerList"></div>
+      </div>
+      <div class="panel">
+        <h2 id="bannerFormTitle">新增轮播图</h2>
+        <div class="form-grid">
+          <div class="full"><label>标题</label><input type="text" id="fTitle"></div>
+          <div class="full"><label>副标题</label><input type="text" id="fSubtitle"></div>
+          <div><label>排序（数字越小越靠前）</label><input type="number" id="fSort" value="0"></div>
+          <div><label>跳转链接（可选）</label><input type="text" id="fLink"></div>
+          <div class="full">
+            <label>图片</label>
+            <input type="file" id="fImage" accept="image/*,.svg">
+            <input type="hidden" id="fImageUrl">
+          </div>
         </div>
+        <div class="actions">
+          <button onclick="submitBanner()">保存</button>
+          <button class="ghost" onclick="resetBannerForm()">清空</button>
+        </div>
+        <p class="msg" id="bannerFormMsg"></p>
       </div>
-      <div class="actions">
-        <button onclick="submitBanner()">保存</button>
-        <button class="ghost" onclick="resetBannerForm()">清空</button>
-      </div>
-      <p class="msg" id="bannerFormMsg"></p>
-    </div>
-    <div class="panel">
-      <h2>当前轮播图（按排序号显示）</h2>
-      <div id="bannerList"></div>
     </div>
   `;
   renderBannerList();
