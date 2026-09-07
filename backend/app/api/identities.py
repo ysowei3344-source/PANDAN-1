@@ -66,7 +66,7 @@ def verify_identity_passcode(identity_id: str, payload: VerifyPasscodeInput, cur
         return {"ok": True}
 
     for user in storage.list_users():
-        if user.get("identity_id") == identity_id and user.get("passcode_hash"):
+        if identity_id in user.get("identity_ids", []) and user.get("passcode_hash"):
             if verify_password(payload.passcode, user["passcode_salt"], user["passcode_hash"]):
                 storage.log_activity(current["id"], current["username"], "口令验证成功", identity.name)
                 return {"ok": True}
@@ -86,7 +86,7 @@ def create_identity(payload: IdentityInput, current: dict = Depends(require_role
     identity = storage.create_identity({"name": payload.name, "phone_number": payload.phone_number})
 
     if operator is not None:
-        storage.update_user(operator["id"], {"identity_id": identity.id})
+        storage.add_user_identity(operator["id"], identity.id)
 
     storage.log_activity(current["id"], current["username"], "新增矩阵号", identity.name)
     return _summary(identity)

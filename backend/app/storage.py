@@ -72,9 +72,19 @@ def delete_banner(banner_id: str) -> bool:
 
 
 # ---- Users ----
+# identity_ids replaced the old singular identity_id (one operator can now
+# manage several matrix identities). _normalize_user upgrades old records
+# read from disk on the fly; any write drops the stale singular field.
+
+def _normalize_user(user: dict) -> dict:
+    if "identity_ids" in user:
+        return user
+    old = user.get("identity_id")
+    return {**user, "identity_ids": [old] if old else []}
+
 
 def list_users() -> list[dict]:
-    return _read_json(USERS_FILE)
+    return [_normalize_user(u) for u in _read_json(USERS_FILE)]
 
 
 def get_user(user_id: str) -> dict | None:
@@ -86,24 +96,50 @@ def get_user_by_username(username: str) -> dict | None:
 
 
 def create_user(user: dict) -> dict:
-    users = list_users()
+    users = _read_json(USERS_FILE)
     users.append(user)
     _write_json(USERS_FILE, users)
     return user
 
 
 def update_user(user_id: str, data: dict) -> dict | None:
-    users = list_users()
+    users = _read_json(USERS_FILE)
     for i, u in enumerate(users):
         if u["id"] == user_id:
             users[i] = {**u, **data}
+            _write_json(USERS_FILE, users)
+            return _normalize_user(users[i])
+    return None
+
+
+def add_user_identity(user_id: str, identity_id: str) -> dict | None:
+    users = _read_json(USERS_FILE)
+    for i, u in enumerate(users):
+        if u["id"] == user_id:
+            ids = _normalize_user(u)["identity_ids"]
+            if identity_id not in ids:
+                ids = [*ids, identity_id]
+            users[i] = {**u, "identity_ids": ids}
+            users[i].pop("identity_id", None)
+            _write_json(USERS_FILE, users)
+            return users[i]
+    return None
+
+
+def remove_user_identity(user_id: str, identity_id: str) -> dict | None:
+    users = _read_json(USERS_FILE)
+    for i, u in enumerate(users):
+        if u["id"] == user_id:
+            ids = [x for x in _normalize_user(u)["identity_ids"] if x != identity_id]
+            users[i] = {**u, "identity_ids": ids}
+            users[i].pop("identity_id", None)
             _write_json(USERS_FILE, users)
             return users[i]
     return None
 
 
 def delete_user(user_id: str) -> bool:
-    users = list_users()
+    users = _read_json(USERS_FILE)
     remaining = [u for u in users if u["id"] != user_id]
     if len(remaining) == len(users):
         return False

@@ -12,6 +12,7 @@ def _public(user: dict) -> dict:
         "id": user["id"],
         "username": user["username"],
         "role": user["role"],
+        "identity_ids": user.get("identity_ids", []),
         "created_at": user["created_at"],
     }
 

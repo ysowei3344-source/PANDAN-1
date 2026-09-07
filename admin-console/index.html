@@ -321,6 +321,18 @@
     width: 18px; height: 18px; border-radius: 5px; font-size: 10px; font-weight: 700; margin-right: 3px;
   }
 
+  .identity-bind-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+  .mini-tag-remove {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+    background: var(--accent-soft); color: var(--accent); padding: 3px 6px 3px 10px; border-radius: 999px;
+  }
+  .mini-tag-remove span { cursor: pointer; color: var(--ink-faint); font-size: 11px; }
+  .mini-tag-remove span:hover { color: var(--danger); }
+  .bind-select {
+    font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px dashed var(--line);
+    background: transparent; color: var(--ink-soft); width: auto;
+  }
+
   .identity-card {
     display: flex; align-items: center; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); cursor: pointer;
   }
@@ -1038,14 +1050,14 @@ async function renderAddAccountForm() {
   let operators = [];
   try {
     const users = await api('/users');
-    operators = users.filter((u) => u.role === 'operator' && !u.identity_id);
+    operators = users.filter((u) => u.role === 'operator');
   } catch (e) {
     operators = [];
   }
 
   el.innerHTML = `
     <div class="page-title">添加账号</div>
-    <div class="page-sub">新增一个矩阵号（一个人设），可以关联一个还没绑定矩阵号的运营账号，并登记它在三个平台上的主页链接</div>
+    <div class="page-sub">新增一个矩阵号（一个人设），可以关联一个运营账号来管理它（一个运营可以管理多个矩阵号），并登记它在三个平台上的主页链接</div>
     <div class="add-account-grid">
       <div class="panel">
         <h2>矩阵号信息</h2>
@@ -1055,9 +1067,9 @@ async function renderAddAccountForm() {
             <label>关联运营账号（可选）</label>
             <select id="newIdentityOperator">
               <option value="">不绑定</option>
-              ${operators.map((u) => `<option value="${u.id}">${escapeHtml(u.username)}</option>`).join('')}
+              ${operators.map((u) => `<option value="${u.id}">${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
             </select>
-            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">没有还没绑定矩阵号的运营账号，可以先去「内部账号管理」新建一个</div>' : ''}
+            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有运营账号，可以先去「内部账号管理」新建一个</div>' : ''}
           </div>
         </div>
       </div>
@@ -1719,21 +1731,61 @@ function renderUserList() {
   const list = document.getElementById('userList');
   if (!users.length) { list.innerHTML = '<div class="empty-hint">暂无账号</div>'; return; }
   list.innerHTML = users.map((u) => {
-    const identity = u.identity_id ? allIdentities.find((i) => i.id === u.identity_id) : null;
-    const bindingText = u.role === 'super_admin'
-      ? '全部矩阵号（万能码通行）'
-      : (identity ? `矩阵号：${escapeHtml(identity.name)}` : '未绑定矩阵号');
+    const boundIdentities = (u.identity_ids || []).map((id) => allIdentities.find((i) => i.id === id)).filter(Boolean);
+    const bindingHtml = u.role === 'super_admin'
+      ? '<div class="row-sub">全部矩阵号（万能码通行）</div>'
+      : `
+        <div class="identity-bind-tags">
+          ${boundIdentities.length
+            ? boundIdentities.map((i) => `
+                <span class="mini-tag-remove">${escapeHtml(i.name)} <span onclick="unbindIdentity('${u.id}','${i.id}')" title="解绑">✕</span></span>
+              `).join('')
+            : '<span class="row-sub">未绑定矩阵号</span>'}
+          <select class="bind-select" onchange="bindIdentityFromSelect('${u.id}', this)">
+            <option value="">+ 绑定矩阵号</option>
+            ${allIdentities.filter((i) => !(u.identity_ids || []).includes(i.id)).map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
+          </select>
+        </div>
+      `;
     return `
       <div class="row-item">
         <div class="row-body">
           <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
-          <div class="row-sub">${bindingText}${u.role === 'operator' ? (u.has_passcode ? ' · 已设置管理口令' : ' · 未设置管理口令') : ''}</div>
+          ${u.role === 'operator' ? `<div class="row-sub">${u.has_passcode ? '已设置管理口令' : '未设置管理口令'}</div>` : ''}
+          ${bindingHtml}
           <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
         </div>
         <div class="row-btns">${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}</div>
       </div>
     `;
   }).join('');
+}
+
+async function bindIdentityFromSelect(userId, selectEl) {
+  const identityId = selectEl.value;
+  if (!identityId) return;
+  try {
+    await api(`/users/${userId}/identities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity_id: identityId }),
+    });
+    await loadUsers();
+    renderUserList();
+  } catch (e) {
+    alert('绑定失败：' + e.message);
+  }
+}
+
+async function unbindIdentity(userId, identityId) {
+  if (!confirm('确定解绑这个矩阵号吗？')) return;
+  try {
+    await api(`/users/${userId}/identities/${identityId}`, { method: 'DELETE' });
+    await loadUsers();
+    renderUserList();
+  } catch (e) {
+    alert('解绑失败：' + e.message);
+  }
 }
 
 async function submitUser() {
