@@ -68,9 +68,7 @@
     width: 22px; height: 22px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex-shrink: 0;
   }
   .link-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -2px; }
-  .link-locked-text { font-size: 14px; line-height: 1.5; word-break: break-all; padding: 2px 0; }
-  .link-locked-text a { color: var(--accent); text-decoration: none; }
-  .link-locked-text a:hover { text-decoration: underline; }
+  .link-locked-text { font-size: 14px; line-height: 1.5; word-break: break-all; padding: 2px 0; color: #fff; }
   .link-tutorial { font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: none; }
   .link-tutorial:hover { text-decoration: underline; }
   .modal-card.wide { max-width: 640px; max-height: 82vh; overflow-y: auto; }
@@ -1149,7 +1147,7 @@ function toggleLinkLock(inputId, btnId) {
     const url = input.value.trim();
     input.disabled = true;
     input.hidden = true;
-    display.innerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`;
+    display.textContent = url;
     display.hidden = false;
     btn.textContent = '修改编辑';
     btn.classList.add('locked-btn');
@@ -1653,8 +1651,9 @@ function renderBanners() {
           <div><label>跳转链接（可选）</label><input type="text" id="fLink"></div>
           <div class="full">
             <label>图片</label>
-            <input type="file" id="fImage" accept="image/*,.svg">
+            <input type="file" id="fImage" accept="image/*,.svg" onchange="previewBannerImage()">
             <input type="hidden" id="fImageUrl">
+            <img id="fImagePreview" src="" alt="预览" hidden style="margin-top:10px;max-width:240px;max-height:120px;border-radius:8px;display:block;">
           </div>
         </div>
         <div class="actions">
@@ -1673,7 +1672,7 @@ function renderBannerList() {
   if (!banners.length) { list.innerHTML = '<div class="empty-hint">暂无轮播图</div>'; return; }
   list.innerHTML = banners.slice().sort((a, b) => a.sort_order - b.sort_order).map((b) => `
     <div class="row-item">
-      <img src="${b.image_url}" alt="">
+      <img src="${staticUrl(b.image_url)}" alt="">
       <div class="row-body">
         <div class="row-title">${escapeHtml(b.title)}</div>
         <div class="row-sub">${escapeHtml(b.subtitle || '')} · 排序 ${b.sort_order}</div>
@@ -1686,6 +1685,14 @@ function renderBannerList() {
   `).join('');
 }
 
+function previewBannerImage() {
+  const file = document.getElementById('fImage').files[0];
+  const preview = document.getElementById('fImagePreview');
+  if (!file) { preview.hidden = true; preview.src = ''; return; }
+  preview.src = URL.createObjectURL(file);
+  preview.hidden = false;
+}
+
 function editBanner(id) {
   const b = banners.find((x) => x.id === id);
   if (!b) return;
@@ -1696,6 +1703,10 @@ function editBanner(id) {
   document.getElementById('fSort').value = b.sort_order;
   document.getElementById('fLink').value = b.link_url || '';
   document.getElementById('fImageUrl').value = b.image_url;
+  document.getElementById('fImage').value = '';
+  const preview = document.getElementById('fImagePreview');
+  preview.src = staticUrl(b.image_url);
+  preview.hidden = false;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1705,6 +1716,8 @@ function resetBannerForm() {
   ['fTitle', 'fSubtitle', 'fLink', 'fImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('fSort').value = '0';
   document.getElementById('fImage').value = '';
+  document.getElementById('fImagePreview').hidden = true;
+  document.getElementById('fImagePreview').src = '';
   document.getElementById('bannerFormMsg').textContent = '';
 }
 
