@@ -423,6 +423,16 @@
   }
   .modal-card h2 { margin: 0 0 8px; }
 
+  .crop-viewport {
+    position: relative; width: 270px; height: 480px; margin: 0 auto 14px;
+    overflow: hidden; background: #000; border-radius: 8px; border: 1px solid var(--line);
+    touch-action: none; cursor: grab;
+  }
+  .crop-viewport:active { cursor: grabbing; }
+  .crop-viewport img { position: absolute; user-select: none; -webkit-user-drag: none; touch-action: none; }
+  .crop-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .crop-controls input[type="range"] { flex: 1; }
+
   .identity-kpi-grid { grid-template-columns: repeat(5, 1fr); }
   @media (max-width: 900px) {
     .identity-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
@@ -726,6 +736,7 @@ async function showSection(key) {
     renderAccountsPage();
   } else if (key === 'accounts-add') {
     document.getElementById('section-accounts').hidden = false;
+    editingIdentityId = null;
     await renderAddAccountForm();
   } else if (key === 'banners') {
     document.getElementById('section-banners').hidden = false;
@@ -1088,6 +1099,8 @@ function renderTrendChart(trend) {
 let accountsDetailId = null;
 let detailActiveAccountId = null;
 let detailSelectedVideoId = null;
+let editingIdentityId = null;
+let editingOperatorOriginalId = null;
 let detailVideos = [];
 let unlockedIdentities = new Set();
 
@@ -1200,6 +1213,9 @@ async function renderAddAccountForm() {
   const el = document.getElementById('section-accounts');
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
 
+  const identity = editingIdentityId ? allIdentities.find((i) => i.id === editingIdentityId) : null;
+  if (editingIdentityId && !identity) editingIdentityId = null;
+
   let operators = [];
   try {
     const users = await api('/users');
@@ -1208,19 +1224,24 @@ async function renderAddAccountForm() {
     operators = [];
   }
 
+  const boundOperator = identity ? operators.find((u) => u.identity_ids.includes(identity.id)) : null;
+  editingOperatorOriginalId = boundOperator ? boundOperator.id : null;
+
   el.innerHTML = `
-    <div class="page-title">添加账号</div>
-    <div class="page-sub">新增一个矩阵号（一个人设），可以关联一个运营账号来管理它（一个运营可以管理多个矩阵号），并登记它在三个平台上的主页链接</div>
+    <div class="page-title">${identity ? '编辑账号' : '添加账号'}</div>
+    <div class="page-sub">${identity
+      ? `编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联运营账号和三个平台的主页链接`
+      : '新增一个矩阵号（一个人设），可以关联一个运营账号来管理它（一个运营可以管理多个矩阵号），并登记它在三个平台上的主页链接'}</div>
     <div class="add-account-grid">
       <div class="panel">
         <h2>矩阵号信息</h2>
         <div class="form-grid">
-          <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张"></div>
+          <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张" value="${identity ? escapeHtml(identity.name) : ''}"></div>
           <div class="full">
             <label>关联运营账号（可选）</label>
             <select id="newIdentityOperator">
               <option value="">不绑定</option>
-              ${operators.map((u) => `<option value="${u.id}">${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
+              ${operators.map((u) => `<option value="${u.id}" ${editingOperatorOriginalId === u.id ? 'selected' : ''}>${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
             </select>
             ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有运营账号，可以先去「内部账号管理」新建一个</div>' : ''}
           </div>
@@ -1249,11 +1270,22 @@ async function renderAddAccountForm() {
     <div class="panel" style="margin-top:16px;">
       <div class="actions">
         <button onclick="submitNewIdentity()">保存</button>
-        <button class="ghost" onclick="renderAddAccountForm()">清空</button>
+        <button class="ghost" onclick="renderAddAccountForm()">${identity ? '还原' : '清空'}</button>
+        ${identity ? '<button class="ghost" onclick="editingIdentityId = null; showSection(\'accounts-list\')">取消编辑</button>' : ''}
       </div>
       <p class="msg" id="newIdentityMsg"></p>
     </div>
   `;
+
+  if (identity) {
+    PLATFORM_DEFS.forEach((p) => {
+      const acc = identity.accounts.find((a) => a.platform === p.key);
+      if (acc && acc.profile_url) {
+        document.getElementById(`newAcc_${p.key}_url`).value = acc.profile_url;
+        toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`);
+      }
+    });
+  }
 }
 
 async function submitNewIdentity() {
@@ -1269,28 +1301,87 @@ async function submitNewIdentity() {
     return;
   }
 
-  const platformAccounts = PLATFORM_DEFS.map((p) => ({
-    platform: p.key,
-    profile_url: document.getElementById(`newAcc_${p.key}_url`).value.trim() || null,
-  })).filter((a) => a.profile_url);
+  const platformUrls = {};
+  PLATFORM_DEFS.forEach((p) => {
+    platformUrls[p.key] = document.getElementById(`newAcc_${p.key}_url`).value.trim() || null;
+  });
 
   try {
-    const identity = await publicApi('/identities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, operator_user_id: operatorUserId }),
-    });
-    for (const a of platformAccounts) {
-      await publicApi('/accounts', {
+    if (editingIdentityId) {
+      const id = editingIdentityId;
+      const identity = await publicApi(`/identities/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+
+      if (operatorUserId !== editingOperatorOriginalId) {
+        try {
+          if (editingOperatorOriginalId) {
+            await publicApi(`/users/${editingOperatorOriginalId}/identities/${id}`, { method: 'DELETE' });
+          }
+          if (operatorUserId) {
+            await publicApi(`/users/${operatorUserId}/identities`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ identity_id: id }),
+            });
+          }
+        } catch (e) {
+          msg.textContent = '基本信息和链接已保存，但运营账号关联需要超级管理员权限，没有改成';
+          msg.className = 'msg error';
+        }
+      }
+
+      for (const p of PLATFORM_DEFS) {
+        const url = platformUrls[p.key];
+        const existingAcc = identity.accounts.find((a) => a.platform === p.key);
+        if (url) {
+          if (existingAcc) {
+            await publicApi(`/accounts/${existingAcc.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nickname: existingAcc.nickname, profile_url: url, follower_count: existingAcc.follower_count, video_count: existingAcc.video_count }),
+            });
+          } else {
+            await publicApi('/accounts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ identity_id: id, platform: p.key, profile_url: url, nickname: '', follower_count: 0, video_count: 0 }),
+            });
+          }
+        } else if (existingAcc && existingAcc.profile_url) {
+          // Only remove the account if it previously had a link that's now being
+          // cleared. An existing account with no profile_url (legacy data, never
+          // touched by this form) is left alone — an empty field here must never
+          // silently delete real follower/video data.
+          await publicApi(`/accounts/${existingAcc.id}`, { method: 'DELETE' });
+        }
+      }
+
+      allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json());
+      editingIdentityId = null;
+      if (!msg.className.includes('error')) { msg.textContent = '已保存'; msg.className = 'msg ok'; }
+      setTimeout(() => showSection('accounts-list'), 800);
+    } else {
+      const identity = await publicApi('/identities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identity_id: identity.id, ...a }),
+        body: JSON.stringify({ name, operator_user_id: operatorUserId }),
       });
+      for (const p of PLATFORM_DEFS) {
+        if (!platformUrls[p.key]) continue;
+        await publicApi('/accounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identity_id: identity.id, platform: p.key, profile_url: platformUrls[p.key] }),
+        });
+      }
+      allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json());
+      msg.textContent = '添加成功';
+      msg.className = 'msg ok';
+      setTimeout(() => showSection('accounts-list'), 600);
     }
-    allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json());
-    msg.textContent = '添加成功';
-    msg.className = 'msg ok';
-    setTimeout(() => showSection('accounts-list'), 600);
   } catch (e) {
     msg.textContent = e.message;
     msg.className = 'msg error';
@@ -1313,46 +1404,14 @@ function closeIdentityDetail() {
   renderIdentityList();
 }
 
-function editIdentityInfo(id) {
-  const identity = allIdentities.find((i) => i.id === id);
-  if (!identity) return;
-  const modal = document.getElementById('passcodeModal');
-  modal.innerHTML = `
-    <div class="modal-card" onclick="event.stopPropagation()">
-      <h2>编辑矩阵号</h2>
-      <div class="form-grid">
-        <div class="full"><label>矩阵号名称</label><input type="text" id="editIdName" value="${escapeHtml(identity.name)}"></div>
-      </div>
-      <div class="actions">
-        <button onclick="submitEditIdentity('${id}')">保存</button>
-        <button class="ghost" onclick="closePasscodeModal()">取消</button>
-      </div>
-      <p class="msg" id="editIdMsg"></p>
-    </div>
-  `;
-  modal.hidden = false;
-  document.getElementById('editIdName').focus();
-}
-
-async function submitEditIdentity(id) {
-  const msg = document.getElementById('editIdMsg');
-  const name = document.getElementById('editIdName').value.trim();
-  if (!name) { msg.textContent = '请填写矩阵号名称'; msg.className = 'msg error'; return; }
-  msg.className = 'msg';
-  msg.textContent = '保存中...';
-  try {
-    await publicApi(`/identities/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    allIdentities = await publicApi('/identities');
-    closePasscodeModal();
-    if (accountsDetailId) { renderIdentityDetail(id); } else { renderIdentityList(); }
-  } catch (e) {
-    msg.textContent = '保存失败：' + e.message;
-    msg.className = 'msg error';
-  }
+async function editIdentityInfo(id) {
+  editingIdentityId = id;
+  activeSection = 'accounts-add';
+  const parentGroup = [...NAV_WORK, ...NAV_SYSTEM].find((i) => i.children && i.children.some((c) => c.key === 'accounts-add'));
+  if (parentGroup) expandedNavGroups.add(parentGroup.key);
+  renderNav();
+  document.getElementById('section-accounts').hidden = false;
+  await renderAddAccountForm();
 }
 
 async function deleteIdentity(id) {
@@ -2253,6 +2312,10 @@ let aftersalesList = [];
 /* ---- 商品信息 ---- */
 
 let editingProductId = null;
+let pendingProductFiles = {}; // inputId -> cropped/compressed File, takes priority over the raw <input type=file>
+let cropState = null;
+const CROP_VW = 270;
+const CROP_VH = 480;
 
 async function renderProductsPage() {
   const el = document.getElementById('section-orders');
@@ -2276,7 +2339,7 @@ async function renderProductsPage() {
           <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
           <div>
             <label>商品主图</label>
-            <input type="file" id="pMainImage" accept="image/*" onchange="previewProductFile('pMainImage','pMainImagePreview','pMainImageName')">
+            <input type="file" id="pMainImage" accept="image/*" onchange="handleProductImageSelect('pMainImage','pMainImagePreview','pMainImageName')">
             <input type="hidden" id="pMainImageUrl">
             <img id="pMainImagePreview" class="field-preview-img" src="" alt="预览" hidden>
             <div id="pMainImageName" class="row-sub" hidden></div>
@@ -2322,6 +2385,153 @@ function previewProductFile(inputId, previewImgId, nameElId) {
     nameEl.hidden = false;
     nameEl.textContent = '已选择文件：' + file.name;
   }
+}
+
+function handleProductImageSelect(inputId, previewImgId, nameElId) {
+  const file = document.getElementById(inputId).files[0];
+  if (!file) return;
+  if (file.type.startsWith('image/')) {
+    openImageCropper(file, inputId, previewImgId, nameElId);
+  } else {
+    delete pendingProductFiles[inputId];
+    previewProductFile(inputId, previewImgId, nameElId);
+  }
+}
+
+function openImageCropper(file, inputId, previewImgId, nameElId) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const modal = document.getElementById('passcodeModal');
+    modal.innerHTML = `
+      <div class="modal-card wide" onclick="event.stopPropagation()">
+        <h2>裁剪主图（9:16）</h2>
+        <div class="crop-viewport" id="cropViewport"><img id="cropImg" src="${e.target.result}" draggable="false"></div>
+        <div class="crop-controls">
+          <label class="row-sub">缩放</label>
+          <input type="range" id="cropZoom" min="0" max="100" value="0">
+        </div>
+        <p class="row-sub">拖动图片调整位置，拉动滑块缩放；保存时会自动裁剪为 9:16 并压缩到约 200KB</p>
+        <div class="actions">
+          <button onclick="confirmCrop('${inputId}','${previewImgId}','${nameElId}')">裁剪并保存</button>
+          <button class="ghost" onclick="cancelCrop('${inputId}')">取消</button>
+        </div>
+        <p class="msg" id="cropMsg"></p>
+      </div>
+    `;
+    modal.hidden = false;
+    initCropper();
+  };
+  reader.readAsDataURL(file);
+}
+
+function initCropper() {
+  const img = document.getElementById('cropImg');
+  const zoomSlider = document.getElementById('cropZoom');
+
+  const onImgLoad = () => {
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    const minScale = Math.max(CROP_VW / nw, CROP_VH / nh);
+    cropState = { naturalW: nw, naturalH: nh, scale: minScale, minScale, maxScale: minScale * 3, left: 0, top: 0 };
+    cropState.left = (CROP_VW - nw * minScale) / 2;
+    cropState.top = (CROP_VH - nh * minScale) / 2;
+    applyCropTransform();
+    zoomSlider.value = 0;
+  };
+  if (img.complete && img.naturalWidth) onImgLoad(); else img.onload = onImgLoad;
+
+  let dragging = false;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  img.onpointerdown = (ev) => {
+    if (!cropState) return;
+    dragging = true;
+    startX = ev.clientX; startY = ev.clientY;
+    startLeft = cropState.left; startTop = cropState.top;
+    img.setPointerCapture(ev.pointerId);
+  };
+  img.onpointermove = (ev) => {
+    if (!dragging || !cropState) return;
+    cropState.left = startLeft + (ev.clientX - startX);
+    cropState.top = startTop + (ev.clientY - startY);
+    clampCrop();
+    applyCropTransform();
+  };
+  img.onpointerup = () => { dragging = false; };
+  img.onpointercancel = () => { dragging = false; };
+
+  zoomSlider.oninput = () => {
+    if (!cropState) return;
+    const t = zoomSlider.value / 100;
+    const newScale = cropState.minScale + t * (cropState.maxScale - cropState.minScale);
+    const cx = CROP_VW / 2, cy = CROP_VH / 2;
+    const imgX = (cx - cropState.left) / cropState.scale;
+    const imgY = (cy - cropState.top) / cropState.scale;
+    cropState.scale = newScale;
+    cropState.left = cx - imgX * newScale;
+    cropState.top = cy - imgY * newScale;
+    clampCrop();
+    applyCropTransform();
+  };
+}
+
+function clampCrop() {
+  const w = cropState.naturalW * cropState.scale;
+  const h = cropState.naturalH * cropState.scale;
+  if (cropState.left > 0) cropState.left = 0;
+  if (cropState.left + w < CROP_VW) cropState.left = CROP_VW - w;
+  if (cropState.top > 0) cropState.top = 0;
+  if (cropState.top + h < CROP_VH) cropState.top = CROP_VH - h;
+}
+
+function applyCropTransform() {
+  const img = document.getElementById('cropImg');
+  if (!img || !cropState) return;
+  img.style.width = (cropState.naturalW * cropState.scale) + 'px';
+  img.style.height = (cropState.naturalH * cropState.scale) + 'px';
+  img.style.left = cropState.left + 'px';
+  img.style.top = cropState.top + 'px';
+}
+
+async function confirmCrop(inputId, previewImgId, nameElId) {
+  if (!cropState) return;
+  const msg = document.getElementById('cropMsg');
+  msg.textContent = '处理中...';
+  msg.className = 'msg';
+  const img = document.getElementById('cropImg');
+  const OUT_W = 720, OUT_H = 1280;
+  const canvas = document.createElement('canvas');
+  canvas.width = OUT_W;
+  canvas.height = OUT_H;
+  const ctx = canvas.getContext('2d');
+  const sx = -cropState.left / cropState.scale;
+  const sy = -cropState.top / cropState.scale;
+  const sw = CROP_VW / cropState.scale;
+  const sh = CROP_VH / cropState.scale;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H);
+
+  const maxBytes = 200 * 1024;
+  let quality = 0.9;
+  let blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
+  while (blob && blob.size > maxBytes && quality > 0.3) {
+    quality -= 0.1;
+    blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
+  }
+  if (!blob) { msg.textContent = '裁剪失败，请重试'; msg.className = 'msg error'; return; }
+
+  pendingProductFiles[inputId] = new File([blob], 'crop-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+  const previewImg = document.getElementById(previewImgId);
+  const nameEl = document.getElementById(nameElId);
+  previewImg.src = URL.createObjectURL(blob);
+  previewImg.hidden = false;
+  nameEl.hidden = true;
+  nameEl.innerHTML = '';
+  cropState = null;
+  closePasscodeModal();
+}
+
+function cancelCrop(inputId) {
+  document.getElementById(inputId).value = '';
+  cropState = null;
+  closePasscodeModal();
 }
 
 function setFilePreview(url, previewImgId, nameElId) {
@@ -2370,6 +2580,7 @@ function editProduct(id) {
   const p = products.find((x) => x.id === id);
   if (!p) return;
   editingProductId = id;
+  pendingProductFiles = {};
   document.getElementById('productFormTitle').textContent = '编辑商品';
   document.getElementById('pName').value = p.name;
   document.getElementById('pCode').value = p.internal_code || '';
@@ -2388,6 +2599,7 @@ function editProduct(id) {
 
 function resetProductForm() {
   editingProductId = null;
+  pendingProductFiles = {};
   document.getElementById('productFormTitle').textContent = '新增商品';
   ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pMainImageUrl', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('pMainImage').value = '';
@@ -2398,7 +2610,7 @@ function resetProductForm() {
 }
 
 async function uploadProductImage(inputId) {
-  const file = document.getElementById(inputId).files[0];
+  const file = pendingProductFiles[inputId] || document.getElementById(inputId).files[0];
   if (!file) return null;
   const fd = new FormData();
   fd.append('file', file);
