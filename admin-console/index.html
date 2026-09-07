@@ -1179,6 +1179,7 @@ let detailActiveAccountId = null;
 let detailSelectedVideoId = null;
 let editingIdentityId = null;
 let editingOperatorOriginalId = null;
+let scrapedData = {}; // platform key -> {nickname, avatar_url, follower_count, video_count} | null
 let detailVideos = [];
 let unlockedIdentities = new Set();
 
@@ -1240,26 +1241,61 @@ function platformLogoHtml(key) {
   return `<span class="p-logo" style="background:${l.bg};">${l.svg}</span>`;
 }
 
-function toggleLinkLock(inputId, btnId) {
+function platformKeyFromInputId(inputId) {
+  return inputId.replace('newAcc_', '').replace('_url', '');
+}
+
+function renderLockedDisplay(display, url, platform) {
+  const d = scrapedData[platform];
+  if (d && d.nickname) {
+    display.innerHTML = `${escapeHtml(url)}<br><span style="color:var(--ink-faint);font-size:12px;">已抓取：${escapeHtml(d.nickname)} · 粉丝 ${d.follower_count ?? '-'} · 作品 ${d.video_count ?? '-'}</span>`;
+  } else if (d === null) {
+    display.innerHTML = `${escapeHtml(url)}<br><span style="color:var(--danger);font-size:12px;">自动抓取失败，链接已保存，数据需要之后手动补</span>`;
+  } else {
+    display.textContent = url;
+  }
+}
+
+async function toggleLinkLock(inputId, btnId, skipScrape) {
   const input = document.getElementById(inputId);
   const btn = document.getElementById(btnId);
   const display = document.getElementById(inputId + 'Display');
+  const platform = platformKeyFromInputId(inputId);
+
   if (input.disabled) {
     input.disabled = false;
     input.hidden = false;
     display.hidden = true;
     btn.textContent = '确定添加';
     btn.classList.remove('locked-btn');
-  } else {
-    if (!input.value.trim()) { alert('您还没有输入网址'); return; }
-    const url = input.value.trim();
-    input.disabled = true;
-    input.hidden = true;
-    display.textContent = url;
-    display.hidden = false;
-    btn.textContent = '修改编辑';
-    btn.classList.add('locked-btn');
+    return;
   }
+
+  if (!input.value.trim()) { alert('您还没有输入网址'); return; }
+  const url = input.value.trim();
+
+  if (!skipScrape) {
+    btn.disabled = true;
+    btn.textContent = '抓取中...';
+    try {
+      const res = await api('/scrape-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, url }),
+      });
+      scrapedData[platform] = res.data || null;
+    } catch (e) {
+      scrapedData[platform] = null;
+    }
+    btn.disabled = false;
+  }
+
+  input.disabled = true;
+  input.hidden = true;
+  renderLockedDisplay(display, url, platform);
+  display.hidden = false;
+  btn.textContent = '修改编辑';
+  btn.classList.add('locked-btn');
 }
 
 function closeTutorialModal() {
@@ -3096,7 +3132,7 @@ async function renderCustomersPage() {
             </select>
           </div>
           <div><label>跟进运营</label><input type="text" id="cAssigned"></div>
-          <div><label>客户微信</label><input type="text" id="cWechat"></div>
+          <div><label>AI微信</label><input type="text" id="cAiWechat"></div>
           <div class="full"><label>备注</label><input type="text" id="cNotes"></div>
         </div>
         <div class="actions">
@@ -3122,7 +3158,7 @@ function renderCustomerList() {
     <div class="row-item">
       <div class="row-body">
         <div class="row-title">${escapeHtml(c.name)}${c.phone ? ` <span class="row-sub">${escapeHtml(c.phone)}</span>` : ''}</div>
-        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进运营 ' + escapeHtml(c.assigned_to) : ''}${c.wechat ? ' · 微信 ' + escapeHtml(c.wechat) : ''}</div>
+        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进运营 ' + escapeHtml(c.assigned_to) : ''}${c.ai_wechat ? ' · AI微信 ' + escapeHtml(c.ai_wechat) : ''}</div>
         ${c.financial_status || c.intended_product_id ? `<div class="row-sub">${c.financial_status ? '经济状况：' + escapeHtml(c.financial_status) : ''}${c.intended_product_id ? (c.financial_status ? ' · ' : '') + '意向车型：' + escapeHtml(productNameById(c.intended_product_id)) : ''}</div>` : ''}
         ${c.notes ? `<div class="row-sub">${escapeHtml(c.notes)}</div>` : ''}
       </div>
@@ -3147,7 +3183,7 @@ async function changeCustomerStage(id, newStage) {
       body: JSON.stringify({
         name: c.name, phone: c.phone, source: c.source, financial_status: c.financial_status,
         stage: newStage, intended_product_id: c.intended_product_id, assigned_to: c.assigned_to,
-        wechat: c.wechat, notes: c.notes,
+        ai_wechat: c.ai_wechat, notes: c.notes,
       }),
     });
     customers = await api('/customers');
@@ -3170,7 +3206,7 @@ function editCustomer(id) {
   document.getElementById('cStage').value = c.stage;
   document.getElementById('cIntendedProduct').value = c.intended_product_id || '';
   document.getElementById('cAssigned').value = c.assigned_to;
-  document.getElementById('cWechat').value = c.wechat || '';
+  document.getElementById('cAiWechat').value = c.ai_wechat || '';
   document.getElementById('cNotes').value = c.notes;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -3178,7 +3214,7 @@ function editCustomer(id) {
 function resetCustomerForm() {
   editingCustomerId = null;
   document.getElementById('customerFormTitle').textContent = '新增客户';
-  ['cName', 'cPhone', 'cSource', 'cFinancial', 'cAssigned', 'cWechat', 'cNotes'].forEach((id) => { document.getElementById(id).value = ''; });
+  ['cName', 'cPhone', 'cSource', 'cFinancial', 'cAssigned', 'cAiWechat', 'cNotes'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('cStage').value = 'initial_chat';
   document.getElementById('cIntendedProduct').value = '';
   document.getElementById('customerFormMsg').textContent = '';
@@ -3194,7 +3230,7 @@ async function submitCustomer() {
     stage: document.getElementById('cStage').value,
     intended_product_id: document.getElementById('cIntendedProduct').value || null,
     assigned_to: document.getElementById('cAssigned').value.trim(),
-    wechat: document.getElementById('cWechat').value.trim(),
+    ai_wechat: document.getElementById('cAiWechat').value.trim(),
     notes: document.getElementById('cNotes').value.trim(),
   };
   if (!payload.name) { msg.textContent = '请填写客户姓名'; msg.className = 'msg error'; return; }

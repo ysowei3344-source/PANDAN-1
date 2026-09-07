@@ -307,7 +307,7 @@ class Customer(BaseModel):
     stage: CustomerStage = "initial_chat"
     intended_product_id: str | None = None  # 意向车型，关联 Product
     assigned_to: str = ""  # 跟进运营
-    wechat: str = ""  # 客户微信
+    ai_wechat: str = ""  # AI微信（对接该客户的AI微信客服账号）
     notes: str = ""
     created_at: str
     updated_at: str
@@ -321,7 +321,7 @@ class CustomerInput(BaseModel):
     stage: CustomerStage = "initial_chat"
     intended_product_id: str | None = None
     assigned_to: str = ""
-    wechat: str = ""
+    ai_wechat: str = ""
     notes: str = ""
 
 
