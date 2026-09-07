@@ -357,7 +357,8 @@
   .row-btns button { padding: 6px 12px; font-size: 12px; }
 
   #productList .row-item { align-items: stretch; }
-  #productList .row-body { display: flex; flex-direction: column; justify-content: space-between; }
+  #productList .row-body { display: flex; flex-direction: column; }
+  .row-label-bold { font-weight: 700; }
   .row-code-inline { font-size: 12px; font-weight: 400; color: var(--ink-soft); margin-left: 5ch; }
   .row-gap-5 { margin-left: 5ch; }
   .copy-icon-btn {
@@ -366,7 +367,7 @@
     cursor: pointer; font-size: 12px; vertical-align: middle;
   }
   .copy-icon-btn:hover { color: var(--accent); }
-  .row-notes-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
+  .row-notes-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; padding-top: 8px; }
   .row-notes-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink-soft); }
   .row-notes-actions { display: flex; gap: 6px; flex-shrink: 0; }
   .row-notes-actions .icon-btn { width: 26px; height: 26px; font-size: 12px; }
@@ -2868,7 +2869,7 @@ function renderProductList() {
           <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? `<span class="row-code-inline">${escapeHtml(p.internal_code)}</span>` : ''}</div>
           <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? `<span class="row-gap-5">底盘号：${escapeHtml(p.chassis_number)}</span><button type="button" class="copy-icon-btn" onclick="copyChassisNumber(event,'${chassisNumberJs}')" title="复制底盘号">📋</button>` : ''}</div>
           <div class="row-sub">${p.layout_image_url ? `配置布局：<a href="${staticUrl(p.layout_image_url)}" target="_blank" rel="noopener">查看</a>` : ''}</div>
-          <div class="row-sub">${p.standard_config ? `标准配置：${escapeHtml(p.standard_config)}` : ''}</div>
+          <div class="row-sub">${p.standard_config ? `<span class="row-label-bold">标准配置：</span>${escapeHtml(p.standard_config)}` : ''}</div>
           <div class="row-notes-line">
             <span class="row-notes-text" title="${escapeHtml(p.customer_notes || '')}">${p.customer_notes ? `客户备注：${escapeHtml(p.customer_notes)}` : ''}</span>
             <span class="row-notes-actions">
