@@ -68,6 +68,9 @@
     width: 22px; height: 22px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex-shrink: 0;
   }
   .link-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -2px; }
+  .link-locked-text { font-size: 14px; line-height: 1.5; word-break: break-all; padding: 2px 0; }
+  .link-locked-text a { color: var(--accent); text-decoration: none; }
+  .link-locked-text a:hover { text-decoration: underline; }
   .link-tutorial { font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: none; }
   .link-tutorial:hover { text-decoration: underline; }
   .modal-card.wide { max-width: 640px; max-height: 82vh; overflow-y: auto; }
@@ -1134,13 +1137,20 @@ function platformLogoHtml(key) {
 function toggleLinkLock(inputId, btnId) {
   const input = document.getElementById(inputId);
   const btn = document.getElementById(btnId);
+  const display = document.getElementById(inputId + 'Display');
   if (input.disabled) {
     input.disabled = false;
+    input.hidden = false;
+    display.hidden = true;
     btn.textContent = '确定添加';
     btn.classList.remove('locked-btn');
   } else {
     if (!input.value.trim()) { alert('您还没有输入网址'); return; }
+    const url = input.value.trim();
     input.disabled = true;
+    input.hidden = true;
+    display.innerHTML = `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`;
+    display.hidden = false;
     btn.textContent = '修改编辑';
     btn.classList.add('locked-btn');
   }
@@ -1205,7 +1215,11 @@ async function renderAddAccountForm() {
         <div class="panel">
           <h2>${platformLogoHtml(p.key)}${p.label}账号</h2>
           <div class="form-grid">
-            <div class="full"><label>主页链接</label><input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接"></div>
+            <div class="full">
+              <label>主页链接</label>
+              <input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接">
+              <div class="link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
+            </div>
             <div class="full link-row">
               <a class="link-tutorial" href="javascript:void(0)" onclick="showTutorialModal('${p.key}')">绑定教程</a>
               <button type="button" class="link-confirm-btn" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
