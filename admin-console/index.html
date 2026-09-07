@@ -48,7 +48,7 @@
   button.danger { background: var(--danger-soft); color: var(--danger); }
   button.link-confirm-btn { background: var(--card-2); color: var(--ink); border: 1px solid var(--line); }
   button.link-confirm-btn.locked-btn { background: var(--accent); color: #fff; border: none; }
-  input[type="text"], input[type="password"], input[type="number"], select {
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
     width: 100%;
     padding: 9px 12px;
     border-radius: 8px;
@@ -56,7 +56,10 @@
     background: var(--card-2);
     color: var(--ink);
     font-size: 14px;
+    font-family: inherit;
   }
+  textarea { resize: vertical; }
+  .field-preview-img { margin-top: 10px; max-width: 240px; max-height: 120px; border-radius: 8px; display: block; }
   label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 4px; }
   .msg { font-size: 13px; margin-top: 10px; }
   .msg.error { color: var(--danger); }
@@ -330,7 +333,10 @@
   @media (max-width: 900px) {
     .users-columns { grid-template-columns: 1fr; }
   }
-  .add-account-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: start; margin-bottom: 16px; }
+  .add-account-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1100px) {
+    .add-account-grid { grid-template-columns: repeat(2, 1fr); }
+  }
   @media (max-width: 560px) {
     .add-account-grid { grid-template-columns: 1fr; }
   }
@@ -1215,9 +1221,12 @@ async function renderAddAccountForm() {
               <input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接">
               <div class="link-locked-text" id="newAcc_${p.key}_urlDisplay" hidden></div>
             </div>
-            <div class="full link-row">
-              <a class="link-tutorial" href="javascript:void(0)" onclick="showTutorialModal('${p.key}')">绑定教程</a>
-              <button type="button" class="link-confirm-btn" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
+            <div class="full">
+              <label style="visibility:hidden;">操作</label>
+              <div class="link-row">
+                <a class="link-tutorial" href="javascript:void(0)" onclick="showTutorialModal('${p.key}')">绑定教程</a>
+                <button type="button" class="link-confirm-btn" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1650,7 +1659,7 @@ function renderBanners() {
             <label>图片</label>
             <input type="file" id="fImage" accept="image/*,.svg" onchange="previewBannerImage()">
             <input type="hidden" id="fImageUrl">
-            <img id="fImagePreview" src="" alt="预览" hidden style="margin-top:10px;max-width:240px;max-height:120px;border-radius:8px;display:block;">
+            <img id="fImagePreview" class="field-preview-img" src="" alt="预览" hidden>
           </div>
         </div>
         <div class="actions">
@@ -2247,10 +2256,24 @@ async function renderProductsPage() {
       <div class="panel">
         <h2 id="productFormTitle">新增商品</h2>
         <div class="form-grid">
-          <div><label>商品名称</label><input type="text" id="pName"></div>
-          <div><label>型号规格</label><input type="text" id="pModel"></div>
-          <div><label>价格（元）</label><input type="number" id="pPrice" value="0"></div>
-          <div class="full"><label>简介</label><input type="text" id="pDesc"></div>
+          <div class="full"><label>商品名称</label><input type="text" id="pName"></div>
+          <div><label>内部编码</label><input type="text" id="pCode"></div>
+          <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
+          <div class="full"><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
+          <div class="full">
+            <label>商品主图</label>
+            <input type="file" id="pMainImage" accept="image/*" onchange="previewProductImage('pMainImage','pMainImagePreview')">
+            <input type="hidden" id="pMainImageUrl">
+            <img id="pMainImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+          </div>
+          <div class="full">
+            <label>配置布局（图）</label>
+            <input type="file" id="pLayoutImage" accept="image/*" onchange="previewProductImage('pLayoutImage','pLayoutImagePreview')">
+            <input type="hidden" id="pLayoutImageUrl">
+            <img id="pLayoutImagePreview" class="field-preview-img" src="" alt="预览" hidden>
+          </div>
+          <div class="full"><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
+          <div class="full"><label>客户备注</label><textarea id="pCustomerNotes" rows="2"></textarea></div>
         </div>
         <div class="actions">
           <button onclick="submitProduct()">保存</button>
@@ -2263,14 +2286,25 @@ async function renderProductsPage() {
   renderProductList();
 }
 
+function previewProductImage(inputId, previewId) {
+  const file = document.getElementById(inputId).files[0];
+  const preview = document.getElementById(previewId);
+  if (!file) { preview.hidden = true; preview.src = ''; return; }
+  preview.src = URL.createObjectURL(file);
+  preview.hidden = false;
+}
+
 function renderProductList() {
   const list = document.getElementById('productList');
   if (!products.length) { list.innerHTML = '<div class="empty-hint">暂无商品</div>'; return; }
   list.innerHTML = products.map((p) => `
     <div class="row-item">
+      ${p.main_image_url ? `<img src="${staticUrl(p.main_image_url)}" alt="">` : `<div class="avatar badge-blue" style="width:120px;height:48px;border-radius:8px;font-size:12px;">暂无主图</div>`}
       <div class="row-body">
-        <div class="row-title">${escapeHtml(p.name)}${p.model ? ` <span class="row-sub">${escapeHtml(p.model)}</span>` : ''}</div>
-        <div class="row-sub">¥${fmtNum(p.price)}${p.description ? ' · ' + escapeHtml(p.description) : ''}</div>
+        <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? ` <span class="row-sub">编码 ${escapeHtml(p.internal_code)}</span>` : ''}</div>
+        <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? ' · 底盘号 ' + escapeHtml(p.chassis_number) : ''}</div>
+        ${p.standard_config ? `<div class="row-sub">标配：${escapeHtml(p.standard_config)}</div>` : ''}
+        ${p.customer_notes ? `<div class="row-sub">备注：${escapeHtml(p.customer_notes)}</div>` : ''}
       </div>
       <div class="row-btns">
         <button class="ghost" onclick="editProduct('${p.id}')">编辑</button>
@@ -2286,30 +2320,62 @@ function editProduct(id) {
   editingProductId = id;
   document.getElementById('productFormTitle').textContent = '编辑商品';
   document.getElementById('pName').value = p.name;
-  document.getElementById('pModel').value = p.model;
-  document.getElementById('pPrice').value = p.price;
-  document.getElementById('pDesc').value = p.description;
+  document.getElementById('pCode').value = p.internal_code || '';
+  document.getElementById('pChassisInfo').value = p.chassis_info || '';
+  document.getElementById('pChassisNumber').value = p.chassis_number || '';
+  document.getElementById('pStandardConfig').value = p.standard_config || '';
+  document.getElementById('pCustomerNotes').value = p.customer_notes || '';
+  document.getElementById('pMainImage').value = '';
+  document.getElementById('pLayoutImage').value = '';
+  document.getElementById('pMainImageUrl').value = p.main_image_url || '';
+  document.getElementById('pLayoutImageUrl').value = p.layout_image_url || '';
+  const mainPreview = document.getElementById('pMainImagePreview');
+  const layoutPreview = document.getElementById('pLayoutImagePreview');
+  if (p.main_image_url) { mainPreview.src = staticUrl(p.main_image_url); mainPreview.hidden = false; } else { mainPreview.hidden = true; mainPreview.src = ''; }
+  if (p.layout_image_url) { layoutPreview.src = staticUrl(p.layout_image_url); layoutPreview.hidden = false; } else { layoutPreview.hidden = true; layoutPreview.src = ''; }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function resetProductForm() {
   editingProductId = null;
   document.getElementById('productFormTitle').textContent = '新增商品';
-  ['pName', 'pModel', 'pDesc'].forEach((id) => { document.getElementById(id).value = ''; });
-  document.getElementById('pPrice').value = '0';
+  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pMainImageUrl', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
+  document.getElementById('pMainImage').value = '';
+  document.getElementById('pLayoutImage').value = '';
+  document.getElementById('pMainImagePreview').hidden = true;
+  document.getElementById('pMainImagePreview').src = '';
+  document.getElementById('pLayoutImagePreview').hidden = true;
+  document.getElementById('pLayoutImagePreview').src = '';
   document.getElementById('productFormMsg').textContent = '';
+}
+
+async function uploadProductImage(inputId) {
+  const file = document.getElementById(inputId).files[0];
+  if (!file) return null;
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await api('/upload', { method: 'POST', body: fd });
+  return res.url;
 }
 
 async function submitProduct() {
   const msg = document.getElementById('productFormMsg');
-  const payload = {
-    name: document.getElementById('pName').value.trim(),
-    model: document.getElementById('pModel').value.trim(),
-    price: Number(document.getElementById('pPrice').value) || 0,
-    description: document.getElementById('pDesc').value.trim(),
-  };
-  if (!payload.name) { msg.textContent = '请填写商品名称'; msg.className = 'msg error'; return; }
+  msg.className = 'msg';
+  msg.textContent = '保存中...';
   try {
+    const mainImageUrl = (await uploadProductImage('pMainImage')) || document.getElementById('pMainImageUrl').value || null;
+    const layoutImageUrl = (await uploadProductImage('pLayoutImage')) || document.getElementById('pLayoutImageUrl').value || null;
+    const payload = {
+      name: document.getElementById('pName').value.trim(),
+      internal_code: document.getElementById('pCode').value.trim(),
+      chassis_info: document.getElementById('pChassisInfo').value.trim(),
+      chassis_number: document.getElementById('pChassisNumber').value.trim(),
+      main_image_url: mainImageUrl,
+      layout_image_url: layoutImageUrl,
+      standard_config: document.getElementById('pStandardConfig').value.trim(),
+      customer_notes: document.getElementById('pCustomerNotes').value.trim(),
+    };
+    if (!payload.name) { msg.textContent = '请填写商品名称'; msg.className = 'msg error'; return; }
     if (editingProductId) {
       await api(`/products/${editingProductId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } else {
@@ -2529,10 +2595,10 @@ function showOrderFormModal(customerId, existingOrderId) {
         <div class="full">
           <label>商品</label>
           <select id="ordProduct">
-            ${products.map((p) => `<option value="${p.id}" ${order && order.product_id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}（¥${fmtNum(p.price)}）</option>`).join('')}
+            ${products.map((p) => `<option value="${p.id}" ${order && order.product_id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}${p.internal_code ? `（${escapeHtml(p.internal_code)}）` : ''}</option>`).join('')}
           </select>
         </div>
-        <div><label>成交金额</label><input type="number" id="ordAmount" value="${order ? order.amount : products[0].price}"></div>
+        <div><label>成交金额</label><input type="number" id="ordAmount" value="${order ? order.amount : 0}"></div>
         <div><label>签约日期</label><input type="date" id="ordDate" value="${order ? String(order.signed_at).slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
         <div class="full"><label>备注</label><input type="text" id="ordNotes" value="${order ? escapeHtml(order.notes) : ''}"></div>
       </div>
