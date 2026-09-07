@@ -540,7 +540,7 @@ const NAV_WORK = [
   },
 ];
 const NAV_SYSTEM = [
-  { key: 'banners', label: '轮播图管理' },
+  { key: 'banners', label: '首页轮播广告' },
   {
     key: 'users', label: '账号权限管理', roles: ['super_admin'],
     children: [
@@ -1636,7 +1636,7 @@ async function loadBanners() { banners = await api('/banners'); }
 function renderBanners() {
   const el = document.getElementById('section-banners');
   el.innerHTML = `
-    <div class="page-title">轮播图管理</div>
+    <div class="page-title">首页轮播广告</div>
     <div class="users-columns">
       <div class="panel">
         <h2>当前轮播图（按排序号显示）</h2>
