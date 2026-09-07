@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .schemas import Account, Banner, Identity, Member, Settings
+from .schemas import Account, Banner, Identity, Member, Settings, Tutorial
 
 DATA_DIR = Path(__file__).parent / "data"
 BANNERS_FILE = DATA_DIR / "banners.json"
@@ -15,6 +15,7 @@ ACTIVITY_MAX_ENTRIES = 2000
 MEMBERS_FILE = DATA_DIR / "members.json"
 IDENTITIES_FILE = DATA_DIR / "identities.json"
 ACCOUNTS_FILE = DATA_DIR / "accounts.json"
+TUTORIALS_FILE = DATA_DIR / "tutorials.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -309,6 +310,47 @@ def delete_accounts_by_identity(identity_id: str) -> None:
     items = _read_json(ACCOUNTS_FILE)
     remaining = [a for a in items if a["identity_id"] != identity_id]
     _write_json(ACCOUNTS_FILE, remaining)
+
+
+# ---- Tutorials (使用教程管理 — 图文 how-to articles) ----
+
+def list_tutorials(platform: str | None = None) -> list[Tutorial]:
+    items = sorted(_read_json(TUTORIALS_FILE), key=lambda t: t.get("sort_order", 0))
+    if platform is not None:
+        items = [t for t in items if t["platform"] == platform]
+    return [Tutorial(**t) for t in items]
+
+
+def get_tutorial(tutorial_id: str) -> Tutorial | None:
+    return next((t for t in list_tutorials() if t.id == tutorial_id), None)
+
+
+def create_tutorial(data: dict) -> Tutorial:
+    items = _read_json(TUTORIALS_FILE)
+    now = datetime.now(timezone.utc).isoformat()
+    tutorial = {**data, "id": f"tut-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
+    items.append(tutorial)
+    _write_json(TUTORIALS_FILE, items)
+    return Tutorial(**tutorial)
+
+
+def update_tutorial(tutorial_id: str, data: dict) -> Tutorial | None:
+    items = _read_json(TUTORIALS_FILE)
+    for i, item in enumerate(items):
+        if item["id"] == tutorial_id:
+            items[i] = {**item, **data, "id": tutorial_id, "updated_at": datetime.now(timezone.utc).isoformat()}
+            _write_json(TUTORIALS_FILE, items)
+            return Tutorial(**items[i])
+    return None
+
+
+def delete_tutorial(tutorial_id: str) -> bool:
+    items = _read_json(TUTORIALS_FILE)
+    remaining = [t for t in items if t["id"] != tutorial_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(TUTORIALS_FILE, remaining)
+    return True
 
 
 # ---- Activity log ----

@@ -171,6 +171,32 @@ class VerifyPasscodeInput(BaseModel):
     passcode: str
 
 
+TutorialPlatform = Literal["general", "douyin", "video_channel", "xiaohongshu"]
+
+
+class Tutorial(BaseModel):
+    """A 图文 how-to article shown from the '绑定教程' link next to a
+    platform's profile-url field on the add-account form. platform='general'
+    articles aren't tied to a specific one of the three."""
+
+    id: str
+    platform: TutorialPlatform = "general"
+    title: str
+    cover_image_url: str | None = None
+    content: str
+    sort_order: int = 0
+    created_at: str
+    updated_at: str
+
+
+class TutorialInput(BaseModel):
+    platform: TutorialPlatform = "general"
+    title: str
+    cover_image_url: str | None = None
+    content: str
+    sort_order: int = 0
+
+
 class Settings(BaseModel):
     brand_name: str = "房车"
 

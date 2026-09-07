@@ -58,6 +58,28 @@
   .msg { font-size: 13px; margin-top: 10px; }
   .msg.error { color: var(--danger); }
   .msg.ok { color: var(--success); }
+  input[type="text"]:disabled { background: rgba(255, 255, 255, 0.03); color: var(--ink-faint); cursor: not-allowed; }
+
+  .p-logo {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%; margin-right: 6px; vertical-align: middle; flex-shrink: 0;
+  }
+  .link-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -2px; }
+  .link-tutorial { font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: none; }
+  .link-tutorial:hover { text-decoration: underline; }
+  .modal-card.wide { max-width: 640px; max-height: 82vh; overflow-y: auto; }
+  .tutorial-title { font-size: 16px; font-weight: 700; margin: 4px 0 12px; }
+  .tutorial-content { font-size: 14px; line-height: 1.7; color: var(--ink-soft); white-space: pre-wrap; }
+  .tutorial-content img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+  .tutorial-list-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .tutorial-list-item:last-child { border-bottom: none; }
+  .tutorial-list-item .row-body { flex: 1; min-width: 0; }
+  .tutorial-list-item .tag {
+    font-size: 10px; color: var(--ink-faint); background: rgba(255, 255, 255, 0.06);
+    padding: 1px 6px; border-radius: 999px;
+  }
 
   /* ---------- Login ---------- */
   .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
@@ -449,6 +471,7 @@
         <section id="section-accounts" hidden></section>
         <section id="section-banners" hidden></section>
         <section id="section-users" hidden></section>
+        <section id="section-tutorials" hidden></section>
         <section id="section-stub" hidden></section>
       </div>
     </main>
@@ -490,6 +513,12 @@ const NAV_SYSTEM = [
     children: [
       { key: 'users-internal', label: '内部账号管理' },
       { key: 'users-external', label: '外部账号管理' },
+    ],
+  },
+  {
+    key: 'tutorials', label: '使用教程管理',
+    children: [
+      { key: 'tutorials-add', label: '教程添加' },
     ],
   },
 ];
@@ -641,7 +670,7 @@ async function showSection(key) {
   renderNav();
   document.getElementById('headerLeft').innerHTML = '';
   stopActivityLogPolling();
-  ['overview', 'accounts', 'banners', 'users', 'stub'].forEach((k) => {
+  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'stub'].forEach((k) => {
     document.getElementById(`section-${k}`).hidden = true;
   });
 
@@ -666,6 +695,9 @@ async function showSection(key) {
   } else if (key === 'users-external') {
     document.getElementById('section-users').hidden = false;
     await renderExternalAccounts();
+  } else if (key === 'tutorials-add') {
+    document.getElementById('section-tutorials').hidden = false;
+    await renderTutorialsPage();
   } else {
     document.getElementById('section-stub').hidden = false;
     const item = findNavItem(key);
@@ -1043,6 +1075,56 @@ const PLATFORM_DEFS = [
   { key: 'xiaohongshu', label: '小红书' },
 ];
 
+const PLATFORM_LOGOS = {
+  douyin: { bg: '#000', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M14 3v11.5a3.5 3.5 0 1 1-2.5-3.36V8.4A6 6 0 1 0 16 14V8.83A8.5 8.5 0 0 0 20 10V7a5 5 0 0 1-4-4h-2z" fill="#fff"/></svg>' },
+  video_channel: { bg: '#07c160', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M8 5v14l12-7z" fill="#fff"/></svg>' },
+  xiaohongshu: { bg: '#ff2442', svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="#fff"/><rect x="8" y="7" width="8" height="2" rx="1" fill="#ff2442"/><rect x="8" y="11" width="8" height="2" rx="1" fill="#ff2442"/></svg>' },
+};
+
+function platformLogoHtml(key) {
+  const l = PLATFORM_LOGOS[key];
+  if (!l) return '';
+  return `<span class="p-logo" style="background:${l.bg};">${l.svg}</span>`;
+}
+
+function toggleLinkLock(inputId, btnId) {
+  const input = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  if (input.disabled) {
+    input.disabled = false;
+    btn.textContent = '确定添加';
+  } else {
+    if (!input.value.trim()) return;
+    input.disabled = true;
+    btn.textContent = '修改地址';
+  }
+}
+
+async function showTutorialModal(platformKey) {
+  const modal = document.getElementById('passcodeModal');
+  const label = (PLATFORM_DEFS.find((p) => p.key === platformKey) || {}).label || platformKey;
+  modal.innerHTML = `<div class="modal-card wide" onclick="event.stopPropagation()"><div class="empty-hint">加载中...</div></div>`;
+  modal.hidden = false;
+  let list = [];
+  try {
+    list = await fetch(`${PUBLIC_API_BASE}/tutorials?platform=${platformKey}`).then((r) => r.json());
+  } catch (e) {
+    list = [];
+  }
+  const t = list[0];
+  modal.innerHTML = `
+    <div class="modal-card wide" onclick="event.stopPropagation()">
+      <h2>${label}绑定教程</h2>
+      ${t ? `
+        ${t.cover_image_url ? `<img src="${t.cover_image_url}" style="width:100%;border-radius:8px;margin-bottom:12px;">` : ''}
+        <div class="tutorial-title">${escapeHtml(t.title)}</div>
+        <div class="tutorial-content">${t.content}</div>
+      ` : `<div class="empty-hint">还没有${label}的绑定教程，去「系统管理 → 使用教程管理」添加一篇</div>`}
+      <div class="actions" style="margin-top:16px;"><button class="ghost" onclick="closePasscodeModal()">关闭</button></div>
+    </div>
+  `;
+}
+
 async function renderAddAccountForm() {
   const el = document.getElementById('section-accounts');
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
@@ -1075,10 +1157,13 @@ async function renderAddAccountForm() {
       </div>
       ${PLATFORM_DEFS.map((p) => `
         <div class="panel">
-          <h2>${p.label}账号</h2>
+          <h2>${platformLogoHtml(p.key)}${p.label}账号</h2>
           <div class="form-grid">
             <div class="full"><label>主页链接</label><input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接"></div>
-            <div class="full" style="font-size:12px;color:var(--ink-faint);">还没有就留空。${p.label}暂无官方数据接口权限，昵称/粉丝数/视频数等接口打通后自动补上，现在先只存链接</div>
+            <div class="full link-row">
+              <a class="link-tutorial" href="javascript:void(0)" onclick="showTutorialModal('${p.key}')">绑定教程</a>
+              <button type="button" class="ghost" id="newAcc_${p.key}_lockBtn" onclick="toggleLinkLock('newAcc_${p.key}_url', 'newAcc_${p.key}_lockBtn')">确定添加</button>
+            </div>
           </div>
         </div>
       `).join('')}
@@ -1600,6 +1685,168 @@ async function submitBanner() {
     resetBannerForm();
     await loadBanners();
     renderBannerList();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+/* ---------------- Tutorials (使用教程管理) ---------------- */
+
+const TUTORIAL_PLATFORM_LABELS = { general: '通用', douyin: '抖音', video_channel: '视频号', xiaohongshu: '小红书' };
+let tutorials = [];
+let editingTutorialId = null;
+
+async function loadTutorials() {
+  try { tutorials = await api('/tutorials'); } catch (e) { tutorials = []; }
+}
+
+async function renderTutorialsPage() {
+  const el = document.getElementById('section-tutorials');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  await loadTutorials();
+  el.innerHTML = `
+    <div class="page-title">使用教程管理</div>
+    <div class="page-sub">给"添加账号"页每个平台的"绑定教程"链接提供图文内容，一个平台可以有多篇，弹窗里默认展示排序最靠前的一篇</div>
+    <div class="panel" style="margin-bottom:16px;">
+      <h2>教程文章列表</h2>
+      <div id="tutorialList"></div>
+    </div>
+    <div class="panel">
+      <h2 id="tutorialFormTitle">新增教程</h2>
+      <div class="form-grid">
+        <div><label>适用平台</label>
+          <select id="tPlatform">
+            ${Object.entries(TUTORIAL_PLATFORM_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>排序（数字越小越靠前）</label><input type="number" id="tSort" value="0"></div>
+        <div class="full"><label>标题</label><input type="text" id="tTitle"></div>
+        <div class="full">
+          <label>封面图（可选）</label>
+          <input type="file" id="tCoverImage" accept="image/*">
+          <input type="hidden" id="tCoverImageUrl">
+        </div>
+        <div class="full">
+          <label>正文内容</label>
+          <input type="file" id="tContentImage" accept="image/*" onchange="insertTutorialContentImage()" style="margin-bottom:6px;">
+          <textarea id="tContent" rows="8" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card-2);color:var(--ink);font-size:14px;font-family:inherit;" placeholder="教程正文，选上面的图片会自动插入到光标位置"></textarea>
+        </div>
+      </div>
+      <div class="actions">
+        <button onclick="submitTutorial()">保存</button>
+        <button class="ghost" onclick="resetTutorialForm()">清空</button>
+      </div>
+      <p class="msg" id="tutorialFormMsg"></p>
+    </div>
+  `;
+  renderTutorialList();
+}
+
+function renderTutorialList() {
+  const list = document.getElementById('tutorialList');
+  if (!tutorials.length) { list.innerHTML = '<div class="empty-hint">还没有教程文章</div>'; return; }
+  list.innerHTML = tutorials.map((t) => `
+    <div class="tutorial-list-item">
+      <span class="tag">${TUTORIAL_PLATFORM_LABELS[t.platform] || t.platform}</span>
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(t.title)}</div>
+        <div class="row-sub">排序 ${t.sort_order}</div>
+      </div>
+      <div class="row-btns">
+        <button class="ghost" onclick="editTutorial('${t.id}')">编辑</button>
+        <button class="danger" onclick="deleteTutorial('${t.id}')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function insertTutorialContentImage() {
+  const fileInput = document.getElementById('tContentImage');
+  const file = fileInput.files[0];
+  if (!file) return;
+  const msg = document.getElementById('tutorialFormMsg');
+  msg.className = 'msg';
+  msg.textContent = '图片上传中...';
+  const fd = new FormData();
+  fd.append('file', file);
+  api('/upload', { method: 'POST', body: fd }).then((res) => {
+    const textarea = document.getElementById('tContent');
+    const pos = textarea.selectionStart ?? textarea.value.length;
+    const tag = `<img src="${res.url}">`;
+    textarea.value = textarea.value.slice(0, pos) + tag + textarea.value.slice(pos);
+    msg.textContent = '';
+    fileInput.value = '';
+  }).catch((e) => {
+    msg.textContent = '图片上传失败：' + e.message;
+    msg.className = 'msg error';
+  });
+}
+
+function editTutorial(id) {
+  const t = tutorials.find((x) => x.id === id);
+  if (!t) return;
+  editingTutorialId = id;
+  document.getElementById('tutorialFormTitle').textContent = '编辑教程';
+  document.getElementById('tPlatform').value = t.platform;
+  document.getElementById('tSort').value = t.sort_order;
+  document.getElementById('tTitle').value = t.title;
+  document.getElementById('tCoverImageUrl').value = t.cover_image_url || '';
+  document.getElementById('tContent').value = t.content;
+  window.scrollTo({ top: document.getElementById('tutorialFormTitle').offsetTop, behavior: 'smooth' });
+}
+
+function resetTutorialForm() {
+  editingTutorialId = null;
+  document.getElementById('tutorialFormTitle').textContent = '新增教程';
+  document.getElementById('tPlatform').value = 'general';
+  document.getElementById('tSort').value = '0';
+  document.getElementById('tTitle').value = '';
+  document.getElementById('tCoverImageUrl').value = '';
+  document.getElementById('tContent').value = '';
+  document.getElementById('tCoverImage').value = '';
+  document.getElementById('tutorialFormMsg').textContent = '';
+}
+
+async function deleteTutorial(id) {
+  if (!confirm('确定删除这篇教程吗？')) return;
+  await api(`/tutorials/${id}`, { method: 'DELETE' });
+  await loadTutorials();
+  renderTutorialList();
+}
+
+async function submitTutorial() {
+  const msg = document.getElementById('tutorialFormMsg');
+  msg.className = 'msg';
+  msg.textContent = '保存中...';
+  try {
+    let coverImageUrl = document.getElementById('tCoverImageUrl').value || null;
+    const coverFile = document.getElementById('tCoverImage').files[0];
+    if (coverFile) {
+      const fd = new FormData();
+      fd.append('file', coverFile);
+      const uploadRes = await api('/upload', { method: 'POST', body: fd });
+      coverImageUrl = uploadRes.url;
+    }
+    const payload = {
+      platform: document.getElementById('tPlatform').value,
+      title: document.getElementById('tTitle').value.trim(),
+      cover_image_url: coverImageUrl,
+      content: document.getElementById('tContent').value,
+      sort_order: Number(document.getElementById('tSort').value) || 0,
+    };
+    if (!payload.title) { msg.textContent = '请填写标题'; msg.className = 'msg error'; return; }
+    if (!payload.content.trim()) { msg.textContent = '请填写正文内容'; msg.className = 'msg error'; return; }
+    if (editingTutorialId) {
+      await api(`/tutorials/${editingTutorialId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    } else {
+      await api('/tutorials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }
+    msg.textContent = '已保存';
+    msg.className = 'msg ok';
+    resetTutorialForm();
+    await loadTutorials();
+    renderTutorialList();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
