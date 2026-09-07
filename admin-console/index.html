@@ -529,7 +529,7 @@ const NAV_WORK = [
   {
     key: 'orders', label: '订单跟踪',
     children: [
-      { key: 'orders-products', label: '产品信息' },
+      { key: 'orders-products', label: '商品信息' },
       { key: 'orders-customers', label: '客户信息' },
       { key: 'orders-orders', label: '订单信息' },
       { key: 'orders-aftersales', label: '售后运维' },
@@ -2208,7 +2208,7 @@ function stopActivityLogPolling() {
   }
 }
 
-/* ---------------- Order tracking (M5): 产品/客户/订单/售后 ---------------- */
+/* ---------------- Order tracking (M5): 商品/客户/订单/售后 ---------------- */
 
 const CUSTOMER_STAGES = [
   { key: 'initial_chat', label: '初聊客户' },
@@ -2227,7 +2227,7 @@ let customers = [];
 let orders = [];
 let aftersalesList = [];
 
-/* ---- 产品信息 ---- */
+/* ---- 商品信息 ---- */
 
 let editingProductId = null;
 
@@ -2237,25 +2237,27 @@ async function renderProductsPage() {
   try { products = await api('/products'); } catch (e) { products = []; }
   editingProductId = null;
   el.innerHTML = `
-    <div class="page-title">产品信息</div>
-    <div class="page-sub">房车产品库，客户成交/交付时会从这里选产品匹配</div>
-    <div class="panel" style="margin-bottom:16px;">
-      <h2 id="productFormTitle">新增产品</h2>
-      <div class="form-grid">
-        <div><label>产品名称</label><input type="text" id="pName"></div>
-        <div><label>型号规格</label><input type="text" id="pModel"></div>
-        <div><label>价格（元）</label><input type="number" id="pPrice" value="0"></div>
-        <div class="full"><label>简介</label><input type="text" id="pDesc"></div>
+    <div class="page-title">商品信息</div>
+    <div class="page-sub">房车商品库，客户成交/交付时会从这里选商品匹配</div>
+    <div class="users-columns">
+      <div class="panel">
+        <h2>商品列表</h2>
+        <div id="productList"></div>
       </div>
-      <div class="actions">
-        <button onclick="submitProduct()">保存</button>
-        <button class="ghost" onclick="resetProductForm()">清空</button>
+      <div class="panel">
+        <h2 id="productFormTitle">新增商品</h2>
+        <div class="form-grid">
+          <div><label>商品名称</label><input type="text" id="pName"></div>
+          <div><label>型号规格</label><input type="text" id="pModel"></div>
+          <div><label>价格（元）</label><input type="number" id="pPrice" value="0"></div>
+          <div class="full"><label>简介</label><input type="text" id="pDesc"></div>
+        </div>
+        <div class="actions">
+          <button onclick="submitProduct()">保存</button>
+          <button class="ghost" onclick="resetProductForm()">清空</button>
+        </div>
+        <p class="msg" id="productFormMsg"></p>
       </div>
-      <p class="msg" id="productFormMsg"></p>
-    </div>
-    <div class="panel">
-      <h2>产品列表</h2>
-      <div id="productList"></div>
     </div>
   `;
   renderProductList();
@@ -2263,7 +2265,7 @@ async function renderProductsPage() {
 
 function renderProductList() {
   const list = document.getElementById('productList');
-  if (!products.length) { list.innerHTML = '<div class="empty-hint">暂无产品</div>'; return; }
+  if (!products.length) { list.innerHTML = '<div class="empty-hint">暂无商品</div>'; return; }
   list.innerHTML = products.map((p) => `
     <div class="row-item">
       <div class="row-body">
@@ -2282,7 +2284,7 @@ function editProduct(id) {
   const p = products.find((x) => x.id === id);
   if (!p) return;
   editingProductId = id;
-  document.getElementById('productFormTitle').textContent = '编辑产品';
+  document.getElementById('productFormTitle').textContent = '编辑商品';
   document.getElementById('pName').value = p.name;
   document.getElementById('pModel').value = p.model;
   document.getElementById('pPrice').value = p.price;
@@ -2292,7 +2294,7 @@ function editProduct(id) {
 
 function resetProductForm() {
   editingProductId = null;
-  document.getElementById('productFormTitle').textContent = '新增产品';
+  document.getElementById('productFormTitle').textContent = '新增商品';
   ['pName', 'pModel', 'pDesc'].forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('pPrice').value = '0';
   document.getElementById('productFormMsg').textContent = '';
@@ -2306,7 +2308,7 @@ async function submitProduct() {
     price: Number(document.getElementById('pPrice').value) || 0,
     description: document.getElementById('pDesc').value.trim(),
   };
-  if (!payload.name) { msg.textContent = '请填写产品名称'; msg.className = 'msg error'; return; }
+  if (!payload.name) { msg.textContent = '请填写商品名称'; msg.className = 'msg error'; return; }
   try {
     if (editingProductId) {
       await api(`/products/${editingProductId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -2325,7 +2327,7 @@ async function submitProduct() {
 }
 
 async function deleteProduct(id) {
-  if (!confirm('确定删除这个产品吗？')) return;
+  if (!confirm('确定删除这个商品吗？')) return;
   try {
     await api(`/products/${id}`, { method: 'DELETE' });
     products = await api('/products');
@@ -2346,7 +2348,7 @@ async function renderCustomersPage() {
   editingCustomerId = null;
   el.innerHTML = `
     <div class="page-title">客户信息</div>
-    <div class="page-sub">客户阶段可以随时手动调整；调到"成交客户"后去「订单信息」匹配产品，调到"交付客户"后去「售后运维」匹配</div>
+    <div class="page-sub">客户阶段可以随时手动调整；调到"成交客户"后去「订单信息」匹配商品，调到"交付客户"后去「售后运维」匹配</div>
     <div class="panel" style="margin-bottom:16px;">
       <h2 id="customerFormTitle">新增客户</h2>
       <div class="form-grid">
@@ -2475,7 +2477,7 @@ async function deleteCustomer(id) {
   }
 }
 
-/* ---- 订单信息：成交客户 × 产品 ---- */
+/* ---- 订单信息：成交客户 × 商品 ---- */
 
 async function renderOrdersPage() {
   const el = document.getElementById('section-orders');
@@ -2487,7 +2489,7 @@ async function renderOrdersPage() {
   }
   el.innerHTML = `
     <div class="page-title">订单信息</div>
-    <div class="page-sub">成交客户（含已交付）与产品的匹配结果，没匹配的可以在这里手动创建订单</div>
+    <div class="page-sub">成交客户（含已交付）与商品的匹配结果，没匹配的可以在这里手动创建订单</div>
     <div class="panel"><div id="orderList"></div></div>
   `;
   renderOrderList();
@@ -2505,11 +2507,11 @@ function renderOrderList() {
         <div class="row-body">
           <div class="row-title">${escapeHtml(c.name)} <span class="role-badge">${stageLabel(c.stage)}</span></div>
           ${order
-            ? `<div class="row-sub">${product ? escapeHtml(product.name) : '未知产品'} · ¥${fmtNum(order.amount)} · 签约于 ${String(order.signed_at).slice(0, 10)}</div>${order.notes ? `<div class="row-sub">${escapeHtml(order.notes)}</div>` : ''}`
-            : '<div class="row-sub">还没有匹配产品</div>'}
+            ? `<div class="row-sub">${product ? escapeHtml(product.name) : '未知商品'} · ¥${fmtNum(order.amount)} · 签约于 ${String(order.signed_at).slice(0, 10)}</div>${order.notes ? `<div class="row-sub">${escapeHtml(order.notes)}</div>` : ''}`
+            : '<div class="row-sub">还没有匹配商品</div>'}
         </div>
         <div class="row-btns">
-          <button class="ghost" onclick="showOrderFormModal('${c.id}', ${order ? `'${order.id}'` : 'null'})">${order ? '编辑订单' : '匹配产品'}</button>
+          <button class="ghost" onclick="showOrderFormModal('${c.id}', ${order ? `'${order.id}'` : 'null'})">${order ? '编辑订单' : '匹配商品'}</button>
         </div>
       </div>
     `;
@@ -2517,15 +2519,15 @@ function renderOrderList() {
 }
 
 function showOrderFormModal(customerId, existingOrderId) {
-  if (!products.length) { alert('还没有产品，请先去「产品信息」添加'); return; }
+  if (!products.length) { alert('还没有商品，请先去「商品信息」添加'); return; }
   const order = existingOrderId ? orders.find((o) => o.id === existingOrderId) : null;
   const modal = document.getElementById('passcodeModal');
   modal.innerHTML = `
     <div class="modal-card" onclick="event.stopPropagation()">
-      <h2>${order ? '编辑订单' : '匹配产品'}</h2>
+      <h2>${order ? '编辑订单' : '匹配商品'}</h2>
       <div class="form-grid">
         <div class="full">
-          <label>产品</label>
+          <label>商品</label>
           <select id="ordProduct">
             ${products.map((p) => `<option value="${p.id}" ${order && order.product_id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}（¥${fmtNum(p.price)}）</option>`).join('')}
           </select>
@@ -2569,7 +2571,7 @@ async function submitOrderForm(customerId, existingOrderId) {
   }
 }
 
-/* ---- 售后运维：交付客户 × 产品 ---- */
+/* ---- 售后运维：交付客户 × 商品 ---- */
 
 async function renderAfterSalesPage() {
   const el = document.getElementById('section-orders');
@@ -2581,7 +2583,7 @@ async function renderAfterSalesPage() {
   }
   el.innerHTML = `
     <div class="page-title">售后运维</div>
-    <div class="page-sub">已交付客户与产品的匹配结果，记录交付时间和售后状态</div>
+    <div class="page-sub">已交付客户与商品的匹配结果，记录交付时间和售后状态</div>
     <div class="panel"><div id="aftersalesListEl"></div></div>
   `;
   renderAfterSalesList();
@@ -2599,11 +2601,11 @@ function renderAfterSalesList() {
         <div class="row-body">
           <div class="row-title">${escapeHtml(c.name)} <span class="role-badge">${stageLabel(c.stage)}</span></div>
           ${record
-            ? `<div class="row-sub">${product ? escapeHtml(product.name) : '未知产品'} · 交付于 ${String(record.delivered_at).slice(0, 10)} · <span class="role-badge">${escapeHtml(record.status)}</span></div>${record.notes ? `<div class="row-sub">${escapeHtml(record.notes)}</div>` : ''}`
+            ? `<div class="row-sub">${product ? escapeHtml(product.name) : '未知商品'} · 交付于 ${String(record.delivered_at).slice(0, 10)} · <span class="role-badge">${escapeHtml(record.status)}</span></div>${record.notes ? `<div class="row-sub">${escapeHtml(record.notes)}</div>` : ''}`
             : '<div class="row-sub">还没有售后记录</div>'}
         </div>
         <div class="row-btns">
-          <button class="ghost" onclick="showAfterSalesFormModal('${c.id}', ${record ? `'${record.id}'` : 'null'})">${record ? '编辑' : '匹配产品'}</button>
+          <button class="ghost" onclick="showAfterSalesFormModal('${c.id}', ${record ? `'${record.id}'` : 'null'})">${record ? '编辑' : '匹配商品'}</button>
         </div>
       </div>
     `;
@@ -2611,16 +2613,16 @@ function renderAfterSalesList() {
 }
 
 function showAfterSalesFormModal(customerId, existingId) {
-  if (!products.length) { alert('还没有产品，请先去「产品信息」添加'); return; }
+  if (!products.length) { alert('还没有商品，请先去「商品信息」添加'); return; }
   const record = existingId ? aftersalesList.find((a) => a.id === existingId) : null;
   const relatedOrder = orders.find((o) => o.customer_id === customerId);
   const modal = document.getElementById('passcodeModal');
   modal.innerHTML = `
     <div class="modal-card" onclick="event.stopPropagation()">
-      <h2>${record ? '编辑售后记录' : '匹配产品'}</h2>
+      <h2>${record ? '编辑售后记录' : '匹配商品'}</h2>
       <div class="form-grid">
         <div class="full">
-          <label>产品</label>
+          <label>商品</label>
           <select id="asProduct">
             ${products.map((p) => `<option value="${p.id}" ${(record ? record.product_id : (relatedOrder ? relatedOrder.product_id : '')) === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
           </select>
