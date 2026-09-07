@@ -17,6 +17,7 @@ def _public(user: dict) -> dict:
         "role": user["role"],
         "identity_ids": user.get("identity_ids", []),
         "has_passcode": bool(user.get("passcode_hash")),
+        "avatar_url": user.get("avatar_url"),
         "created_at": user["created_at"],
     }
 
@@ -72,6 +73,8 @@ def update_user(user_id: str, payload: UserUpdateInput, current: dict = Depends(
         passcode_hash, passcode_salt = hash_password(payload.passcode)
         updates["passcode_hash"] = passcode_hash
         updates["passcode_salt"] = passcode_salt
+    if payload.avatar_url is not None:
+        updates["avatar_url"] = payload.avatar_url or None
 
     if not updates:
         return _public(user)

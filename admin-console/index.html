@@ -375,6 +375,7 @@
     width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 700; flex-shrink: 0;
   }
+  .avatar-img { object-fit: cover; background: var(--card-2); }
   .badge-dark { background: #05070c; color: #fff; }
   .badge-green { background: var(--success-soft); color: var(--success); }
   .badge-pink { background: var(--danger-soft); color: var(--danger); }
@@ -2374,9 +2375,12 @@ function renderUserList() {
           </select>
         </div>
       `;
+    const avatarHtml = u.avatar_url
+      ? `<img class="avatar avatar-img" src="${staticUrl(u.avatar_url)}" alt="">`
+      : `<div class="avatar ${u.role === 'super_admin' ? 'badge-dark' : 'badge-blue'}">${escapeHtml((u.username[0] || '?').toUpperCase())}</div>`;
     return `
       <div class="row-item">
-        <div class="avatar ${u.role === 'super_admin' ? 'badge-dark' : 'badge-blue'}">${escapeHtml((u.username[0] || '?').toUpperCase())}</div>
+        ${avatarHtml}
         <div class="row-body">
           <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '销售'}</span></div>
           ${u.role === 'operator' ? `<div class="row-sub">${u.has_passcode ? '已设置管理口令' : '未设置管理口令'}</div>` : ''}
@@ -2400,6 +2404,15 @@ function openEditUserModal(userId) {
     <div class="modal-card" onclick="event.stopPropagation()">
       <h2>编辑账号</h2>
       <div class="form-grid">
+        <div class="full">
+          <label>头像</label>
+          <input type="file" id="euAvatar" accept="image/*" onchange="previewEditUserAvatar()">
+          <input type="hidden" id="euAvatarUrl" value="${escapeHtml(u.avatar_url || '')}" data-original="${escapeHtml(u.avatar_url || '')}">
+          <div class="img-preview-wrap">
+            <img id="euAvatarPreview" class="field-preview-img" src="${u.avatar_url ? staticUrl(u.avatar_url) : ''}" alt="预览" ${u.avatar_url ? '' : 'hidden'}>
+          </div>
+          ${u.avatar_url ? `<button type="button" class="ghost" style="margin-top:6px;" onclick="clearEditUserAvatar()">清除头像</button>` : ''}
+        </div>
         <div class="full"><label>用户名</label><input type="text" id="euUsername" value="${escapeHtml(u.username)}"></div>
         <div class="full"><label>重置密码</label><input type="password" id="euPassword" placeholder="留空则不修改"></div>
         ${u.role === 'operator' ? `<div class="full"><label>重置管理口令</label><input type="text" id="euPasscode" placeholder="留空则不修改"></div>` : ''}
@@ -2414,6 +2427,22 @@ function openEditUserModal(userId) {
   modal.hidden = false;
 }
 
+function previewEditUserAvatar() {
+  const file = document.getElementById('euAvatar').files[0];
+  const img = document.getElementById('euAvatarPreview');
+  if (!file) return;
+  img.src = URL.createObjectURL(file);
+  img.hidden = false;
+}
+
+function clearEditUserAvatar() {
+  document.getElementById('euAvatar').value = '';
+  document.getElementById('euAvatarUrl').value = '';
+  const img = document.getElementById('euAvatarPreview');
+  img.hidden = true;
+  img.src = '';
+}
+
 async function submitEditUser(userId) {
   const msg = document.getElementById('editUserMsg');
   const payload = { username: document.getElementById('euUsername').value.trim() };
@@ -2425,6 +2454,16 @@ async function submitEditUser(userId) {
   msg.textContent = '保存中...';
   msg.className = 'msg';
   try {
+    const avatarFile = document.getElementById('euAvatar').files[0];
+    const avatarUrlField = document.getElementById('euAvatarUrl');
+    if (avatarFile) {
+      const fd = new FormData();
+      fd.append('file', avatarFile);
+      const res = await api('/upload', { method: 'POST', body: fd });
+      payload.avatar_url = res.url;
+    } else if (avatarUrlField.dataset.original && !avatarUrlField.value) {
+      payload.avatar_url = '';
+    }
     await api(`/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     closePasscodeModal();
     await loadUsers();

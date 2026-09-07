@@ -126,6 +126,7 @@ class UserOut(BaseModel):
     role: Role
     identity_ids: list[str] = []
     has_passcode: bool = False
+    avatar_url: str | None = None
     created_at: str
 
 
@@ -144,6 +145,7 @@ class UserUpdateInput(BaseModel):
     username: str | None = None
     password: str | None = None
     passcode: str | None = None
+    avatar_url: str | None = None  # "" clears the avatar, None leaves it unchanged
 
 
 class BindIdentityInput(BaseModel):
