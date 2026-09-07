@@ -306,7 +306,7 @@ class Customer(BaseModel):
     financial_status: str = ""  # 经济状况
     stage: CustomerStage = "initial_chat"
     intended_product_id: str | None = None  # 意向车型，关联 Product
-    assigned_to: str = ""  # 跟进运营
+    assigned_to: str = ""  # 跟进销售
     ai_wechat: str = ""  # AI微信（对接该客户的AI微信客服账号）
     notes: str = ""
     created_at: str

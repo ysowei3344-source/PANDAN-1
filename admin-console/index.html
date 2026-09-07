@@ -734,7 +734,7 @@ function logout() {
 async function enterApp() {
   document.getElementById('loginView').hidden = true;
   document.getElementById('appShell').hidden = false;
-  document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '运营';
+  document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '销售';
   document.getElementById('usernameLabel').textContent = currentUser.username;
   renderNav();
   try { allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json()); } catch (e) { allIdentities = []; }
@@ -1330,6 +1330,7 @@ async function showTutorialModal(platformKey) {
 async function renderAddAccountForm() {
   const el = document.getElementById('section-accounts');
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  scrapedData = {};
 
   const identity = editingIdentityId ? allIdentities.find((i) => i.id === editingIdentityId) : null;
   if (editingIdentityId && !identity) editingIdentityId = null;
@@ -1348,20 +1349,20 @@ async function renderAddAccountForm() {
   el.innerHTML = `
     <div class="page-title">${identity ? '编辑账号' : '添加账号'}</div>
     <div class="page-sub">${identity
-      ? `编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联运营账号和三个平台的主页链接`
-      : '新增一个矩阵号（一个人设），可以关联一个运营账号来管理它（一个运营可以管理多个矩阵号），并登记它在三个平台上的主页链接'}</div>
+      ? `编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联销售账号和三个平台的主页链接`
+      : '新增一个矩阵号（一个人设），可以关联一个销售账号来管理它（一个销售可以管理多个矩阵号），并登记它在三个平台上的主页链接'}</div>
     <div class="add-account-grid">
       <div class="panel">
         <h2>矩阵号信息</h2>
         <div class="form-grid">
           <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张" value="${identity ? escapeHtml(identity.name) : ''}"></div>
           <div class="full">
-            <label>关联运营账号（可选）</label>
+            <label>关联销售账号（可选）</label>
             <select id="newIdentityOperator">
               <option value="">不绑定</option>
               ${operators.map((u) => `<option value="${u.id}" ${editingOperatorOriginalId === u.id ? 'selected' : ''}>${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
             </select>
-            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有运营账号，可以先去「内部账号管理」新建一个</div>' : ''}
+            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售账号，可以先去「内部账号管理」新建一个</div>' : ''}
           </div>
         </div>
       </div>
@@ -1399,11 +1400,22 @@ async function renderAddAccountForm() {
     PLATFORM_DEFS.forEach((p) => {
       const acc = identity.accounts.find((a) => a.platform === p.key);
       if (acc && acc.profile_url) {
+        scrapedData[p.key] = acc.nickname ? { nickname: acc.nickname, avatar_url: acc.avatar_url, follower_count: acc.follower_count, video_count: acc.video_count } : null;
         document.getElementById(`newAcc_${p.key}_url`).value = acc.profile_url;
-        toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`);
+        toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`, true);
       }
     });
   }
+}
+
+function accountFieldsFor(platform, existingAcc) {
+  const d = scrapedData[platform];
+  return {
+    nickname: (d && d.nickname) || (existingAcc ? existingAcc.nickname : '') || '',
+    avatar_url: (d && d.avatar_url) || (existingAcc ? existingAcc.avatar_url : null) || null,
+    follower_count: d && d.follower_count != null ? d.follower_count : existingAcc ? existingAcc.follower_count : 0,
+    video_count: d && d.video_count != null ? d.video_count : existingAcc ? existingAcc.video_count : 0,
+  };
 }
 
 async function submitNewIdentity() {
@@ -1446,7 +1458,7 @@ async function submitNewIdentity() {
             });
           }
         } catch (e) {
-          msg.textContent = '基本信息和链接已保存，但运营账号关联需要超级管理员权限，没有改成';
+          msg.textContent = '基本信息和链接已保存，但销售账号关联需要超级管理员权限，没有改成';
           msg.className = 'msg error';
         }
       }
@@ -1455,17 +1467,18 @@ async function submitNewIdentity() {
         const url = platformUrls[p.key];
         const existingAcc = identity.accounts.find((a) => a.platform === p.key);
         if (url) {
+          const fields = accountFieldsFor(p.key, existingAcc);
           if (existingAcc) {
             await publicApi(`/accounts/${existingAcc.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ nickname: existingAcc.nickname, profile_url: url, follower_count: existingAcc.follower_count, video_count: existingAcc.video_count }),
+              body: JSON.stringify({ ...fields, profile_url: url }),
             });
           } else {
             await publicApi('/accounts', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ identity_id: id, platform: p.key, profile_url: url, nickname: '', follower_count: 0, video_count: 0 }),
+              body: JSON.stringify({ identity_id: id, platform: p.key, profile_url: url, ...fields }),
             });
           }
         } else if (existingAcc && existingAcc.profile_url) {
@@ -1494,10 +1507,11 @@ async function submitNewIdentity() {
       });
       for (const p of PLATFORM_DEFS) {
         if (!platformUrls[p.key]) continue;
+        const fields = accountFieldsFor(p.key, null);
         await publicApi('/accounts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identity_id: identity.id, platform: p.key, profile_url: platformUrls[p.key] }),
+          body: JSON.stringify({ identity_id: identity.id, platform: p.key, profile_url: platformUrls[p.key], ...fields }),
         });
       }
       allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json());
@@ -1531,6 +1545,7 @@ async function editIdentityInfo(id) {
   const identity = allIdentities.find((i) => i.id === id);
   if (!identity) return;
   editingIdentityId = id;
+  scrapedData = {};
 
   const modal = document.getElementById('passcodeModal');
   modal.innerHTML = `<div class="modal-card wide" onclick="event.stopPropagation()"><div class="empty-hint">加载中...</div></div>`;
@@ -1549,13 +1564,13 @@ async function editIdentityInfo(id) {
   modal.innerHTML = `
     <div class="modal-card wide" onclick="event.stopPropagation()">
       <h2>编辑账号</h2>
-      <div class="page-sub" style="margin-bottom:16px;">编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联运营账号和三个平台的主页链接</div>
+      <div class="page-sub" style="margin-bottom:16px;">编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联销售账号和三个平台的主页链接</div>
       <div class="panel" style="background:var(--card-2);margin-bottom:16px;">
         <h2>矩阵号信息</h2>
         <div class="form-grid">
           <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" value="${escapeHtml(identity.name)}"></div>
           <div class="full">
-            <label>关联运营账号（可选）</label>
+            <label>关联销售账号（可选）</label>
             <select id="newIdentityOperator">
               <option value="">不绑定</option>
               ${operators.map((u) => `<option value="${u.id}" ${editingOperatorOriginalId === u.id ? 'selected' : ''}>${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
@@ -1593,8 +1608,9 @@ async function editIdentityInfo(id) {
   PLATFORM_DEFS.forEach((p) => {
     const acc = identity.accounts.find((a) => a.platform === p.key);
     if (acc && acc.profile_url) {
+      scrapedData[p.key] = acc.nickname ? { nickname: acc.nickname, avatar_url: acc.avatar_url, follower_count: acc.follower_count, video_count: acc.video_count } : null;
       document.getElementById(`newAcc_${p.key}_url`).value = acc.profile_url;
-      toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`);
+      toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`, true);
     }
   });
 }
@@ -2228,7 +2244,7 @@ function renderInternalAccounts() {
   const el = document.getElementById('section-users');
   el.innerHTML = `
     <div class="page-title">内部账号管理</div>
-    <div class="page-sub" style="margin-bottom:16px;">每个运营账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
+    <div class="page-sub" style="margin-bottom:16px;">每个销售账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
     <div class="users-columns">
       <div class="panel">
         <h2>新增账号</h2>
@@ -2238,7 +2254,7 @@ function renderInternalAccounts() {
           <div class="full">
             <label>角色</label>
             <select id="uRole" onchange="toggleOperatorFields()">
-              <option value="operator">运营（对应管理一个矩阵号）</option>
+              <option value="operator">销售（对应管理一个矩阵号）</option>
               <option value="super_admin">超级管理员（可管理全部，含账号权限）</option>
             </select>
           </div>
@@ -2361,7 +2377,7 @@ function renderUserList() {
     return `
       <div class="row-item">
         <div class="row-body">
-          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
+          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '销售'}</span></div>
           ${u.role === 'operator' ? `<div class="row-sub">${u.has_passcode ? '已设置管理口令' : '未设置管理口令'}</div>` : ''}
           ${bindingHtml}
           <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
@@ -2412,7 +2428,7 @@ async function submitUser() {
     payload.passcode = document.getElementById('uPasscode').value || null;
   }
   if (!payload.username || !payload.password) { msg.textContent = '请填写用户名和密码'; msg.className = 'msg error'; return; }
-  if (payload.role === 'operator' && !payload.identity_id) { msg.textContent = '请给运营账号选择关联的矩阵号'; msg.className = 'msg error'; return; }
+  if (payload.role === 'operator' && !payload.identity_id) { msg.textContent = '请给销售账号选择关联的矩阵号'; msg.className = 'msg error'; return; }
   try {
     await api('/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     msg.textContent = '已创建';
@@ -3131,7 +3147,7 @@ async function renderCustomersPage() {
               ${products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
             </select>
           </div>
-          <div><label>跟进运营</label><input type="text" id="cAssigned"></div>
+          <div><label>跟进销售</label><input type="text" id="cAssigned"></div>
           <div><label>AI微信</label><input type="text" id="cAiWechat"></div>
           <div class="full"><label>备注</label><input type="text" id="cNotes"></div>
         </div>
@@ -3158,7 +3174,7 @@ function renderCustomerList() {
     <div class="row-item">
       <div class="row-body">
         <div class="row-title">${escapeHtml(c.name)}${c.phone ? ` <span class="row-sub">${escapeHtml(c.phone)}</span>` : ''}</div>
-        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进运营 ' + escapeHtml(c.assigned_to) : ''}${c.ai_wechat ? ' · AI微信 ' + escapeHtml(c.ai_wechat) : ''}</div>
+        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进销售 ' + escapeHtml(c.assigned_to) : ''}${c.ai_wechat ? ' · AI微信 ' + escapeHtml(c.ai_wechat) : ''}</div>
         ${c.financial_status || c.intended_product_id ? `<div class="row-sub">${c.financial_status ? '经济状况：' + escapeHtml(c.financial_status) : ''}${c.intended_product_id ? (c.financial_status ? ' · ' : '') + '意向车型：' + escapeHtml(productNameById(c.intended_product_id)) : ''}</div>` : ''}
         ${c.notes ? `<div class="row-sub">${escapeHtml(c.notes)}</div>` : ''}
       </div>
