@@ -345,8 +345,21 @@
   @media (max-width: 900px) {
     .identity-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
   }
-  @media (max-width: 640px) {
-    .sidebar { display: none; }
+  @media (max-width: 1024px) {
+    .sidebar { width: 190px; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { width: 160px; padding: 16px 10px; }
+    .brand-sub { display: none; }
+    .content-header { padding: 14px 16px; }
+    .content-body { padding: 18px 16px 60px; }
+  }
+  @media (max-width: 560px) {
+    .sidebar { width: 132px; }
+    .nav-item { padding: 9px 8px; font-size: 13px; }
+    .nav-item.nav-child { padding-left: 18px; font-size: 12px; }
+    .brand-mark { width: 30px; height: 30px; font-size: 13px; }
+    .brand-title { font-size: 13px; }
   }
 </style>
 </head>
@@ -611,7 +624,7 @@ async function showSection(key) {
     renderAccountsPage();
   } else if (key === 'accounts-add') {
     document.getElementById('section-accounts').hidden = false;
-    renderAddAccountForm();
+    await renderAddAccountForm();
   } else if (key === 'banners') {
     document.getElementById('section-banners').hidden = false;
     await loadBanners();
@@ -980,7 +993,7 @@ function renderIdentityList() {
           <div class="identity-avatar">${escapeHtml(i.name[0])}</div>
           <div class="identity-info">
             <div class="identity-name">${escapeHtml(i.name)}</div>
-            <div class="identity-sub">${i.phone_number}</div>
+            ${i.phone_number ? `<div class="identity-sub">${escapeHtml(i.phone_number)}</div>` : ''}
             <div class="identity-platforms">${platformTagsHtml(i)}</div>
           </div>
           <div class="identity-stats">
@@ -1000,22 +1013,41 @@ const PLATFORM_DEFS = [
   { key: 'xiaohongshu', label: '小红书' },
 ];
 
-function renderAddAccountForm() {
+async function renderAddAccountForm() {
   const el = document.getElementById('section-accounts');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+
+  let operators = [];
+  try {
+    const users = await api('/users');
+    operators = users.filter((u) => u.role === 'operator' && !u.identity_id);
+  } catch (e) {
+    operators = [];
+  }
+
   el.innerHTML = `
     <div class="page-title">添加账号</div>
-    <div class="page-sub">新增一个矩阵号（一个手机号/人设），并登记它在三个平台上的账号数据</div>
+    <div class="page-sub">新增一个矩阵号（一个人设），可以关联一个还没绑定矩阵号的运营账号，并登记它在三个平台上的账号数据</div>
     <div class="panel">
       <h2>矩阵号信息</h2>
       <div class="form-grid">
-        <div><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张"></div>
-        <div><label>手机号</label><input type="text" id="newIdentityPhone" placeholder="登录/身份用手机号"></div>
+        <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张"></div>
+        <div class="full">
+          <label>关联运营账号（可选）</label>
+          <select id="newIdentityOperator">
+            <option value="">不绑定</option>
+            ${operators.map((u) => `<option value="${u.id}">${escapeHtml(u.username)}</option>`).join('')}
+          </select>
+          ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">「内部账号管理」里没有还没绑定矩阵号的运营账号，可以先去那边新建一个</div>' : ''}
+        </div>
       </div>
     </div>
     ${PLATFORM_DEFS.map((p) => `
       <div class="panel" style="margin-top:16px;">
         <h2>${p.label}账号 <span style="font-weight:400;color:var(--ink-faint);font-size:12px;">还没有就留空</span></h2>
         <div class="form-grid">
+          <div class="full"><label>主页链接</label><input type="text" id="newAcc_${p.key}_url" placeholder="粘贴${p.label}主页/账号链接"></div>
+          <div class="full" style="font-size:12px;color:var(--ink-faint);">${p.label}还没有官方数据接口权限，链接会先存起来，下面几项数据目前需要手动填，接口打通后会改成自动抓取</div>
           <div class="full"><label>昵称</label><input type="text" id="newAcc_${p.key}_nickname"></div>
           <div><label>粉丝数</label><input type="number" id="newAcc_${p.key}_followers" value="0"></div>
           <div><label>视频数</label><input type="number" id="newAcc_${p.key}_videos" value="0"></div>
@@ -1038,25 +1070,26 @@ async function submitNewIdentity() {
   msg.textContent = '保存中...';
 
   const name = document.getElementById('newIdentityName').value.trim();
-  const phone = document.getElementById('newIdentityPhone').value.trim();
-  if (!name || !phone) {
-    msg.textContent = '请填写矩阵号名称和手机号';
+  const operatorUserId = document.getElementById('newIdentityOperator').value || null;
+  if (!name) {
+    msg.textContent = '请填写矩阵号名称';
     msg.className = 'msg error';
     return;
   }
 
   const platformAccounts = PLATFORM_DEFS.map((p) => ({
     platform: p.key,
+    profile_url: document.getElementById(`newAcc_${p.key}_url`).value.trim() || null,
     nickname: document.getElementById(`newAcc_${p.key}_nickname`).value.trim(),
     follower_count: Number(document.getElementById(`newAcc_${p.key}_followers`).value) || 0,
     video_count: Number(document.getElementById(`newAcc_${p.key}_videos`).value) || 0,
-  })).filter((a) => a.nickname);
+  })).filter((a) => a.nickname || a.profile_url);
 
   try {
     const identity = await publicApi('/identities', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone_number: phone }),
+      body: JSON.stringify({ name, operator_user_id: operatorUserId }),
     });
     for (const a of platformAccounts) {
       await publicApi('/accounts', {
@@ -1100,7 +1133,6 @@ function editIdentityInfo(id) {
       <h2>编辑矩阵号</h2>
       <div class="form-grid">
         <div class="full"><label>矩阵号名称</label><input type="text" id="editIdName" value="${escapeHtml(identity.name)}"></div>
-        <div class="full"><label>手机号</label><input type="text" id="editIdPhone" value="${escapeHtml(identity.phone_number)}"></div>
       </div>
       <div class="actions">
         <button onclick="submitEditIdentity('${id}')">保存</button>
@@ -1116,15 +1148,14 @@ function editIdentityInfo(id) {
 async function submitEditIdentity(id) {
   const msg = document.getElementById('editIdMsg');
   const name = document.getElementById('editIdName').value.trim();
-  const phone_number = document.getElementById('editIdPhone').value.trim();
-  if (!name || !phone_number) { msg.textContent = '请填写完整'; msg.className = 'msg error'; return; }
+  if (!name) { msg.textContent = '请填写矩阵号名称'; msg.className = 'msg error'; return; }
   msg.className = 'msg';
   msg.textContent = '保存中...';
   try {
     await publicApi(`/identities/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone_number }),
+      body: JSON.stringify({ name }),
     });
     allIdentities = await publicApi('/identities');
     closePasscodeModal();
@@ -1165,6 +1196,8 @@ function showAccountFormModal(identityId, existingAccountId) {
             </select>
           </div>
         `}
+        <div class="full"><label>主页链接</label><input type="text" id="afProfileUrl" value="${account && account.profile_url ? escapeHtml(account.profile_url) : ''}" placeholder="粘贴主页/账号链接"></div>
+        <div class="full" style="font-size:12px;color:var(--ink-faint);">还没有官方数据接口权限，链接先存起来，下面几项数据目前需要手动填</div>
         <div class="full"><label>昵称</label><input type="text" id="afNickname" value="${account ? escapeHtml(account.nickname) : escapeHtml(identity.name)}"></div>
         <div><label>粉丝数</label><input type="number" id="afFollowers" value="${account ? account.follower_count : 0}"></div>
         <div><label>视频数</label><input type="number" id="afVideos" value="${account ? account.video_count : 0}"></div>
@@ -1182,6 +1215,7 @@ function showAccountFormModal(identityId, existingAccountId) {
 async function submitAccountForm(identityId, existingAccountId) {
   const msg = document.getElementById('afMsg');
   const nickname = document.getElementById('afNickname').value.trim();
+  const profile_url = document.getElementById('afProfileUrl').value.trim() || null;
   const follower_count = Number(document.getElementById('afFollowers').value) || 0;
   const video_count = Number(document.getElementById('afVideos').value) || 0;
   if (!nickname) { msg.textContent = '请填写昵称'; msg.className = 'msg error'; return; }
@@ -1192,14 +1226,14 @@ async function submitAccountForm(identityId, existingAccountId) {
       await publicApi(`/accounts/${existingAccountId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname, follower_count, video_count }),
+        body: JSON.stringify({ nickname, profile_url, follower_count, video_count }),
       });
     } else {
       const platform = document.getElementById('afPlatform').value;
       await publicApi('/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identity_id: identityId, platform, nickname, follower_count, video_count }),
+        body: JSON.stringify({ identity_id: identityId, platform, nickname, profile_url, follower_count, video_count }),
       });
     }
     allIdentities = await publicApi('/identities');
@@ -1287,7 +1321,7 @@ function renderIdentityDetail(id) {
     <div class="panel-head-row">
       <div>
         <div class="page-title">${escapeHtml(identity.name)}</div>
-        <div class="page-sub">${identity.phone_number} · ${identity.accounts.length} 个平台绑定</div>
+        <div class="page-sub">${identity.phone_number ? escapeHtml(identity.phone_number) + ' · ' : ''}${identity.accounts.length} 个平台绑定</div>
       </div>
       ${currentUser.role === 'super_admin' ? `
         <div class="row-btns">
@@ -1575,7 +1609,7 @@ function renderInternalAccounts() {
             <label>关联矩阵账号</label>
             <select id="uIdentity">
               <option value="">-- 选择矩阵号 --</option>
-              ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}（${i.phone_number}）</option>`).join('')}
+              ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
             </select>
           </div>
           <div class="full" id="uPasscodeField">

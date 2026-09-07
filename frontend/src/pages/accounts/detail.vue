@@ -2,7 +2,7 @@
   <view class="page">
     <view class="header">
       <text class="identity-name">{{ identity.name }}</text>
-      <text class="identity-sub">{{ identity.phone_number }} · {{ identity.accounts.length }} 个平台绑定</text>
+      <text class="identity-sub">{{ identity.phone_number ? identity.phone_number + ' · ' : '' }}{{ identity.accounts.length }} 个平台绑定</text>
     </view>
 
     <view class="kpi-grid">

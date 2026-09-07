@@ -16,7 +16,7 @@
           <view class="avatar">{{ i.name[0] }}</view>
           <view class="identity-info">
             <text class="identity-name">{{ i.name }}</text>
-            <text class="identity-sub">{{ i.phone_number }}</text>
+            <text class="identity-sub" v-if="i.phone_number">{{ i.phone_number }}</text>
             <view class="platform-tags">
               <text
                 class="mini-tag"

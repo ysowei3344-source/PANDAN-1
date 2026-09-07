@@ -7,30 +7,39 @@ Platform = Literal["douyin", "video_channel", "xiaohongshu"]
 
 
 class Account(BaseModel):
-    """One platform binding (抖音/视频号/小红书) under a matrix identity."""
+    """One platform binding (抖音/视频号/小红书) under a matrix identity.
+
+    profile_url is the pasted homepage link for the account. There's no
+    official open-data API for any of the three platforms yet (Douyin's
+    open-platform data permission is still pending approval, see ARCHIVE.md),
+    so nickname/follower_count/video_count stay manually entered until a real
+    adapter can be wired up to pull them from profile_url instead."""
 
     id: str
     identity_id: str
     platform: Platform
     nickname: str
     avatar_url: str | None = None
+    profile_url: str | None = None
     follower_count: int
     video_count: int
 
 
 class Identity(BaseModel):
-    """A matrix account as the operator thinks about it: one phone number /
-    one persona, synced across whichever platforms it's registered on."""
+    """A matrix account as the operator thinks about it: one persona, synced
+    across whichever platforms it's registered on. Matched to (at most) one
+    internal operator account rather than tracking its own phone number —
+    see User.identity_id."""
 
     id: str
     name: str
-    phone_number: str
+    phone_number: str | None = None
 
 
 class IdentitySummary(BaseModel):
     id: str
     name: str
-    phone_number: str
+    phone_number: str | None = None
     accounts: list[Account]
     total_followers: int
     total_videos: int
@@ -41,21 +50,24 @@ class IdentitySummary(BaseModel):
 
 class IdentityInput(BaseModel):
     name: str
-    phone_number: str
+    phone_number: str | None = None
+    operator_user_id: str | None = None
 
 
 class AccountCreateInput(BaseModel):
     identity_id: str
     platform: Platform
-    nickname: str
+    nickname: str = ""
     avatar_url: str | None = None
+    profile_url: str | None = None
     follower_count: int = 0
     video_count: int = 0
 
 
 class AccountUpdateInput(BaseModel):
-    nickname: str
+    nickname: str = ""
     avatar_url: str | None = None
+    profile_url: str | None = None
     follower_count: int = 0
     video_count: int = 0
 

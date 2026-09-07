@@ -92,6 +92,16 @@ def create_user(user: dict) -> dict:
     return user
 
 
+def update_user(user_id: str, data: dict) -> dict | None:
+    users = list_users()
+    for i, u in enumerate(users):
+        if u["id"] == user_id:
+            users[i] = {**u, **data}
+            _write_json(USERS_FILE, users)
+            return users[i]
+    return None
+
+
 def delete_user(user_id: str) -> bool:
     users = list_users()
     remaining = [u for u in users if u["id"] != user_id]

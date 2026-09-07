@@ -77,14 +77,24 @@ def verify_identity_passcode(identity_id: str, payload: VerifyPasscodeInput, cur
 
 @router.post("", response_model=IdentitySummary)
 def create_identity(payload: IdentityInput, current: dict = Depends(require_role("super_admin"))) -> IdentitySummary:
-    identity = storage.create_identity(payload.model_dump())
+    operator = None
+    if payload.operator_user_id:
+        operator = storage.get_user(payload.operator_user_id)
+        if operator is None:
+            raise HTTPException(status_code=404, detail="operator not found")
+
+    identity = storage.create_identity({"name": payload.name, "phone_number": payload.phone_number})
+
+    if operator is not None:
+        storage.update_user(operator["id"], {"identity_id": identity.id})
+
     storage.log_activity(current["id"], current["username"], "新增矩阵号", identity.name)
     return _summary(identity)
 
 
 @router.put("/{identity_id}", response_model=IdentitySummary)
 def update_identity(identity_id: str, payload: IdentityInput, current: dict = Depends(require_role("super_admin"))) -> IdentitySummary:
-    identity = storage.update_identity(identity_id, payload.model_dump())
+    identity = storage.update_identity(identity_id, {"name": payload.name, "phone_number": payload.phone_number})
     if identity is None:
         raise HTTPException(status_code=404, detail="identity not found")
     storage.log_activity(current["id"], current["username"], "编辑矩阵号", identity.name)
