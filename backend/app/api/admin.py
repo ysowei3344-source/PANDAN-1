@@ -10,7 +10,10 @@ from ..schemas import Banner, BannerInput, Tutorial, TutorialInput
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
-ALLOWED_IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+ALLOWED_UPLOAD_EXT = {
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp",
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+}
 
 
 @router.get("/banners", response_model=list[Banner], dependencies=[Depends(get_current_user)])
@@ -74,7 +77,7 @@ def admin_delete_tutorial(tutorial_id: str, current: dict = Depends(get_current_
 @router.post("/upload")
 async def admin_upload_image(file: UploadFile = File(...), current: dict = Depends(get_current_user)) -> dict[str, str]:
     ext = Path(file.filename or "").suffix.lower() or ".png"
-    if ext not in ALLOWED_IMAGE_EXT:
+    if ext not in ALLOWED_UPLOAD_EXT:
         raise HTTPException(status_code=400, detail="unsupported file type")
 
     uploads_dir = STATIC_DIR / "uploads"
@@ -82,5 +85,5 @@ async def admin_upload_image(file: UploadFile = File(...), current: dict = Depen
     name = f"{uuid.uuid4().hex}{ext}"
     content = await file.read()
     (uploads_dir / name).write_bytes(content)
-    storage.log_activity(current["id"], current["username"], "上传图片", name)
+    storage.log_activity(current["id"], current["username"], "上传文件", name)
     return {"url": f"/static/uploads/{name}"}
