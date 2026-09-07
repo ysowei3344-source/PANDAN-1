@@ -15,6 +15,8 @@ def _public(user: dict) -> dict:
         "id": user["id"],
         "username": user["username"],
         "role": user["role"],
+        "identity_id": user.get("identity_id"),
+        "has_passcode": bool(user.get("passcode_hash")),
         "created_at": user["created_at"],
     }
 
@@ -29,12 +31,20 @@ def create_user(payload: UserCreateInput) -> dict:
     if storage.get_user_by_username(payload.username):
         raise HTTPException(status_code=400, detail="用户名已存在")
     password_hash, salt = hash_password(payload.password)
+
+    passcode_hash = passcode_salt = None
+    if payload.passcode:
+        passcode_hash, passcode_salt = hash_password(payload.passcode)
+
     user = {
         "id": f"u-{uuid.uuid4().hex[:8]}",
         "username": payload.username,
         "password_hash": password_hash,
         "salt": salt,
         "role": payload.role,
+        "identity_id": payload.identity_id,
+        "passcode_hash": passcode_hash,
+        "passcode_salt": passcode_salt,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     storage.create_user(user)

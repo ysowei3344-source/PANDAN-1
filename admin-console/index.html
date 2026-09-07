@@ -409,7 +409,7 @@ const NAV_WORK = [
 ];
 const NAV_SYSTEM = [
   { key: 'banners', label: '轮播图管理' },
-  { key: 'users', label: '账号管理', roles: ['super_admin'] },
+  { key: 'users', label: '账号权限管理', roles: ['super_admin'] },
 ];
 
 function token() { return localStorage.getItem('rv_admin_token') || ''; }
@@ -867,6 +867,7 @@ let accountsDetailId = null;
 let detailActiveAccountId = null;
 let detailSelectedVideoId = null;
 let detailVideos = [];
+let unlockedIdentities = new Set();
 
 function renderAccountsPage() {
   if (accountsDetailId) {
@@ -905,12 +906,58 @@ function openIdentityDetail(id) {
   accountsDetailId = id;
   detailActiveAccountId = null;
   detailSelectedVideoId = null;
-  renderIdentityDetail(id);
+  if (unlockedIdentities.has(id)) {
+    renderIdentityDetail(id);
+  } else {
+    renderPasscodeGate(id);
+  }
 }
 
 function closeIdentityDetail() {
   accountsDetailId = null;
   renderIdentityList();
+}
+
+function renderPasscodeGate(id) {
+  const identity = allIdentities.find((i) => i.id === id);
+  const el = document.getElementById('section-accounts');
+  el.innerHTML = `
+    <button class="diagnosis-back" onclick="closeIdentityDetail()">‹ 返回矩阵账号列表</button>
+    <div class="panel" style="max-width:360px;">
+      <h2>需要管理口令</h2>
+      <div class="page-sub" style="margin-bottom:16px;">进入「${escapeHtml(identity ? identity.name : id)}」需要输入这个矩阵号的管理口令</div>
+      <input type="text" id="identityPasscodeInput" placeholder="输入管理口令"
+             onkeydown="if(event.key==='Enter'){submitIdentityPasscode('${id}')}">
+      <div class="actions"><button onclick="submitIdentityPasscode('${id}')">进入</button></div>
+      <p class="msg" id="identityPasscodeMsg"></p>
+    </div>
+  `;
+  document.getElementById('identityPasscodeInput').focus();
+}
+
+async function submitIdentityPasscode(id) {
+  const input = document.getElementById('identityPasscodeInput');
+  const msg = document.getElementById('identityPasscodeMsg');
+  const passcode = input.value.trim();
+  if (!passcode) { msg.textContent = '请输入口令'; msg.className = 'msg error'; return; }
+  msg.className = 'msg';
+  msg.textContent = '验证中...';
+  try {
+    const res = await fetch(`${PUBLIC_API_BASE}/identities/${id}/verify-passcode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ passcode }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || '验证失败');
+    }
+    unlockedIdentities.add(id);
+    renderIdentityDetail(id);
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
 }
 
 function renderIdentityDetail(id) {
@@ -1169,18 +1216,30 @@ async function loadUsers() { users = await api('/users'); }
 function renderUsers() {
   const el = document.getElementById('section-users');
   el.innerHTML = `
-    <div class="page-title">账号管理</div>
+    <div class="page-title">账号权限管理</div>
+    <div class="page-sub">每个运营账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
     <div class="panel" style="margin-bottom:16px;">
       <h2>新增账号</h2>
       <div class="form-grid">
         <div><label>用户名</label><input type="text" id="uUsername"></div>
-        <div><label>初始密码</label><input type="password" id="uPassword"></div>
+        <div><label>初始密码（登录用）</label><input type="password" id="uPassword"></div>
         <div class="full">
           <label>角色</label>
-          <select id="uRole">
-            <option value="operator">运营（可管理内容，不能管账号）</option>
-            <option value="super_admin">超级管理员（可管理全部，含账号）</option>
+          <select id="uRole" onchange="toggleOperatorFields()">
+            <option value="operator">运营（对应管理一个矩阵号）</option>
+            <option value="super_admin">超级管理员（可管理全部，含账号权限）</option>
           </select>
+        </div>
+        <div class="full" id="uIdentityField">
+          <label>关联矩阵账号</label>
+          <select id="uIdentity">
+            <option value="">-- 选择矩阵号 --</option>
+            ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}（${i.phone_number}）</option>`).join('')}
+          </select>
+        </div>
+        <div class="full" id="uPasscodeField">
+          <label>管理口令（进入矩阵账号列表时需要输入，超级管理员可用万能码通行）</label>
+          <input type="text" id="uPasscode" placeholder="例如 1234">
         </div>
       </div>
       <div class="actions"><button onclick="submitUser()">创建账号</button></div>
@@ -1191,21 +1250,35 @@ function renderUsers() {
       <div id="userList"></div>
     </div>
   `;
+  toggleOperatorFields();
   renderUserList();
+}
+
+function toggleOperatorFields() {
+  const isOperator = document.getElementById('uRole').value === 'operator';
+  document.getElementById('uIdentityField').style.display = isOperator ? '' : 'none';
+  document.getElementById('uPasscodeField').style.display = isOperator ? '' : 'none';
 }
 
 function renderUserList() {
   const list = document.getElementById('userList');
   if (!users.length) { list.innerHTML = '<div class="empty-hint">暂无账号</div>'; return; }
-  list.innerHTML = users.map((u) => `
-    <div class="row-item">
-      <div class="row-body">
-        <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
-        <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
+  list.innerHTML = users.map((u) => {
+    const identity = u.identity_id ? allIdentities.find((i) => i.id === u.identity_id) : null;
+    const bindingText = u.role === 'super_admin'
+      ? '全部矩阵号（万能码通行）'
+      : (identity ? `矩阵号：${escapeHtml(identity.name)}` : '未绑定矩阵号');
+    return `
+      <div class="row-item">
+        <div class="row-body">
+          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '运营'}</span></div>
+          <div class="row-sub">${bindingText}${u.role === 'operator' ? (u.has_passcode ? ' · 已设置管理口令' : ' · 未设置管理口令') : ''}</div>
+          <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
+        </div>
+        <div class="row-btns">${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}</div>
       </div>
-      <div class="row-btns">${u.id === currentUser.id ? '' : `<button class="danger" onclick="deleteUser('${u.id}')">删除</button>`}</div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 async function submitUser() {
@@ -1216,13 +1289,19 @@ async function submitUser() {
     password: document.getElementById('uPassword').value,
     role: document.getElementById('uRole').value,
   };
+  if (payload.role === 'operator') {
+    payload.identity_id = document.getElementById('uIdentity').value || null;
+    payload.passcode = document.getElementById('uPasscode').value || null;
+  }
   if (!payload.username || !payload.password) { msg.textContent = '请填写用户名和密码'; msg.className = 'msg error'; return; }
+  if (payload.role === 'operator' && !payload.identity_id) { msg.textContent = '请给运营账号选择关联的矩阵号'; msg.className = 'msg error'; return; }
   try {
     await api('/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     msg.textContent = '已创建';
     msg.className = 'msg ok';
     document.getElementById('uUsername').value = '';
     document.getElementById('uPassword').value = '';
+    document.getElementById('uPasscode').value = '';
     await loadUsers();
     renderUserList();
   } catch (e) {

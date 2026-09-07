@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -8,6 +9,13 @@ from fastapi import Depends, Header, HTTPException
 from . import storage
 
 SESSION_TTL = timedelta(days=7)
+
+# Master override passcode: unlocks any matrix identity's detail page
+# regardless of which operator-specific passcode is set on it. Configurable
+# via env var so it can be rotated without a code change; "888" is only the
+# default because that's what was asked for — a 3-digit code is weak, change
+# it in production.
+MASTER_PASSCODE = os.environ.get("MASTER_PASSCODE", "888")
 
 
 def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:

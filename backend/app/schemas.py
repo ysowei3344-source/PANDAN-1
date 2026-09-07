@@ -90,6 +90,8 @@ class UserOut(BaseModel):
     id: str
     username: str
     role: Role
+    identity_id: str | None = None
+    has_passcode: bool = False
     created_at: str
 
 
@@ -97,6 +99,12 @@ class UserCreateInput(BaseModel):
     username: str
     password: str
     role: Role = "operator"
+    identity_id: str | None = None
+    passcode: str | None = None
+
+
+class VerifyPasscodeInput(BaseModel):
+    passcode: str
 
 
 class Settings(BaseModel):
