@@ -449,20 +449,40 @@
   .img-progress-bar { height: 100%; width: 0%; background: var(--accent); transition: width 0.15s linear; }
   .img-progress-text { color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
 
-  .img-thumb-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-  .img-thumb-item { position: relative; width: 72px; height: 128px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--line); flex-shrink: 0; }
+  .img-thumb-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .img-thumb-item { position: relative; width: 56px; height: 56px; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--line); flex-shrink: 0; }
   .img-thumb-9x16 { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .img-thumb-actions { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 2px; padding: 3px; background: rgba(6, 8, 12, 0.55); }
-  .img-thumb-btn { flex: 1; font-size: 10px; padding: 3px 0; border-radius: 4px; border: none; background: rgba(255, 255, 255, 0.18); color: #fff; cursor: pointer; }
+  .img-thumb-pending {
+    position: absolute; top: 2px; left: 2px; z-index: 2; font-size: 9px; line-height: 1.4; padding: 1px 4px;
+    border-radius: 4px; background: rgba(230, 160, 40, 0.9); color: #1a1206; font-weight: 600;
+  }
+  .img-thumb-hover-preview {
+    display: none; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%);
+    width: 90px; height: 160px; border-radius: 8px; overflow: hidden; z-index: 10;
+    box-shadow: var(--shadow); border: 1px solid var(--line); background: #000;
+  }
+  .img-thumb-hover-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-thumb-item:hover .img-thumb-hover-preview { display: block; }
+  .img-thumb-actions { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 2px; padding: 2px; background: rgba(6, 8, 12, 0.55); }
+  .img-thumb-btn { flex: 1; font-size: 9px; padding: 2px 0; border-radius: 3px; border: none; background: rgba(255, 255, 255, 0.18); color: #fff; cursor: pointer; }
   .img-thumb-btn:hover { background: rgba(255, 255, 255, 0.32); }
   .img-thumb-btn.danger { background: rgba(220, 70, 70, 0.55); }
   .img-thumb-btn.danger:hover { background: rgba(220, 70, 70, 0.85); }
   .img-thumb-add {
-    width: 72px; height: 128px; border-radius: 8px; border: 1px dashed var(--line); flex-shrink: 0;
+    width: 56px; height: 56px; border-radius: 8px; border: 1px dashed var(--line); flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; flex-direction: column;
-    font-size: 12px; color: var(--ink-soft); cursor: pointer; text-align: center; line-height: 1.4;
+    font-size: 10px; color: var(--ink-soft); cursor: pointer; text-align: center; line-height: 1.3;
   }
   .img-thumb-add:hover { border-color: var(--accent); color: var(--accent); }
+
+  .panel-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .panel-header-row h2 { margin: 0; }
+  .product-list-tools { display: flex; align-items: center; gap: 8px; }
+  .product-search-input { width: 160px; }
+  .product-list-tools select { width: auto; }
+
+  .product-edit-panel { position: sticky; top: 20px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; }
+  @media (max-width: 900px) { .product-edit-panel { position: static; max-height: none; overflow-y: visible; } }
 
   .product-thumb-carousel { position: relative; width: 90px; height: 160px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0; }
   .product-thumb-carousel img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -2437,15 +2457,26 @@ async function renderProductsPage() {
   try { products = await api('/products'); } catch (e) { products = []; }
   editingProductId = null;
   mainImagesState = [];
+  productSearchQuery = '';
+  productSortOrder = 'desc';
   el.innerHTML = `
     <div class="page-title">商品信息</div>
     <div class="page-sub">房车商品库，客户成交/交付时会从这里选商品匹配</div>
     <div class="users-columns">
       <div class="panel">
-        <h2>商品列表</h2>
+        <div class="panel-header-row">
+          <h2>商品列表</h2>
+          <div class="product-list-tools">
+            <input type="text" id="productSearch" class="product-search-input" placeholder="搜索名称/编码/底盘" oninput="onProductSearchInput()">
+            <select id="productSort" onchange="onProductSortChange()">
+              <option value="desc">最新优先</option>
+              <option value="asc">最早优先</option>
+            </select>
+          </div>
+        </div>
         <div id="productList"></div>
       </div>
-      <div class="panel">
+      <div class="panel product-edit-panel">
         <h2 id="productFormTitle">新增商品</h2>
         <div class="form-grid">
           <div><label>商品名称</label><input type="text" id="pName"></div>
@@ -2453,7 +2484,7 @@ async function renderProductsPage() {
           <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
           <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
           <div>
-            <label>商品主图（可多张，列表按 9:16 轮播展示）</label>
+            <label>商品主图（最多5张，鼠标移到缩略图上查看 9:16 大图，保存后才会生效）</label>
             <div class="img-thumb-row" id="pMainImageList"></div>
             <input type="file" id="pMainImageAdd" accept="image/*" multiple hidden onchange="handleMainImagesSelect(event)">
           </div>
@@ -2470,8 +2501,8 @@ async function renderProductsPage() {
             </div>
             <div id="pLayoutImageName" class="row-sub" hidden></div>
           </div>
-          <div class="full"><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
-          <div class="full"><label>客户备注</label><textarea id="pCustomerNotes" rows="2"></textarea></div>
+          <div><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
+          <div><label>客户备注</label><textarea id="pCustomerNotes" rows="3"></textarea></div>
         </div>
         <div class="actions">
           <button onclick="submitProduct()">保存</button>
@@ -2547,12 +2578,21 @@ async function cropImageElementToBlob(imgEl, state) {
   return blob;
 }
 
+const MAX_MAIN_IMAGES = 5;
+
 function renderMainImageThumbs() {
   const wrap = document.getElementById('pMainImageList');
   if (!wrap) return;
-  wrap.innerHTML = mainImagesState.map((entry, idx) => `
+  const addTile = mainImagesState.length < MAX_MAIN_IMAGES
+    ? `<label class="img-thumb-add" for="pMainImageAdd">＋<br>添加</label>`
+    : '';
+  wrap.innerHTML = mainImagesState.map((entry, idx) => {
+    const src = entry.previewUrl || staticUrl(entry.url);
+    return `
     <div class="img-thumb-item">
-      <img src="${entry.previewUrl || staticUrl(entry.url)}" class="img-thumb-9x16" alt="">
+      <img src="${src}" class="img-thumb-9x16" alt="">
+      ${entry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
+      <div class="img-thumb-hover-preview"><img src="${src}" alt=""></div>
       <div class="img-thumb-actions">
         <button type="button" class="img-thumb-btn" onclick="editMainImageAt(${idx})">编辑</button>
         <button type="button" class="img-thumb-btn danger" onclick="removeMainImageAt(${idx})">删除</button>
@@ -2562,13 +2602,15 @@ function renderMainImageThumbs() {
         <span class="img-progress-text" id="mainImgProgressText-${idx}">0%</span>
       </div>
     </div>
-  `).join('') + `<label class="img-thumb-add" for="pMainImageAdd">＋<br>添加</label>`;
+  `;
+  }).join('') + addTile;
 }
 
 async function handleMainImagesSelect(event) {
   const files = Array.from(event.target.files || []);
   event.target.value = '';
   for (const file of files) {
+    if (mainImagesState.length >= MAX_MAIN_IMAGES) { alert('商品主图最多 5 张'); break; }
     if (!file.type.startsWith('image/')) continue;
     try {
       const img = await loadImageFromFile(file);
@@ -2751,16 +2793,46 @@ function setFilePreview(url, previewImgId, nameElId) {
 }
 
 let productCarouselIndex = {}; // productId -> currently shown image index in 商品列表
+let productSearchQuery = '';
+let productSortOrder = 'desc'; // 'desc' = 最新优先, 'asc' = 最早优先
 
 function setProductCarouselIndex(productId, idx) {
   productCarouselIndex[productId] = idx;
   renderProductList();
 }
 
+function onProductSearchInput() {
+  productSearchQuery = document.getElementById('productSearch').value.trim().toLowerCase();
+  renderProductList();
+}
+
+function onProductSortChange() {
+  productSortOrder = document.getElementById('productSort').value;
+  renderProductList();
+}
+
+function getFilteredSortedProducts() {
+  let list = products.slice();
+  if (productSearchQuery) {
+    list = list.filter((p) => {
+      const haystack = [p.name, p.internal_code, p.chassis_info, p.chassis_number].join(' ').toLowerCase();
+      return haystack.includes(productSearchQuery);
+    });
+  }
+  list.sort((a, b) => {
+    const ta = Date.parse(a.created_at) || 0;
+    const tb = Date.parse(b.created_at) || 0;
+    return productSortOrder === 'asc' ? ta - tb : tb - ta;
+  });
+  return list;
+}
+
 function renderProductList() {
   const list = document.getElementById('productList');
   if (!products.length) { list.innerHTML = '<div class="empty-hint">暂无商品</div>'; return; }
-  list.innerHTML = products.map((p) => {
+  const filteredProducts = getFilteredSortedProducts();
+  if (!filteredProducts.length) { list.innerHTML = '<div class="empty-hint">没有匹配的商品</div>'; return; }
+  list.innerHTML = filteredProducts.map((p) => {
     const images = p.main_image_urls || [];
     const curIdx = images.length ? Math.min(productCarouselIndex[p.id] || 0, images.length - 1) : 0;
     const thumbHtml = images.length ? `
