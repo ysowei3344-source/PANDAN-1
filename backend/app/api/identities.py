@@ -1,13 +1,25 @@
 from fastapi import APIRouter, HTTPException
 
+from .. import timeseries
 from ..mock_data import ACCOUNTS, IDENTITIES, VIDEOS
 from ..schemas import IdentitySummary, VideoStat
 
 router = APIRouter(prefix="/api/identities", tags=["identities"])
 
+# No order-tracking system (M5) exists yet, so 总成交数 has nothing real to
+# read from — approximate it as a fixed share of customers added, purely so
+# the card isn't empty. Replace with a real conversion once M5 is wired up.
+_MOCK_DEAL_CONVERSION_RATE = 0.15
+
 
 def _summary(identity) -> IdentitySummary:
     accounts = [a for a in ACCOUNTS if a.identity_id == identity.id]
+
+    days = timeseries.get_daily_series(identity.id)
+    total_ad_spend = round(sum(d["ad_spend"] for d in days), 2)
+    total_customers_added = sum(d["wechat_added"] for d in days)
+    total_deals_closed = round(total_customers_added * _MOCK_DEAL_CONVERSION_RATE)
+
     return IdentitySummary(
         id=identity.id,
         name=identity.name,
@@ -15,6 +27,9 @@ def _summary(identity) -> IdentitySummary:
         accounts=accounts,
         total_followers=sum(a.follower_count for a in accounts),
         total_videos=sum(a.video_count for a in accounts),
+        total_ad_spend=total_ad_spend,
+        total_customers_added=total_customers_added,
+        total_deals_closed=total_deals_closed,
     )
 
 

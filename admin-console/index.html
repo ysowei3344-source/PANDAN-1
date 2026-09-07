@@ -319,6 +319,10 @@
 
   .empty-hint { color: var(--ink-soft); font-size: 13px; text-align: center; padding: 40px 0; }
 
+  .identity-kpi-grid { grid-template-columns: repeat(5, 1fr); }
+  @media (max-width: 900px) {
+    .identity-kpi-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  }
   @media (max-width: 640px) {
     .sidebar { display: none; }
   }
@@ -917,7 +921,7 @@ function renderIdentityDetail(id) {
     <button class="diagnosis-back" onclick="closeIdentityDetail()">‹ 返回矩阵账号列表</button>
     <div class="page-title">${escapeHtml(identity.name)}</div>
     <div class="page-sub">${identity.phone_number} · ${identity.accounts.length} 个平台绑定</div>
-    <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom:16px;">
+    <div class="kpi-grid identity-kpi-grid">
       <div class="kpi-card">
         <span class="kpi-label">总粉丝数</span>
         <span class="kpi-value">${fmtNum(identity.total_followers)}</span>
@@ -925,6 +929,18 @@ function renderIdentityDetail(id) {
       <div class="kpi-card">
         <span class="kpi-label">总视频数</span>
         <span class="kpi-value">${fmtNum(identity.total_videos)}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">总消耗量</span>
+        <span class="kpi-value">¥${fmtNum(identity.total_ad_spend)}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">总添加数</span>
+        <span class="kpi-value">${fmtNum(identity.total_customers_added)}</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">总成交数</span>
+        <span class="kpi-value">${fmtNum(identity.total_deals_closed)}</span>
       </div>
     </div>
     <div class="panel">

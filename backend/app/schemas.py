@@ -34,6 +34,9 @@ class IdentitySummary(BaseModel):
     accounts: list[Account]
     total_followers: int
     total_videos: int
+    total_ad_spend: float
+    total_customers_added: int
+    total_deals_closed: int
 
 
 class VideoStat(BaseModel):
