@@ -3648,6 +3648,10 @@ function productNameById(id) {
   return p ? p.name : '';
 }
 
+function truncateName(name, max = 6) {
+  return name.length > max ? name.slice(0, max) + '...' : name;
+}
+
 function orderToPayload(o) {
   return {
     name: o.name, phone: o.phone, source: o.source, financial_status: o.financial_status,
@@ -3883,7 +3887,7 @@ function fullOrderRowHtml(o) {
         <div class="user-cell">
           <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
           <div>
-            <div class="row-title" style="font-size:13px;">${escapeHtml(o.name)}</div>
+            <div class="row-title" style="font-size:13px;" title="${escapeHtml(o.name)}">${escapeHtml(truncateName(o.name))}</div>
             <div class="row-sub">归属：${escapeHtml(o.assigned_to)}</div>
           </div>
         </div>
@@ -3900,9 +3904,9 @@ function fullOrderRowHtml(o) {
       </td>
       <td>
         <div class="table-actions">
-          <button class="ghost" onclick="editOrder('${o.id}')">编辑信息</button>
-          <button class="ghost" onclick="openMaintainOrderModal('${o.id}')">维护</button>
-          <button class="danger" onclick="deleteOrder('${o.id}')">删除</button>
+          <button type="button" class="icon-btn" onclick="editOrder('${o.id}')" title="编辑信息">✎</button>
+          <button type="button" class="icon-btn" onclick="openMaintainOrderModal('${o.id}')" title="维护">🔧</button>
+          <button type="button" class="icon-btn danger" onclick="deleteOrder('${o.id}')" title="删除">🗑</button>
         </div>
       </td>
     </tr>
@@ -3917,7 +3921,7 @@ function lockedOrderRowHtml(o) {
         <div class="user-cell">
           <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
           <div>
-            <div class="row-title" style="font-size:13px;">${escapeHtml(o.name)}</div>
+            <div class="row-title" style="font-size:13px;" title="${escapeHtml(o.name)}">${escapeHtml(truncateName(o.name))}</div>
             <div class="row-sub">${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
           </div>
         </div>
