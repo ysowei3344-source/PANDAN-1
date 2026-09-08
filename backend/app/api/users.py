@@ -32,7 +32,10 @@ def list_sales_users(current: dict = Depends(get_current_user)) -> list[dict]:
     """Lightweight roster (id + username only) any authenticated user can
     read, so a 销售 filling in 归属销售 on an order doesn't need
     super_admin-only /users access."""
-    return [{"id": u["id"], "username": u["username"]} for u in storage.list_users() if u["role"] == "operator"]
+    return [
+        {"id": u["id"], "username": u["username"], "avatar_url": u.get("avatar_url")}
+        for u in storage.list_users() if u["role"] == "operator"
+    ]
 
 
 @router.post("", response_model=UserOut)
@@ -54,6 +57,7 @@ def create_user(payload: UserCreateInput, current: dict = Depends(require_role("
         "identity_ids": [payload.identity_id] if payload.identity_id else [],
         "passcode_hash": passcode_hash,
         "passcode_salt": passcode_salt,
+        "avatar_url": payload.avatar_url or None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     storage.create_user(user)

@@ -310,6 +310,7 @@
   }
   .diagnosis-tag.risk { background: var(--danger-soft); color: var(--danger); }
   .diagnosis-tag.opportunity { background: var(--success-soft); color: var(--success); }
+  .diagnosis-tag.info { background: var(--accent-soft); color: var(--accent); }
   .diagnosis-text { font-size: 13px; line-height: 1.7; color: var(--ink); }
   .diagnosis-back {
     display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent);
@@ -537,6 +538,44 @@
   }
   .category-badge img { width: 14px; height: 14px; border-radius: 3px; object-fit: cover; }
 
+  .sales-stat-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
+  .sales-stat-card {
+    flex: 0 0 200px; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius);
+    background: var(--card); border: 1px solid var(--line); cursor: pointer;
+  }
+  .sales-stat-card.active { border-color: var(--accent); background: var(--accent-soft); }
+  .sales-stat-card .avatar { width: 40px; height: 40px; flex-shrink: 0; }
+  .sales-stat-body { min-width: 0; }
+  .sales-stat-label { font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sales-stat-value { font-size: 20px; font-weight: 700; margin: 2px 0; }
+  .sales-stat-growth { font-size: 11px; color: var(--ink-faint); }
+  .sales-stat-growth.up { color: var(--success); }
+  .sales-stat-growth.down { color: var(--danger); }
+
+  .orders-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .orders-layout { grid-template-columns: 1fr; } }
+
+  .status-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-soft); margin: 4px 0 14px; }
+  .status-legend span { display: flex; align-items: center; }
+  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; flex-shrink: 0; }
+  .status-dot.dot-red { background: var(--danger); }
+  .status-dot.dot-orange { background: var(--warning); }
+  .status-dot.dot-blue { background: var(--accent); }
+  .status-dot.dot-green { background: var(--success); }
+
+  .table-scroll { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left; font-weight: 600; color: var(--ink-soft); font-size: 12px; padding: 10px 12px;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .data-table tbody tr:hover { background: var(--card-2); }
+  .order-id-cell { display: flex; align-items: center; gap: 4px; font-family: monospace; font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+  .user-cell { display: flex; align-items: center; gap: 8px; }
+  .user-cell .avatar { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+  .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
   .product-thumb-carousel { position: relative; width: 90px; height: 160px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0; }
   .product-thumb-carousel img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .product-thumb-empty {
@@ -647,6 +686,7 @@
         <section id="section-users" hidden></section>
         <section id="section-tutorials" hidden></section>
         <section id="section-orders" hidden></section>
+        <section id="section-saleslog" hidden></section>
         <section id="section-create" hidden></section>
         <section id="section-stub" hidden></section>
       </div>
@@ -698,6 +738,13 @@ const NAV_ACCOUNTS = [
     children: [
       { key: 'users-internal', label: '内部账号管理' },
       { key: 'users-external', label: '外部账号管理' },
+    ],
+  },
+  {
+    key: 'saleslog', label: '销售日志记录',
+    children: [
+      { key: 'saleslog-diary', label: '跟单猿日志' },
+      { key: 'saleslog-performance', label: '跟单猿业绩' },
     ],
   },
 ];
@@ -791,7 +838,7 @@ function logout() {
 async function enterApp() {
   document.getElementById('loginView').hidden = true;
   document.getElementById('appShell').hidden = false;
-  document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '销售';
+  document.getElementById('roleBadge').textContent = currentUser.role === 'super_admin' ? '超级管理员' : '销售跟单猿';
   document.getElementById('usernameLabel').textContent = currentUser.username;
   renderNav();
   try { allIdentities = await fetch(`${PUBLIC_API_BASE}/identities`).then((r) => r.json()); } catch (e) { allIdentities = []; }
@@ -865,7 +912,7 @@ async function showSection(key) {
   document.getElementById('headerLeft').innerHTML = '';
   stopActivityLogPolling();
   stopAllShotPolling();
-  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'orders', 'create', 'stub'].forEach((k) => {
+  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'orders', 'saleslog', 'create', 'stub'].forEach((k) => {
     document.getElementById(`section-${k}`).hidden = true;
   });
 
@@ -900,6 +947,12 @@ async function showSection(key) {
   } else if (key === 'orders-orders') {
     document.getElementById('section-orders').hidden = false;
     await renderOrderTrackingPage();
+  } else if (key === 'saleslog-diary') {
+    document.getElementById('section-saleslog').hidden = false;
+    await renderWorkLogPage();
+  } else if (key === 'saleslog-performance') {
+    document.getElementById('section-saleslog').hidden = false;
+    await renderSalesPerformancePage();
   } else if (key === 'create') {
     document.getElementById('section-create').hidden = false;
     await renderCreatePage();
@@ -1410,20 +1463,20 @@ async function renderAddAccountForm() {
   el.innerHTML = `
     <div class="page-title">${identity ? '编辑账号' : '添加账号'}</div>
     <div class="page-sub">${identity
-      ? `编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联销售账号和三个平台的主页链接`
-      : '新增一个矩阵号（一个人设），可以关联一个销售账号来管理它（一个销售可以管理多个矩阵号），并登记它在三个平台上的主页链接'}</div>
+      ? `编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联销售跟单猿账号和三个平台的主页链接`
+      : '新增一个矩阵号（一个人设），可以关联一个销售跟单猿账号来管理它（一个销售跟单猿可以管理多个矩阵号），并登记它在三个平台上的主页链接'}</div>
     <div class="add-account-grid">
       <div class="panel">
         <h2>矩阵号信息</h2>
         <div class="form-grid">
           <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" placeholder="例如：熊猫小张" value="${identity ? escapeHtml(identity.name) : ''}"></div>
           <div class="full">
-            <label>关联销售账号（可选）</label>
+            <label>关联销售跟单猿账号（可选）</label>
             <select id="newIdentityOperator">
               <option value="">不绑定</option>
               ${operators.map((u) => `<option value="${u.id}" ${editingOperatorOriginalId === u.id ? 'selected' : ''}>${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
             </select>
-            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售账号，可以先去「内部账号管理」新建一个</div>' : ''}
+            ${operators.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售跟单猿账号，可以先去「内部账号管理」新建一个</div>' : ''}
           </div>
         </div>
       </div>
@@ -1522,7 +1575,7 @@ async function submitNewIdentity() {
             });
           }
         } catch (e) {
-          msg.textContent = '基本信息和链接已保存，但销售账号关联需要超级管理员权限，没有改成';
+          msg.textContent = '基本信息和链接已保存，但销售跟单猿账号关联需要超级管理员权限，没有改成';
           msg.className = 'msg error';
         }
       }
@@ -1629,13 +1682,13 @@ async function editIdentityInfo(id) {
   modal.innerHTML = `
     <div class="modal-card wide" onclick="event.stopPropagation()">
       <h2>编辑账号</h2>
-      <div class="page-sub" style="margin-bottom:16px;">编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联销售账号和三个平台的主页链接</div>
+      <div class="page-sub" style="margin-bottom:16px;">编辑「${escapeHtml(identity.name)}」的矩阵号信息、关联销售跟单猿账号和三个平台的主页链接</div>
       <div class="panel" style="background:var(--card-2);margin-bottom:16px;">
         <h2>矩阵号信息</h2>
         <div class="form-grid">
           <div class="full"><label>矩阵号名称</label><input type="text" id="newIdentityName" value="${escapeHtml(identity.name)}"></div>
           <div class="full">
-            <label>关联销售账号（可选）</label>
+            <label>关联销售跟单猿账号（可选）</label>
             <select id="newIdentityOperator">
               <option value="">不绑定</option>
               ${operators.map((u) => `<option value="${u.id}" ${editingOperatorOriginalId === u.id ? 'selected' : ''}>${escapeHtml(u.username)}${u.identity_ids.length ? `（已管理 ${u.identity_ids.length} 个矩阵号）` : ''}</option>`).join('')}
@@ -2323,39 +2376,10 @@ function renderInternalAccounts() {
   const el = document.getElementById('section-users');
   el.innerHTML = `
     <div class="page-title">内部账号管理</div>
-    <div class="page-sub" style="margin-bottom:16px;">每个销售账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
-    <div class="users-columns">
-      <div class="panel">
-        <h2>新增账号</h2>
-        <div class="form-grid">
-          <div><label>用户名</label><input type="text" id="uUsername"></div>
-          <div><label>初始密码（登录用）</label><input type="password" id="uPassword"></div>
-          <div class="full">
-            <label>角色</label>
-            <select id="uRole" onchange="toggleOperatorFields()">
-              <option value="operator">销售（对应管理一个矩阵号）</option>
-              <option value="super_admin">超级管理员（可管理全部，含账号权限）</option>
-            </select>
-          </div>
-          <div class="full" id="uIdentityField">
-            <label>关联矩阵账号</label>
-            <select id="uIdentity">
-              <option value="">-- 选择矩阵号 --</option>
-              ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="full" id="uPasscodeField">
-            <label>管理口令（进入矩阵账号列表时需要输入，超级管理员可用万能码通行）</label>
-            <input type="text" id="uPasscode" placeholder="例如 1234">
-          </div>
-        </div>
-        <div class="actions"><button onclick="submitUser()">创建账号</button></div>
-        <p class="msg" id="userFormMsg"></p>
-      </div>
-      <div class="panel">
-        <h2>现有账号</h2>
-        <div id="userList"></div>
-      </div>
+    <div class="page-sub" style="margin-bottom:16px;">每个销售跟单猿账号对应一个矩阵号，进入该矩阵号详情页需要输入对应的管理口令</div>
+    <div class="panel">
+      <h2>现有账号</h2>
+      <div id="userList"></div>
     </div>
     <div class="panel" style="margin-top:16px;">
       <div class="panel-head-row">
@@ -2364,11 +2388,60 @@ function renderInternalAccounts() {
       </div>
       <div id="activityLogList"><div class="empty-hint">加载中...</div></div>
     </div>
+    <button type="button" class="fab-btn" onclick="openAddUserModal()" title="新增账号">+</button>
   `;
-  toggleOperatorFields();
   renderUserList();
   loadActivityLog();
   startActivityLogPolling();
+}
+
+function userFormModalHtml(title) {
+  return `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2>${title}</h2>
+      <div class="form-grid">
+        <div class="full">
+          <label>头像（1:1，自动压缩到约100KB）</label>
+          <div class="img-thumb-row" id="euAvatarThumbRow"></div>
+          <input type="file" id="euAvatarFileInput" accept="image/*" hidden onchange="handleAvatarFileSelect(event)">
+        </div>
+        <div><label>用户名</label><input type="text" id="uUsername"></div>
+        <div><label>初始密码（登录用）</label><input type="password" id="uPassword"></div>
+        <div class="full">
+          <label>角色</label>
+          <select id="uRole" onchange="toggleOperatorFields()">
+            <option value="operator">销售跟单猿（对应管理一个矩阵号）</option>
+            <option value="super_admin">超级管理员（可管理全部，含账号权限）</option>
+          </select>
+        </div>
+        <div class="full" id="uIdentityField">
+          <label>关联矩阵账号</label>
+          <select id="uIdentity">
+            <option value="">-- 选择矩阵号 --</option>
+            ${allIdentities.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="full" id="uPasscodeField">
+          <label>管理口令（进入矩阵账号列表时需要输入，超级管理员可用万能码通行）</label>
+          <input type="text" id="uPasscode" placeholder="例如 1234">
+        </div>
+      </div>
+      <div class="actions">
+        <button onclick="submitUser()">创建账号</button>
+        <button class="ghost" onclick="closeProductModal()">取消</button>
+      </div>
+      <p class="msg" id="userFormMsg"></p>
+    </div>
+  `;
+}
+
+function openAddUserModal() {
+  avatarEntry = null;
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = userFormModalHtml('新增账号');
+  modal.hidden = false;
+  renderAvatarThumb();
+  toggleOperatorFields();
 }
 
 let members = [];
@@ -2460,7 +2533,7 @@ function renderUserList() {
       <div class="row-item">
         ${avatarHtml}
         <div class="row-body">
-          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '销售'}</span></div>
+          <div class="row-title">${escapeHtml(u.username)} <span class="role-badge">${u.role === 'super_admin' ? '超级管理员' : '销售跟单猿'}</span></div>
           ${u.role === 'operator' ? `<div class="row-sub">${u.has_passcode ? '已设置管理口令' : '未设置管理口令'}</div>` : ''}
           ${bindingHtml}
           <div class="row-sub">创建于 ${new Date(u.created_at).toLocaleString('zh-CN')}</div>
@@ -2646,14 +2719,18 @@ async function submitUser() {
     payload.passcode = document.getElementById('uPasscode').value || null;
   }
   if (!payload.username || !payload.password) { msg.textContent = '请填写用户名和密码'; msg.className = 'msg error'; return; }
-  if (payload.role === 'operator' && !payload.identity_id) { msg.textContent = '请给销售账号选择关联的矩阵号'; msg.className = 'msg error'; return; }
+  if (payload.role === 'operator' && !payload.identity_id) { msg.textContent = '请给销售跟单猿账号选择关联的矩阵号'; msg.className = 'msg error'; return; }
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
   try {
+    if (avatarEntry && avatarEntry.file) {
+      const fd = new FormData();
+      fd.append('file', avatarEntry.file);
+      const res = await api('/upload', { method: 'POST', body: fd });
+      payload.avatar_url = res.url;
+    }
     await api('/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    msg.textContent = '已创建';
-    msg.className = 'msg ok';
-    document.getElementById('uUsername').value = '';
-    document.getElementById('uPassword').value = '';
-    document.getElementById('uPasscode').value = '';
+    closeProductModal();
     await loadUsers();
     renderUserList();
   } catch (e) {
@@ -3531,6 +3608,33 @@ let orderSearchQuery = '';
 let orderStageFilter = 'all';
 let salesFilter = 'all';
 
+const STALE_DAYS = 3; // 超过这么多天没更新，标"即将超时"；"已提醒"标记也在这个窗口内算有效
+const LARGE_AMOUNT_THRESHOLD = 200000; // 成交金额达到这个数，标"大额订单"
+
+const FLAG_META = {
+  pending: { dot: 'dot-red', label: '待处理订单' },
+  stale: { dot: 'dot-orange', label: '即将超时的订单' },
+  large: { dot: 'dot-blue', label: '大额订单' },
+  reminded: { dot: 'dot-green', label: '已提醒的' },
+};
+
+function orderFlags(o) {
+  const flags = [];
+  const isTerminal = o.stage === 'deal_closed' || o.stage === 'delivered';
+  const daysSinceUpdate = (Date.now() - (Date.parse(o.updated_at) || Date.now())) / 86400000;
+  if (o.stage === 'initial_chat') flags.push('pending');
+  if (!isTerminal && daysSinceUpdate >= STALE_DAYS) flags.push('stale');
+  if (o.amount >= LARGE_AMOUNT_THRESHOLD) flags.push('large');
+  if (o.last_reminded_at && (Date.now() - (Date.parse(o.last_reminded_at) || 0)) / 86400000 < STALE_DAYS) flags.push('reminded');
+  return flags;
+}
+
+function mockGrowthPct(seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return ((h % 400) / 10) - 10; // -10.0 ~ 29.9，纯示例数字，没有历史快照数据支撑
+}
+
 function stageClass(key) {
   const idx = CUSTOMER_STAGES.findIndex((s) => s.key === key);
   if (idx <= 2) return 'stage-early';
@@ -3550,6 +3654,7 @@ function orderToPayload(o) {
     product_id: o.product_id, stage: o.stage, assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
     notes: o.notes, amount: o.amount, signed_at: o.signed_at, delivered_at: o.delivered_at,
     aftersales_status: o.aftersales_status, aftersales_notes: o.aftersales_notes,
+    last_reminded_at: o.last_reminded_at || null,
   };
 }
 
@@ -3567,25 +3672,35 @@ async function renderOrderTrackingPage() {
   salesFilter = 'all';
   el.innerHTML = `
     <div class="page-title">订单信息</div>
-    <div class="page-sub">销售直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；顶部按归属销售切换查看，别的销售名下的订单默认只显示姓名/创建时间/阶段，输入对应销售的管理口令才能看详情</div>
-    <div class="panel">
-      <div class="platform-tabs" id="salesTabs"></div>
-      <div class="panel-header-row">
-        <h2>订单列表</h2>
-        <div class="product-list-tools">
-          <input type="text" id="orderSearch" class="product-search-input" placeholder="搜索姓名/电话/销售" oninput="onOrderSearchInput()">
-          <select id="orderStageFilterSel" onchange="onOrderStageFilterChange()">
-            <option value="all">全部阶段</option>
-            ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
-          </select>
+    <div class="page-sub">销售跟单猿直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；点下面的统计卡片按归属销售跟单猿切换查看，别的销售跟单猿名下的订单默认只显示姓名/创建时间/阶段，输入对应销售跟单猿的管理口令才能看详情</div>
+    <div class="sales-stat-row" id="salesTabs"></div>
+    <div class="orders-layout">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2>订单列表</h2>
+          <div class="product-list-tools">
+            <input type="text" id="orderSearch" class="product-search-input" placeholder="搜索姓名/电话/销售跟单猿" oninput="onOrderSearchInput()">
+            <select id="orderStageFilterSel" onchange="onOrderStageFilterChange()">
+              <option value="all">全部阶段</option>
+              ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
+            </select>
+          </div>
         </div>
+        <div class="status-legend">
+          <span><span class="status-dot dot-red"></span>${FLAG_META.pending.label}</span>
+          <span><span class="status-dot dot-orange"></span>${FLAG_META.stale.label}</span>
+          <span><span class="status-dot dot-blue"></span>${FLAG_META.large.label}</span>
+          <span><span class="status-dot dot-green"></span>${FLAG_META.reminded.label}</span>
+        </div>
+        <div id="orderListEl"></div>
       </div>
-      <div id="orderListEl"></div>
+      <div class="panel" id="orderInsightsPanel"></div>
     </div>
     <button type="button" class="fab-btn" onclick="openAddOrderModal()" title="新建订单">+</button>
   `;
   renderSalesTabs();
   renderOrderListEl();
+  renderOrderInsightsPanel();
 }
 
 function orderFormModalHtml(title) {
@@ -3611,12 +3726,12 @@ function orderFormModalHtml(title) {
           </select>
         </div>
         <div class="full">
-          <label>归属销售</label>
+          <label>归属销售跟单猿</label>
           <select id="oAssigned">
-            <option value="">-- 选择销售 --</option>
+            <option value="">-- 选择销售跟单猿 --</option>
             ${salesUsers.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join('')}
           </select>
-          ${salesUsers.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售账号，先去「内部账号管理」新建一个</div>' : ''}
+          ${salesUsers.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售跟单猿账号，先去「内部账号管理」新建一个</div>' : ''}
         </div>
         <div class="full"><label>AI微信</label><input type="text" id="oAiWechat"></div>
         <div id="oAmountField"><label>成交金额</label><input type="number" id="oAmount" value="0"></div>
@@ -3663,14 +3778,60 @@ function getSalesTabNames() {
 function renderSalesTabs() {
   const wrap = document.getElementById('salesTabs');
   if (!wrap) return;
-  const tabs = [{ key: 'all', label: '全部' }, ...getSalesTabNames().map((n) => ({ key: n, label: n }))];
-  wrap.innerHTML = tabs.map((t) => `<div class="tab-chip ${salesFilter === t.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(t.key)}')">${escapeHtml(t.label)}</div>`).join('');
+  const cards = [
+    { key: 'all', label: '全部客户数', avatarHtml: `<div class="avatar badge-blue">${DEFAULT_AVATAR_SVG}</div>`, count: orders.length },
+    ...getSalesTabNames().map((name) => {
+      const u = salesUsers.find((x) => x.username === name);
+      const avatarHtml = u && u.avatar_url
+        ? `<img class="avatar avatar-img" src="${staticUrl(u.avatar_url)}" alt="">`
+        : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`;
+      return { key: name, label: `${name}的客户数`, avatarHtml, count: orders.filter((o) => o.assigned_to === name).length };
+    }),
+  ];
+  wrap.innerHTML = cards.map((c) => {
+    const pct = mockGrowthPct(c.key);
+    const up = pct >= 0;
+    return `
+      <div class="sales-stat-card ${salesFilter === c.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(c.key)}')">
+        ${c.avatarHtml}
+        <div class="sales-stat-body">
+          <div class="sales-stat-label">${escapeHtml(c.label)}</div>
+          <div class="sales-stat-value">${c.count}</div>
+          <div class="sales-stat-growth ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct).toFixed(1)}%（示例）</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function setSalesFilter(key) {
   salesFilter = key;
   renderSalesTabs();
   renderOrderListEl();
+}
+
+function renderOrderInsightsPanel() {
+  const panel = document.getElementById('orderInsightsPanel');
+  if (!panel) return;
+  const staleCount = orders.filter((o) => orderFlags(o).includes('stale')).length;
+  const largeCount = orders.filter((o) => orderFlags(o).includes('large') && o.stage !== 'delivered').length;
+  const pendingCount = orders.filter((o) => orderFlags(o).includes('pending')).length;
+  panel.innerHTML = `
+    <h2>智能运营建议</h2>
+    <div class="diagnosis-meta">DeepSeek-V3 · 示例分析（未接入真实模型）</div>
+    <div class="diagnosis-block">
+      <span class="diagnosis-tag risk">跟进预警</span>
+      <span class="diagnosis-text">检测到 ${staleCount} 位客户超过 ${STALE_DAYS} 天未跟进，建议尽快联系，避免流失。</span>
+    </div>
+    <div class="diagnosis-block">
+      <span class="diagnosis-tag opportunity">大额跟进</span>
+      <span class="diagnosis-text">${largeCount} 笔大额订单（¥${LARGE_AMOUNT_THRESHOLD / 10000}万+）尚未交付，建议优先安排售后保障体验。</span>
+    </div>
+    <div class="diagnosis-block">
+      <span class="diagnosis-tag info">新客提醒</span>
+      <span class="diagnosis-text">${pendingCount} 位客户还在初聊阶段，尽快推进到深聊有助于提升转化。</span>
+    </div>
+  `;
 }
 
 function toggleOrderStageFields() {
@@ -3711,61 +3872,141 @@ function isSalesGroupUnlocked(salesName) {
 }
 
 function fullOrderRowHtml(o) {
+  const flags = orderFlags(o);
+  const dotsHtml = flags.map((f) => `<span class="status-dot ${FLAG_META[f].dot}" title="${FLAG_META[f].label}"></span>`).join('');
+  const dealHtml = (o.stage === 'deal_closed' || o.stage === 'delivered')
+    ? `<div class="row-sub">¥${fmtNum(o.amount)}</div>` : '';
   return `
-    <div class="row-item">
-      <div class="row-body">
-        <div class="row-title">
-          ${escapeHtml(o.name)}${o.phone ? ` <span class="row-sub">${escapeHtml(o.phone)}</span>` : ''}
-          <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+    <tr>
+      <td><div class="order-id-cell">${dotsHtml}<span>${escapeHtml(o.id.replace('order-', ''))}</span></div></td>
+      <td>
+        <div class="user-cell">
+          <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
+          <div>
+            <div class="row-title" style="font-size:13px;">${escapeHtml(o.name)}</div>
+            <div class="row-sub">归属：${escapeHtml(o.assigned_to)}</div>
+          </div>
         </div>
-        <div class="row-sub">归属销售：${escapeHtml(o.assigned_to)} · 创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
-        ${o.financial_status || o.ai_wechat ? `<div class="row-sub">${o.financial_status ? '经济状况：' + escapeHtml(o.financial_status) : ''}${o.ai_wechat ? (o.financial_status ? ' · ' : '') + 'AI微信：' + escapeHtml(o.ai_wechat) : ''}</div>` : ''}
-        ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="row-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
-        ${o.stage === 'delivered' ? `<div class="row-sub">交付于 ${String(o.delivered_at || '').slice(0, 10)}${o.aftersales_status ? ' · <span class="role-badge">' + escapeHtml(o.aftersales_status) + '</span>' : ''}</div>` : ''}
-        ${o.notes ? `<div class="row-notes-text" title="${escapeHtml(o.notes)}"><span class="row-label-bold">备注：</span>${escapeHtml(o.notes)}</div>` : ''}
-      </div>
-      <select class="bind-select" onchange="changeOrderStage('${o.id}', this.value)">
-        ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === o.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
-      </select>
-      <div class="row-btns">
-        <button class="ghost" onclick="editOrder('${o.id}')">编辑</button>
-        <button class="danger" onclick="deleteOrder('${o.id}')">删除</button>
-      </div>
-    </div>
+      </td>
+      <td>${o.phone ? escapeHtml(o.phone) : '-'}</td>
+      <td>${o.source ? escapeHtml(o.source) : '-'}</td>
+      <td>${o.financial_status ? escapeHtml(o.financial_status) : '-'}</td>
+      <td>${o.product_id ? escapeHtml(productNameById(o.product_id)) : '-'}</td>
+      <td>
+        <select class="bind-select" onchange="changeOrderStage('${o.id}', this.value)">
+          ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === o.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
+        </select>
+        ${dealHtml}
+      </td>
+      <td>
+        <div class="table-actions">
+          <button class="ghost" onclick="editOrder('${o.id}')">编辑信息</button>
+          <button class="ghost" onclick="openMaintainOrderModal('${o.id}')">维护</button>
+          <button class="danger" onclick="deleteOrder('${o.id}')">删除</button>
+        </div>
+      </td>
+    </tr>
   `;
 }
 
 function lockedOrderRowHtml(o) {
   return `
-    <div class="row-item">
-      <div class="row-body">
-        <div class="row-title">
-          ${escapeHtml(o.name)}
-          <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+    <tr>
+      <td>${escapeHtml(o.id.replace('order-', ''))}</td>
+      <td>
+        <div class="user-cell">
+          <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
+          <div>
+            <div class="row-title" style="font-size:13px;">${escapeHtml(o.name)}</div>
+            <div class="row-sub">${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
+          </div>
         </div>
-        <div class="row-sub">归属销售：${escapeHtml(o.assigned_to)} · 创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
-      </div>
-      <div class="row-btns">
-        <button class="ghost" onclick="promptSalesPasscode('${escapeHtml(o.assigned_to)}')">🔒 查看详情</button>
-      </div>
-    </div>
+      </td>
+      <td>***</td>
+      <td>***</td>
+      <td>***</td>
+      <td>***</td>
+      <td><span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span></td>
+      <td><button class="ghost" onclick="promptSalesPasscode('${escapeHtml(o.assigned_to)}', renderOrderListEl)">🔒 查看详情</button></td>
+    </tr>
   `;
 }
 
 function renderOrderListEl() {
-  const list = document.getElementById('orderListEl');
-  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，右侧新建一个</div>'; return; }
+  const wrap = document.getElementById('orderListEl');
+  if (!orders.length) { wrap.innerHTML = '<div class="empty-hint">还没有订单，右下角新建一个</div>'; return; }
   const filtered = getFilteredSortedOrders();
-  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
-  list.innerHTML = filtered.map((o) => (isSalesGroupUnlocked(o.assigned_to) ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('');
+  if (!filtered.length) { wrap.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
+  wrap.innerHTML = `
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>订单编号</th><th>用户</th><th>电话</th><th>来源渠道</th><th>经济状况</th><th>匹配商品</th><th>客户阶段</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map((o) => (isSalesGroupUnlocked(o.assigned_to) ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
-function promptSalesPasscode(salesName) {
+function openMaintainOrderModal(id) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2>维护跟进 · ${escapeHtml(o.name)}</h2>
+      <div class="page-sub" style="margin-bottom:12px;">记录一次跟进，会追加到订单备注里，并清除"即将超时"提醒</div>
+      <label>跟进记录</label>
+      <textarea id="maintainNote" rows="3" placeholder="例如：电话联系，客户表示还在考虑预算"></textarea>
+      <div class="actions">
+        <button onclick="submitMaintainOrder('${o.id}')">保存跟进</button>
+        <button class="ghost" onclick="closeProductModal()">取消</button>
+      </div>
+      <p class="msg" id="maintainMsg"></p>
+    </div>
+  `;
+  modal.hidden = false;
+}
+
+async function submitMaintainOrder(id) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
+  const note = document.getElementById('maintainNote').value.trim();
+  const msg = document.getElementById('maintainMsg');
+  if (!note) { msg.textContent = '请填写跟进记录'; msg.className = 'msg error'; return; }
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
+  try {
+    const now = new Date().toLocaleString('zh-CN');
+    const payload = orderToPayload(o);
+    payload.notes = (o.notes ? o.notes + '\n' : '') + `[${now} 跟进] ${note}`;
+    payload.last_reminded_at = new Date().toISOString();
+    await api(`/orders/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    closeProductModal();
+    orders = await api('/orders');
+    renderSalesTabs();
+    renderOrderListEl();
+    renderOrderInsightsPanel();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+let salesUnlockRerender = null; // set by whichever page opens this modal, so unlocking re-renders the right list
+
+function promptSalesPasscode(salesName, rerenderFn) {
+  salesUnlockRerender = rerenderFn || null;
   const modal = document.getElementById('passcodeModal');
   modal.innerHTML = `
     <div class="modal-card" onclick="event.stopPropagation()">
       <h2>需要管理口令</h2>
-      <div class="page-sub" style="margin-bottom:16px;">查看「${escapeHtml(salesName)}」名下订单的详细信息，需要输入这位销售的管理口令</div>
+      <div class="page-sub" style="margin-bottom:16px;">查看「${escapeHtml(salesName)}」的详细信息，需要输入这位销售跟单猿的管理口令</div>
       <input type="text" id="salesPasscodeInput" placeholder="输入管理口令"
              onkeydown="if(event.key==='Enter'){submitSalesPasscode('${escapeHtml(salesName)}')}">
       <div class="actions">
@@ -3793,7 +4034,7 @@ async function submitSalesPasscode(salesName) {
     });
     unlockedSalesGroups.add(salesName);
     closePasscodeModal();
-    renderOrderListEl();
+    if (salesUnlockRerender) salesUnlockRerender();
   } catch (e) {
     msg.textContent = e.message;
     msg.className = 'msg error';
@@ -3810,6 +4051,7 @@ async function changeOrderStage(id, newStage) {
     });
     orders = await api('/orders');
     renderOrderListEl();
+    renderOrderInsightsPanel();
   } catch (e) {
     alert('更新失败：' + e.message);
     renderOrderListEl();
@@ -3857,9 +4099,10 @@ async function submitOrder() {
     delivered_at: document.getElementById('oDeliveredAt').value || null,
     aftersales_status: document.getElementById('oAftersalesStatus').value,
     aftersales_notes: document.getElementById('oAftersalesNotes').value.trim(),
+    last_reminded_at: editingOrderId ? ((orders.find((x) => x.id === editingOrderId) || {}).last_reminded_at || null) : null,
   };
   if (!payload.name) { msg.textContent = '请填写客户姓名'; msg.className = 'msg error'; return; }
-  if (!payload.assigned_to) { msg.textContent = '请选择归属销售'; msg.className = 'msg error'; return; }
+  if (!payload.assigned_to) { msg.textContent = '请选择归属销售跟单猿'; msg.className = 'msg error'; return; }
   msg.textContent = '保存中...';
   msg.className = 'msg';
   try {
@@ -3870,7 +4113,9 @@ async function submitOrder() {
     }
     closeProductModal();
     orders = await api('/orders');
+    renderSalesTabs();
     renderOrderListEl();
+    renderOrderInsightsPanel();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
@@ -3882,10 +4127,267 @@ async function deleteOrder(id) {
   try {
     await api(`/orders/${id}`, { method: 'DELETE' });
     orders = await api('/orders');
+    renderSalesTabs();
     renderOrderListEl();
+    renderOrderInsightsPanel();
   } catch (e) {
     alert('删除失败：' + e.message);
   }
+}
+
+/* ---------------- 销售日志记录：跟单猿日志 ---------------- */
+// 权限模型跟订单跟踪一样：谁都能看列表，但别人的详情要输入对应跟单猿的
+// 管理口令才能展开（复用 isSalesGroupUnlocked/promptSalesPasscode，跟
+// orders 共享同一份 unlockedSalesGroups，同一个口令只用解一次）。
+
+let workLogs = [];
+let editingWorkLogId = null;
+let workLogSalesFilter = 'all';
+
+function getWorkLogSalesNames() {
+  const names = new Set(salesUsers.map((u) => u.username));
+  workLogs.forEach((w) => { if (w.username) names.add(w.username); });
+  return Array.from(names).sort((a, b) => {
+    if (currentUser && a === currentUser.username) return -1;
+    if (currentUser && b === currentUser.username) return 1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+}
+
+function renderWorkLogSalesTabs() {
+  const wrap = document.getElementById('workLogSalesTabs');
+  if (!wrap) return;
+  const tabs = [{ key: 'all', label: '全部' }, ...getWorkLogSalesNames().map((n) => ({ key: n, label: n }))];
+  wrap.innerHTML = tabs.map((t) => `<div class="tab-chip ${workLogSalesFilter === t.key ? 'active' : ''}" onclick="setWorkLogSalesFilter('${escapeHtml(t.key)}')">${escapeHtml(t.label)}</div>`).join('');
+}
+
+function setWorkLogSalesFilter(key) {
+  workLogSalesFilter = key;
+  renderWorkLogSalesTabs();
+  renderWorkLogListEl();
+}
+
+async function renderWorkLogPage() {
+  const el = document.getElementById('section-saleslog');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  try {
+    [workLogs, salesUsers] = await Promise.all([api('/worklogs'), api('/users/sales-list')]);
+  } catch (e) {
+    workLogs = []; salesUsers = [];
+  }
+  editingWorkLogId = null;
+  workLogSalesFilter = 'all';
+  el.innerHTML = `
+    <div class="page-title">跟单猿日志</div>
+    <div class="page-sub">每个销售跟单猿自己填今日工作/遇到的问题/明日计划；查看别人的日志详情需要输入对应跟单猿的管理口令</div>
+    <div class="panel">
+      <div class="platform-tabs" id="workLogSalesTabs"></div>
+      <div class="panel-header-row"><h2>日志列表</h2></div>
+      <div id="workLogListEl"></div>
+    </div>
+    <button type="button" class="fab-btn" onclick="openAddWorkLogModal()" title="新增日志">+</button>
+  `;
+  renderWorkLogSalesTabs();
+  renderWorkLogListEl();
+}
+
+function getFilteredWorkLogs() {
+  let list = workLogs.slice();
+  if (workLogSalesFilter !== 'all') list = list.filter((w) => w.username === workLogSalesFilter);
+  list.sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
+  return list;
+}
+
+function fullWorkLogRowHtml(w) {
+  const canEdit = currentUser && (currentUser.role === 'super_admin' || w.username === currentUser.username);
+  return `
+    <div class="row-item">
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(w.username)} <span class="row-sub">${new Date(w.created_at).toLocaleString('zh-CN')}</span></div>
+        <div class="row-notes-text"><span class="row-label-bold">今日工作：</span>${escapeHtml(w.today_work || '（未填）')}</div>
+        ${w.issues ? `<div class="row-notes-text"><span class="row-label-bold">遇到的问题：</span>${escapeHtml(w.issues)}</div>` : ''}
+        ${w.tomorrow_plan ? `<div class="row-notes-text"><span class="row-label-bold">明日计划：</span>${escapeHtml(w.tomorrow_plan)}</div>` : ''}
+      </div>
+      ${canEdit ? `
+        <div class="row-btns">
+          <button class="ghost" onclick="editWorkLog('${w.id}')">编辑</button>
+          <button class="danger" onclick="deleteWorkLog('${w.id}')">删除</button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function lockedWorkLogRowHtml(w) {
+  return `
+    <div class="row-item">
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(w.username)} <span class="row-sub">${new Date(w.created_at).toLocaleString('zh-CN')}</span></div>
+      </div>
+      <div class="row-btns">
+        <button class="ghost" onclick="promptSalesPasscode('${escapeHtml(w.username)}', renderWorkLogListEl)">🔒 查看详情</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderWorkLogListEl() {
+  const list = document.getElementById('workLogListEl');
+  if (!list) return;
+  if (!workLogs.length) { list.innerHTML = '<div class="empty-hint">还没有日志，右下角新增一条</div>'; return; }
+  const filtered = getFilteredWorkLogs();
+  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的日志</div>'; return; }
+  list.innerHTML = filtered.map((w) => (isSalesGroupUnlocked(w.username) ? fullWorkLogRowHtml(w) : lockedWorkLogRowHtml(w))).join('');
+}
+
+function workLogFormModalHtml(title) {
+  return `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2>${title}</h2>
+      <div class="form-grid">
+        <div class="full"><label>今日工作内容</label><textarea id="wlTodayWork" rows="4"></textarea></div>
+        <div class="full"><label>遇到的问题</label><textarea id="wlIssues" rows="3"></textarea></div>
+        <div class="full"><label>明日计划</label><textarea id="wlTomorrowPlan" rows="3"></textarea></div>
+      </div>
+      <div class="actions">
+        <button onclick="submitWorkLog()">保存</button>
+        <button class="ghost" onclick="closeProductModal()">取消</button>
+      </div>
+      <p class="msg" id="workLogFormMsg"></p>
+    </div>
+  `;
+}
+
+function openAddWorkLogModal() {
+  editingWorkLogId = null;
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = workLogFormModalHtml('新增日志');
+  modal.hidden = false;
+}
+
+function editWorkLog(id) {
+  const w = workLogs.find((x) => x.id === id);
+  if (!w) return;
+  editingWorkLogId = id;
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = workLogFormModalHtml('编辑日志');
+  modal.hidden = false;
+  document.getElementById('wlTodayWork').value = w.today_work || '';
+  document.getElementById('wlIssues').value = w.issues || '';
+  document.getElementById('wlTomorrowPlan').value = w.tomorrow_plan || '';
+}
+
+async function submitWorkLog() {
+  const msg = document.getElementById('workLogFormMsg');
+  const payload = {
+    today_work: document.getElementById('wlTodayWork').value.trim(),
+    issues: document.getElementById('wlIssues').value.trim(),
+    tomorrow_plan: document.getElementById('wlTomorrowPlan').value.trim(),
+  };
+  if (!payload.today_work) { msg.textContent = '请填写今日工作内容'; msg.className = 'msg error'; return; }
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
+  try {
+    if (editingWorkLogId) {
+      await api(`/worklogs/${editingWorkLogId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    } else {
+      await api('/worklogs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }
+    closeProductModal();
+    workLogs = await api('/worklogs');
+    renderWorkLogSalesTabs();
+    renderWorkLogListEl();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+async function deleteWorkLog(id) {
+  if (!confirm('确定删除这条日志吗？')) return;
+  try {
+    await api(`/worklogs/${id}`, { method: 'DELETE' });
+    workLogs = await api('/worklogs');
+    renderWorkLogListEl();
+  } catch (e) {
+    alert('删除失败：' + e.message);
+  }
+}
+
+/* ---------------- 销售日志记录：跟单猿业绩 ---------------- */
+// 不单独存数据，直接拿 /orders 按 assigned_to 分组统计；同样按跟单猿口令锁定。
+
+function computeSalesPerformance(username) {
+  const mine = orders.filter((o) => o.assigned_to === username);
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const newThisMonth = mine.filter((o) => String(o.created_at || '').slice(0, 7) === monthKey).length;
+  const stageCounts = {};
+  CUSTOMER_STAGES.forEach((s) => { stageCounts[s.key] = 0; });
+  mine.forEach((o) => { if (stageCounts[o.stage] != null) stageCounts[o.stage]++; });
+  const dealOrders = mine.filter((o) => o.stage === 'deal_closed' || o.stage === 'delivered');
+  const deliveredCount = mine.filter((o) => o.stage === 'delivered').length;
+  return {
+    total: mine.length,
+    newThisMonth,
+    stageCounts,
+    dealCount: dealOrders.length,
+    dealAmount: dealOrders.reduce((sum, o) => sum + (o.amount || 0), 0),
+    deliveredCount,
+  };
+}
+
+function fullPerformanceRowHtml(username) {
+  const p = computeSalesPerformance(username);
+  const stagePillsHtml = CUSTOMER_STAGES.map((s, i) => `
+    <span style="display:inline-flex;align-items:center;font-size:12px;font-weight:600;background:var(--card-2);color:var(--ink-soft);padding:3px 8px;border-radius:999px;margin:2px 4px 0 0;">${i + 1}.${escapeHtml(s.label)} ${p.stageCounts[s.key]}</span>
+  `).join('');
+  return `
+    <div class="row-item" style="align-items:flex-start;">
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(username)}</div>
+        <div class="row-sub">总客户 ${p.total} · 本月新增 ${p.newThisMonth} · 成交 ${p.dealCount}（¥${fmtNum(p.dealAmount)}） · 交付 ${p.deliveredCount}</div>
+        <div style="margin-top:6px;">${stagePillsHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
+function lockedPerformanceRowHtml(username) {
+  return `
+    <div class="row-item">
+      <div class="row-body"><div class="row-title">${escapeHtml(username)}</div></div>
+      <div class="row-btns">
+        <button class="ghost" onclick="promptSalesPasscode('${escapeHtml(username)}', renderSalesPerformanceListEl)">🔒 查看业绩</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSalesPerformanceListEl() {
+  const list = document.getElementById('salesPerformanceListEl');
+  if (!list) return;
+  const names = getSalesTabNames();
+  if (!names.length) { list.innerHTML = '<div class="empty-hint">还没有销售跟单猿账号</div>'; return; }
+  list.innerHTML = names.map((n) => (isSalesGroupUnlocked(n) ? fullPerformanceRowHtml(n) : lockedPerformanceRowHtml(n))).join('');
+}
+
+async function renderSalesPerformancePage() {
+  const el = document.getElementById('section-saleslog');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  try {
+    [orders, salesUsers] = await Promise.all([api('/orders'), api('/users/sales-list')]);
+  } catch (e) {
+    orders = []; salesUsers = [];
+  }
+  el.innerHTML = `
+    <div class="page-title">跟单猿业绩</div>
+    <div class="page-sub">直接按归属销售跟单猿统计现有订单数据，不是单独录入的；查看别人的业绩需要输入对应跟单猿的管理口令</div>
+    <div class="panel">
+      <div id="salesPerformanceListEl"></div>
+    </div>
+  `;
+  renderSalesPerformanceListEl();
 }
 
 /* ---------------- AI创作平台 ---------------- */

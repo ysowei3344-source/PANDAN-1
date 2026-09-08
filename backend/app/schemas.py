@@ -149,6 +149,7 @@ class UserCreateInput(BaseModel):
     role: Role = "operator"
     identity_id: str | None = None
     passcode: str | None = None
+    avatar_url: str | None = None
 
 
 class UserUpdateInput(BaseModel):
@@ -370,6 +371,7 @@ class Order(BaseModel):
     delivered_at: str | None = None  # 交付日期
     aftersales_status: str = ""  # 售后状态，例如"质保中"
     aftersales_notes: str = ""
+    last_reminded_at: str | None = None  # 上次"维护"跟进记录的时间，用于展示"已提醒"状态点
     created_at: str
     updated_at: str
 
@@ -389,6 +391,29 @@ class OrderInput(BaseModel):
     delivered_at: str | None = None
     aftersales_status: str = ""
     aftersales_notes: str = ""
+    last_reminded_at: str | None = None
+
+
+# ---- 销售日志记录：跟单猿日志 ----
+# 每个销售跟单猿自己填的工作日志，跟 Order 一样按 username（对应
+# Order.assigned_to）关联，看别人的日志需要对应销售跟单猿的管理口令
+# （复用 orders 那套 verify-sales-passcode，同一个口令）。"跟单猿业绩"不是
+# 独立存储，是前端直接拿 /orders 数据按 assigned_to 分组统计出来的。
+
+class WorkLog(BaseModel):
+    id: str
+    username: str  # 填写人，对应 User.username / Order.assigned_to
+    today_work: str = ""  # 今日工作内容
+    issues: str = ""  # 遇到的问题
+    tomorrow_plan: str = ""  # 明日计划
+    created_at: str
+    updated_at: str
+
+
+class WorkLogInput(BaseModel):
+    today_work: str = ""
+    issues: str = ""
+    tomorrow_plan: str = ""
 
 
 # ---- AI创作平台（数字人+产品 分镜短视频生成） ----
