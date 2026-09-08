@@ -378,10 +378,13 @@ def _ensure_products_file() -> None:
 
 
 def _normalize_product(p: dict) -> dict:
-    if "main_image_urls" in p:
-        return p
-    old = p.get("main_image_url")
-    return {**p, "main_image_urls": [old] if old else []}
+    if "main_image_urls" not in p:
+        old_main = p.get("main_image_url")
+        p = {**p, "main_image_urls": [old_main] if old_main else []}
+    if "layout_urls" not in p:
+        old_layout = p.get("layout_image_url")
+        p = {**p, "layout_urls": [old_layout] if old_layout else []}
+    return p
 
 
 def list_products() -> list[Product]:

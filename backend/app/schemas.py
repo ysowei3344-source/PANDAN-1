@@ -280,7 +280,7 @@ class Product(BaseModel):
     chassis_info: str = ""  # 底盘信息
     chassis_number: str = ""  # 底盘编号
     main_image_urls: list[str] = []  # 商品主图，支持多张，列表页轮播展示
-    layout_image_url: str | None = None  # 配置布局图
+    layout_urls: list[str] = []  # 配置布局，支持多张图片或文档，最多5个
     standard_config: str = ""  # 标准配置
     customer_notes: str = ""  # 客户备注
     created_at: str
@@ -292,7 +292,7 @@ class ProductInput(BaseModel):
     chassis_info: str = ""
     chassis_number: str = ""
     main_image_urls: list[str] = []
-    layout_image_url: str | None = None
+    layout_urls: list[str] = []
     standard_config: str = ""
     customer_notes: str = ""
 

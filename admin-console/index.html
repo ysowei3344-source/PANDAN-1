@@ -491,6 +491,13 @@
     font-size: 10px; color: var(--ink-soft); cursor: pointer; text-align: center; line-height: 1.3;
   }
   .img-thumb-add:hover { border-color: var(--accent); color: var(--accent); }
+  .img-thumb-doc { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; background: var(--card-2); gap: 2px; }
+  .img-thumb-doc-icon { font-size: 18px; line-height: 1; }
+  .img-thumb-doc-name {
+    display: block; font-size: 9px; color: var(--ink-soft); text-align: center; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none;
+  }
+  a.img-thumb-doc-name:hover { color: var(--accent); }
 
   .panel-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
   .panel-header-row h2 { margin: 0; }
@@ -2599,18 +2606,22 @@ let aftersalesList = [];
 /* ---- 商品信息 ---- */
 
 let editingProductId = null;
-let mainImagesState = []; // { url?: string, file?: File, originalFile?: File, previewUrl?: string }[]
+let attachmentsState = { main: [], layout: [] }; // kind -> { url?, file?, originalFile?, previewUrl?, isImage }[]
 let cropState = null;
 let cropConfirmCallback = null; // (blob) => void, set by whichever caller opened the cropper
 const CROP_VW = 270;
 const CROP_VH = 480;
+const ATTACHMENT_CONFIG = {
+  main: { max: 5, allowDocs: false, listId: 'pMainImageList', addInputId: 'pMainImageAdd', cropTitle: '裁剪主图（9:16）', alertLabel: '商品主图' },
+  layout: { max: 5, allowDocs: true, listId: 'pLayoutImageList', addInputId: 'pLayoutImageAdd', cropTitle: '裁剪配置布局图（9:16）', alertLabel: '配置布局' },
+};
 
 async function renderProductsPage() {
   const el = document.getElementById('section-orders');
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
   try { products = await api('/products'); } catch (e) { products = []; }
   editingProductId = null;
-  mainImagesState = [];
+  attachmentsState = { main: [], layout: [] };
   productSearchQuery = '';
   productSortOrder = 'desc';
   el.innerHTML = `
@@ -2638,22 +2649,14 @@ async function renderProductsPage() {
           <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
           <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
           <div>
-            <label>商品主图（最多5张，鼠标移到缩略图上查看 9:16 大图，保存后才会生效）</label>
+            <label>商品主图（最多5张，保存后生效）</label>
             <div class="img-thumb-row" id="pMainImageList"></div>
-            <input type="file" id="pMainImageAdd" accept="image/*" multiple hidden onchange="handleMainImagesSelect(event)">
+            <input type="file" id="pMainImageAdd" accept="image/*" multiple hidden onchange="handleAttachmentsSelect(event,'main')">
           </div>
           <div>
-            <label>配置布局</label>
-            <input type="file" id="pLayoutImage" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="previewProductFile('pLayoutImage','pLayoutImagePreview','pLayoutImageName')">
-            <input type="hidden" id="pLayoutImageUrl">
-            <div class="img-preview-wrap">
-              <img id="pLayoutImagePreview" class="field-preview-img" src="" alt="预览" hidden>
-              <div class="img-progress" id="pLayoutImageProgress" hidden>
-                <div class="img-progress-track"><div class="img-progress-bar" id="pLayoutImageProgressBar"></div></div>
-                <span class="img-progress-text" id="pLayoutImageProgressText">0%</span>
-              </div>
-            </div>
-            <div id="pLayoutImageName" class="row-sub" hidden></div>
+            <label>配置布局（最多5张，保存后生效）</label>
+            <div class="img-thumb-row" id="pLayoutImageList"></div>
+            <input type="file" id="pLayoutImageAdd" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple hidden onchange="handleAttachmentsSelect(event,'layout')">
           </div>
           <div><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
           <div><label>客户备注</label><textarea id="pCustomerNotes" rows="3"></textarea></div>
@@ -2666,30 +2669,13 @@ async function renderProductsPage() {
       </div>
     </div>
   `;
-  renderMainImageThumbs();
+  renderAttachmentThumbs('main');
+  renderAttachmentThumbs('layout');
   renderProductList();
 }
 
 function isImageUrl(url) {
   return /\.(png|jpe?g|gif|svg|webp)$/i.test(url || '');
-}
-
-function previewProductFile(inputId, previewImgId, nameElId) {
-  const file = document.getElementById(inputId).files[0];
-  const img = document.getElementById(previewImgId);
-  const nameEl = document.getElementById(nameElId);
-  if (!file) { img.hidden = true; img.src = ''; nameEl.hidden = true; nameEl.textContent = ''; return; }
-  if (file.type.startsWith('image/')) {
-    img.src = URL.createObjectURL(file);
-    img.hidden = false;
-    nameEl.hidden = true;
-    nameEl.textContent = '';
-  } else {
-    img.hidden = true;
-    img.src = '';
-    nameEl.hidden = false;
-    nameEl.textContent = '已选择文件：' + file.name;
-  }
 }
 
 function loadImageFromFile(file) {
@@ -2732,61 +2718,87 @@ async function cropImageElementToBlob(imgEl, state) {
   return blob;
 }
 
-const MAX_MAIN_IMAGES = 5;
-
-function renderMainImageThumbs() {
-  const wrap = document.getElementById('pMainImageList');
+function renderAttachmentThumbs(kind) {
+  const cfg = ATTACHMENT_CONFIG[kind];
+  const wrap = document.getElementById(cfg.listId);
   if (!wrap) return;
-  const addTile = mainImagesState.length < MAX_MAIN_IMAGES
-    ? `<label class="img-thumb-add" for="pMainImageAdd">＋<br>添加</label>`
+  const list = attachmentsState[kind];
+  const addTile = list.length < cfg.max
+    ? `<label class="img-thumb-add" for="${cfg.addInputId}">＋<br>添加</label>`
     : '';
-  wrap.innerHTML = mainImagesState.map((entry, idx) => {
-    const src = entry.previewUrl || staticUrl(entry.url);
+  wrap.innerHTML = list.map((entry, idx) => {
+    const progressHtml = `
+      <div class="img-progress" id="att-${kind}-progress-${idx}" hidden>
+        <div class="img-progress-track"><div class="img-progress-bar" id="att-${kind}-progressbar-${idx}"></div></div>
+        <span class="img-progress-text" id="att-${kind}-progresstext-${idx}">0%</span>
+      </div>
+    `;
+    if (entry.isImage) {
+      const src = entry.previewUrl || staticUrl(entry.url);
+      return `
+        <div class="img-thumb-item">
+          <img src="${src}" class="img-thumb-9x16" alt="">
+          ${entry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
+          <div class="img-thumb-hover-preview"><img src="${src}" alt=""></div>
+          <div class="img-thumb-actions">
+            <button type="button" class="img-thumb-btn" onclick="editAttachmentAt('${kind}',${idx})">编辑</button>
+            <button type="button" class="img-thumb-btn danger" onclick="removeAttachmentAt('${kind}',${idx})">删除</button>
+          </div>
+          ${progressHtml}
+        </div>
+      `;
+    }
+    const fileName = entry.file ? entry.file.name : (entry.url || '').split('/').pop();
+    const nameHtml = entry.url
+      ? `<a href="${staticUrl(entry.url)}" target="_blank" rel="noopener" class="img-thumb-doc-name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</a>`
+      : `<div class="img-thumb-doc-name" title="${escapeHtml(fileName)}">${escapeHtml(fileName)}</div>`;
     return `
-    <div class="img-thumb-item">
-      <img src="${src}" class="img-thumb-9x16" alt="">
-      ${entry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
-      <div class="img-thumb-hover-preview"><img src="${src}" alt=""></div>
-      <div class="img-thumb-actions">
-        <button type="button" class="img-thumb-btn" onclick="editMainImageAt(${idx})">编辑</button>
-        <button type="button" class="img-thumb-btn danger" onclick="removeMainImageAt(${idx})">删除</button>
+      <div class="img-thumb-item img-thumb-doc">
+        <div class="img-thumb-doc-icon">📄</div>
+        ${nameHtml}
+        ${entry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
+        <div class="img-thumb-actions">
+          <button type="button" class="img-thumb-btn danger" onclick="removeAttachmentAt('${kind}',${idx})">删除</button>
+        </div>
+        ${progressHtml}
       </div>
-      <div class="img-progress" id="mainImgProgress-${idx}" hidden>
-        <div class="img-progress-track"><div class="img-progress-bar" id="mainImgProgressBar-${idx}"></div></div>
-        <span class="img-progress-text" id="mainImgProgressText-${idx}">0%</span>
-      </div>
-    </div>
-  `;
+    `;
   }).join('') + addTile;
 }
 
-async function handleMainImagesSelect(event) {
+async function handleAttachmentsSelect(event, kind) {
+  const cfg = ATTACHMENT_CONFIG[kind];
+  const list = attachmentsState[kind];
   const files = Array.from(event.target.files || []);
   event.target.value = '';
   for (const file of files) {
-    if (mainImagesState.length >= MAX_MAIN_IMAGES) { alert('商品主图最多 5 张'); break; }
-    if (!file.type.startsWith('image/')) continue;
-    try {
-      const img = await loadImageFromFile(file);
-      const state = computeCoverCrop(img.naturalWidth, img.naturalHeight);
-      const blob = await cropImageElementToBlob(img, state);
-      URL.revokeObjectURL(img.src);
-      if (!blob) continue;
-      const croppedFile = new File([blob], 'crop-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.jpg', { type: 'image/jpeg' });
-      mainImagesState.push({ file: croppedFile, originalFile: file, previewUrl: URL.createObjectURL(blob), url: null });
-    } catch (e) { /* skip unreadable file */ }
+    if (list.length >= cfg.max) { alert(cfg.alertLabel + '最多 ' + cfg.max + ' 个'); break; }
+    const isImage = file.type.startsWith('image/');
+    if (isImage) {
+      try {
+        const img = await loadImageFromFile(file);
+        const state = computeCoverCrop(img.naturalWidth, img.naturalHeight);
+        const blob = await cropImageElementToBlob(img, state);
+        URL.revokeObjectURL(img.src);
+        if (!blob) continue;
+        const croppedFile = new File([blob], 'crop-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.jpg', { type: 'image/jpeg' });
+        list.push({ file: croppedFile, originalFile: file, previewUrl: URL.createObjectURL(blob), url: null, isImage: true });
+      } catch (e) { /* skip unreadable file */ }
+    } else if (cfg.allowDocs) {
+      list.push({ file, originalFile: null, previewUrl: null, url: null, isImage: false });
+    }
   }
-  renderMainImageThumbs();
+  renderAttachmentThumbs(kind);
 }
 
-function removeMainImageAt(idx) {
-  mainImagesState.splice(idx, 1);
-  renderMainImageThumbs();
+function removeAttachmentAt(kind, idx) {
+  attachmentsState[kind].splice(idx, 1);
+  renderAttachmentThumbs(kind);
 }
 
-async function editMainImageAt(idx) {
-  const entry = mainImagesState[idx];
-  if (!entry) return;
+async function editAttachmentAt(kind, idx) {
+  const entry = attachmentsState[kind][idx];
+  if (!entry || !entry.isImage) return;
   let sourceFile = entry.originalFile || entry.file;
   if (!sourceFile && entry.url) {
     try {
@@ -2799,14 +2811,15 @@ async function editMainImageAt(idx) {
     }
   }
   if (!sourceFile) return;
-  openImageCropper(sourceFile, '裁剪主图（9:16）', (blob) => {
-    mainImagesState[idx] = {
+  openImageCropper(sourceFile, ATTACHMENT_CONFIG[kind].cropTitle, (blob) => {
+    attachmentsState[kind][idx] = {
       file: new File([blob], 'crop-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
       originalFile: sourceFile,
       previewUrl: URL.createObjectURL(blob),
       url: null,
+      isImage: true,
     };
-    renderMainImageThumbs();
+    renderAttachmentThumbs(kind);
   });
 }
 
@@ -2925,27 +2938,6 @@ function cancelCrop() {
   closePasscodeModal();
 }
 
-function setFilePreview(url, previewImgId, nameElId) {
-  const img = document.getElementById(previewImgId);
-  const nameEl = document.getElementById(nameElId);
-  if (url && isImageUrl(url)) {
-    img.src = staticUrl(url);
-    img.hidden = false;
-    nameEl.hidden = true;
-    nameEl.innerHTML = '';
-  } else if (url) {
-    img.hidden = true;
-    img.src = '';
-    nameEl.hidden = false;
-    nameEl.innerHTML = `已上传文件：<a href="${staticUrl(url)}" target="_blank" rel="noopener">查看</a>`;
-  } else {
-    img.hidden = true;
-    img.src = '';
-    nameEl.hidden = true;
-    nameEl.innerHTML = '';
-  }
-}
-
 let productCarouselIndex = {}; // productId -> currently shown image index in 商品列表
 let productSearchQuery = '';
 let productSortOrder = 'desc'; // 'desc' = 最新优先, 'asc' = 最早优先
@@ -3006,7 +2998,7 @@ function renderProductList() {
         <div class="row-body">
           <div class="row-title">${escapeHtml(p.name)}${p.internal_code ? `<span class="row-code-inline">${escapeHtml(p.internal_code)}</span>` : ''}</div>
           <div class="row-sub">${escapeHtml(p.chassis_info || '')}${p.chassis_number ? `<span class="row-gap-5">底盘号：${escapeHtml(p.chassis_number)}</span><button type="button" class="copy-icon-btn" onclick="copyChassisNumber(event,'${chassisNumberJs}')" title="复制底盘号">${COPY_ICON_SVG}</button>` : ''}</div>
-          <div class="row-sub">${p.layout_image_url ? `配置布局：<a href="${staticUrl(p.layout_image_url)}" target="_blank" rel="noopener">查看</a>` : ''}</div>
+          <div class="row-sub">${p.layout_urls && p.layout_urls.length ? `配置布局：${p.layout_urls.map((u, i) => `<a href="${staticUrl(u)}" target="_blank" rel="noopener">文件${i + 1}</a>`).join(' ')}` : ''}</div>
           <div class="row-sub">${p.standard_config ? `<span class="row-label-bold">标准配置：</span>${escapeHtml(p.standard_config)}` : ''}</div>
           <div class="row-notes-line">
             <span class="row-notes-text" title="${escapeHtml(p.customer_notes || '')}">${p.customer_notes ? `<span class="row-label-bold">客户备注：</span>${escapeHtml(p.customer_notes)}` : ''}</span>
@@ -3053,7 +3045,10 @@ function editProduct(id) {
   const p = products.find((x) => x.id === id);
   if (!p) return;
   editingProductId = id;
-  mainImagesState = (p.main_image_urls || []).map((url) => ({ url, file: null, originalFile: null, previewUrl: null }));
+  attachmentsState = {
+    main: (p.main_image_urls || []).map((url) => ({ url, file: null, originalFile: null, previewUrl: null, isImage: true })),
+    layout: (p.layout_urls || []).map((url) => ({ url, file: null, originalFile: null, previewUrl: null, isImage: isImageUrl(url) })),
+  };
   document.getElementById('productFormTitle').textContent = '编辑商品';
   document.getElementById('pName').value = p.name;
   document.getElementById('pCode').value = p.internal_code || '';
@@ -3061,21 +3056,18 @@ function editProduct(id) {
   document.getElementById('pChassisNumber').value = p.chassis_number || '';
   document.getElementById('pStandardConfig').value = p.standard_config || '';
   document.getElementById('pCustomerNotes').value = p.customer_notes || '';
-  document.getElementById('pLayoutImage').value = '';
-  document.getElementById('pLayoutImageUrl').value = p.layout_image_url || '';
-  renderMainImageThumbs();
-  setFilePreview(p.layout_image_url, 'pLayoutImagePreview', 'pLayoutImageName');
+  renderAttachmentThumbs('main');
+  renderAttachmentThumbs('layout');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function resetProductForm() {
   editingProductId = null;
-  mainImagesState = [];
+  attachmentsState = { main: [], layout: [] };
   document.getElementById('productFormTitle').textContent = '新增商品';
-  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes', 'pLayoutImageUrl'].forEach((id) => { document.getElementById(id).value = ''; });
-  document.getElementById('pLayoutImage').value = '';
-  renderMainImageThumbs();
-  setFilePreview(null, 'pLayoutImagePreview', 'pLayoutImageName');
+  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes'].forEach((id) => { document.getElementById(id).value = ''; });
+  renderAttachmentThumbs('main');
+  renderAttachmentThumbs('layout');
   document.getElementById('productFormMsg').textContent = '';
 }
 
@@ -3107,32 +3099,15 @@ function uploadFileWithProgress(file, onProgress) {
   });
 }
 
-async function uploadProductImage(inputId) {
-  const file = document.getElementById(inputId).files[0];
-  if (!file) return null;
-  const progressWrap = document.getElementById(inputId + 'Progress');
-  const progressBar = document.getElementById(inputId + 'ProgressBar');
-  const progressText = document.getElementById(inputId + 'ProgressText');
-  if (progressWrap) { progressWrap.hidden = false; progressBar.style.width = '0%'; progressText.textContent = '0%'; }
-  try {
-    const res = await uploadFileWithProgress(file, (pct) => {
-      if (progressBar) progressBar.style.width = pct + '%';
-      if (progressText) progressText.textContent = pct + '%';
-    });
-    return res.url;
-  } finally {
-    if (progressWrap) progressWrap.hidden = true;
-  }
-}
-
-async function uploadAllMainImages() {
+async function uploadAllAttachments(kind) {
   const urls = [];
-  for (let i = 0; i < mainImagesState.length; i++) {
-    const entry = mainImagesState[i];
+  const list = attachmentsState[kind];
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i];
     if (entry.file) {
-      const progressWrap = document.getElementById('mainImgProgress-' + i);
-      const progressBar = document.getElementById('mainImgProgressBar-' + i);
-      const progressText = document.getElementById('mainImgProgressText-' + i);
+      const progressWrap = document.getElementById(`att-${kind}-progress-${i}`);
+      const progressBar = document.getElementById(`att-${kind}-progressbar-${i}`);
+      const progressText = document.getElementById(`att-${kind}-progresstext-${i}`);
       if (progressWrap) { progressWrap.hidden = false; progressBar.style.width = '0%'; progressText.textContent = '0%'; }
       try {
         const res = await uploadFileWithProgress(entry.file, (pct) => {
@@ -3155,15 +3130,15 @@ async function submitProduct() {
   msg.className = 'msg';
   msg.textContent = '保存中...';
   try {
-    const mainImageUrls = await uploadAllMainImages();
-    const layoutImageUrl = (await uploadProductImage('pLayoutImage')) || document.getElementById('pLayoutImageUrl').value || null;
+    const mainImageUrls = await uploadAllAttachments('main');
+    const layoutUrls = await uploadAllAttachments('layout');
     const payload = {
       name: document.getElementById('pName').value.trim(),
       internal_code: document.getElementById('pCode').value.trim(),
       chassis_info: document.getElementById('pChassisInfo').value.trim(),
       chassis_number: document.getElementById('pChassisNumber').value.trim(),
       main_image_urls: mainImageUrls,
-      layout_image_url: layoutImageUrl,
+      layout_urls: layoutUrls,
       standard_config: document.getElementById('pStandardConfig').value.trim(),
       customer_notes: document.getElementById('pCustomerNotes').value.trim(),
     };
