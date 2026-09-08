@@ -3237,7 +3237,7 @@ function renderCustomerList() {
         <div class="row-title">${escapeHtml(c.name)}${c.phone ? ` <span class="row-sub">${escapeHtml(c.phone)}</span>` : ''}</div>
         <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进销售 ' + escapeHtml(c.assigned_to) : ''}${c.ai_wechat ? ' · AI微信 ' + escapeHtml(c.ai_wechat) : ''}</div>
         ${c.financial_status || c.intended_product_id ? `<div class="row-sub">${c.financial_status ? '经济状况：' + escapeHtml(c.financial_status) : ''}${c.intended_product_id ? (c.financial_status ? ' · ' : '') + '意向车型：' + escapeHtml(productNameById(c.intended_product_id)) : ''}</div>` : ''}
-        ${c.notes ? `<div class="row-sub">${escapeHtml(c.notes)}</div>` : ''}
+        ${c.notes ? `<div class="row-notes-text" title="${escapeHtml(c.notes)}"><span class="row-label-bold">备注：</span>${escapeHtml(c.notes)}</div>` : ''}
       </div>
       <select class="bind-select" onchange="changeCustomerStage('${c.id}', this.value)">
         ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === c.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
