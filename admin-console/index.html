@@ -443,9 +443,16 @@
   }
   .modal-card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-    box-shadow: var(--shadow); padding: 28px; width: 100%; max-width: 340px;
+    box-shadow: var(--shadow); padding: 28px; width: 100%; max-width: 340px; position: relative;
   }
   .modal-card h2 { margin: 0 0 8px; }
+  .modal-close-x {
+    position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid var(--line); background: var(--card-2); color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1;
+    cursor: pointer; padding: 0; z-index: 1;
+  }
+  .modal-close-x:hover { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 
   .crop-viewport {
     position: relative; width: 270px; height: 480px; margin: 0 auto 14px;
@@ -538,36 +545,28 @@
   }
   .category-badge img { width: 14px; height: 14px; border-radius: 3px; object-fit: cover; }
 
+  .page-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .page-header-row .page-title { margin: 0; }
+
   .sales-stat-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
   .sales-stat-card {
-    flex: 0 0 200px; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius);
+    flex: 0 0 200px; display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: var(--radius);
     background: var(--card); border: 1px solid var(--line); cursor: pointer;
   }
   .sales-stat-card.active { border-color: var(--accent); background: var(--accent-soft); }
   .sales-stat-card .avatar { width: 40px; height: 40px; flex-shrink: 0; }
+  .sales-stat-avatar-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+  .sales-analysis-btn {
+    display: flex; align-items: center; justify-content: center; gap: 1px; width: 40px; height: 20px;
+    border-radius: 10px; border: 1px solid var(--line); background: var(--card-2); font-size: 9px; color: var(--ink-soft);
+  }
+  .sales-analysis-btn:hover { border-color: var(--accent); color: var(--accent); }
   .sales-stat-body { min-width: 0; }
   .sales-stat-label { font-size: 12px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sales-stat-value { font-size: 20px; font-weight: 700; margin: 2px 0; }
   .sales-stat-growth { font-size: 11px; color: var(--ink-faint); }
   .sales-stat-growth.up { color: var(--success); }
   .sales-stat-growth.down { color: var(--danger); }
-
-  .orders-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
-  @media (max-width: 900px) { .orders-layout { grid-template-columns: 1fr; } }
-  .orders-side { display: flex; flex-direction: column; gap: 16px; }
-
-  .cal-meta { font-size: 11px; color: var(--ink-faint); margin-bottom: 10px; }
-  .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); font-size: 11px; color: var(--ink-faint); text-align: center; margin-bottom: 4px; }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .cal-cell {
-    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border-radius: 6px; background: var(--card-2); gap: 2px;
-  }
-  .cal-cell.empty { background: transparent; }
-  .cal-cell.today { background: var(--accent-soft); border: 1px solid var(--accent); }
-  .cal-day { font-size: 11px; color: var(--ink-soft); }
-  .cal-cell.today .cal-day { color: var(--accent); font-weight: 700; }
-  .cal-count { font-size: 10px; color: var(--accent); font-weight: 700; line-height: 1; }
 
   .status-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-soft); margin: 4px 0 14px; }
   .status-legend span { display: flex; align-items: center; }
@@ -712,6 +711,7 @@
 <div class="modal-overlay" id="cropModal" hidden onclick="cancelCrop()"></div>
 <div class="modal-overlay" id="productModal" hidden onclick="closeProductModal()"></div>
 <div class="modal-overlay" id="tutorialModal" hidden onclick="closeTutorialModal()"></div>
+<div class="modal-overlay" id="quickCategoryModal" hidden onclick="closeQuickCategoryModal()"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script>
@@ -2899,9 +2899,11 @@ function setProductCategoryFilter(categoryId) {
   renderProductList();
 }
 
-function categoryFormModalHtml(title) {
+function categoryFormModalHtml(title, closeFnName) {
+  const closeFn = closeFnName || 'closeProductModal';
   return `
     <div class="modal-card" onclick="event.stopPropagation()">
+      <button type="button" class="modal-close-x" onclick="${closeFn}()" aria-label="关闭">✕</button>
       <h2>${title}</h2>
       <div class="form-grid">
         <div class="full">
@@ -2912,8 +2914,8 @@ function categoryFormModalHtml(title) {
         <div class="full"><label>分类名称</label><input type="text" id="categoryName"></div>
       </div>
       <div class="actions">
-        <button onclick="submitCategory()">保存</button>
-        <button class="ghost" onclick="closeProductModal()">取消</button>
+        <button onclick="submitCategory('${closeFn}')">保存</button>
+        <button class="ghost" onclick="${closeFn}()">取消</button>
       </div>
       <p class="msg" id="categoryFormMsg"></p>
     </div>
@@ -3011,7 +3013,26 @@ function openEditCategoryModal(id) {
   renderCategoryIconThumb();
 }
 
-async function submitCategory() {
+// 在"新增/编辑商品"弹窗里，商品分类选框旁边的"+分类"按钮走这个——渲染到
+// 单独的 quickCategoryModal 里（不是 productModal），这样才不会把还开着的
+// 商品表单给顶掉；保存成功后 submitCategory() 会顺手把商品表单里的
+// #pCategory 选项刷新并自动选中新分类。
+function openAddCategoryModalInline() {
+  editingCategoryId = null;
+  categoryIconEntry = null;
+  const modal = document.getElementById('quickCategoryModal');
+  modal.innerHTML = categoryFormModalHtml('新增分类', 'closeQuickCategoryModal');
+  modal.hidden = false;
+  renderCategoryIconThumb();
+}
+
+function closeQuickCategoryModal() {
+  const modal = document.getElementById('quickCategoryModal');
+  modal.hidden = true;
+  modal.innerHTML = '';
+}
+
+async function submitCategory(closeFnName) {
   const msg = document.getElementById('categoryFormMsg');
   const name = document.getElementById('categoryName').value.trim();
   if (!name) { msg.textContent = '请填写分类名称'; msg.className = 'msg error'; return; }
@@ -3029,15 +3050,23 @@ async function submitCategory() {
     } else {
       payload.icon_url = '';
     }
+    let createdCategory = null;
     if (editingCategoryId) {
       await api(`/products/categories/${editingCategoryId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } else {
-      await api('/products/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      createdCategory = await api('/products/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     }
-    closeProductModal();
+    (window[closeFnName || 'closeProductModal'])();
     productCategories = await api('/products/categories');
     renderCategoryBar();
     renderProductList();
+    // 如果"新增/编辑商品"表单还开着（走的是 openAddCategoryModalInline 这条
+    // 路），顺手把它的分类选框也刷新，新建的直接自动选中。
+    const pCategorySelect = document.getElementById('pCategory');
+    if (pCategorySelect) {
+      pCategorySelect.innerHTML = `<option value="">未分类</option>${productCategories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}`;
+      if (createdCategory) pCategorySelect.value = createdCategory.id;
+    }
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
@@ -3060,16 +3089,20 @@ async function deleteCategory(id) {
 function productFormModalHtml(title) {
   return `
     <div class="modal-card wide" onclick="event.stopPropagation()">
+      <button type="button" class="modal-close-x" onclick="closeProductModal()" aria-label="关闭">✕</button>
       <h2 id="productFormTitle">${title}</h2>
       <div class="form-grid">
         <div><label>商品名称</label><input type="text" id="pName"></div>
         <div><label>内部编码</label><input type="text" id="pCode"></div>
         <div>
           <label>商品分类</label>
-          <select id="pCategory">
-            <option value="">未分类</option>
-            ${productCategories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}
-          </select>
+          <div style="display:flex;gap:6px;">
+            <select id="pCategory" style="flex:1;min-width:0;">
+              <option value="">未分类</option>
+              ${productCategories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}
+            </select>
+            <button type="button" class="ghost" style="flex-shrink:0;padding:0 10px;" onclick="openAddCategoryModalInline()">+分类</button>
+          </div>
         </div>
         <div><label>商品价格（元）</label><input type="number" id="pPrice" min="0" step="0.01"></div>
         <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
@@ -3096,6 +3129,42 @@ function productFormModalHtml(title) {
   `;
 }
 
+// 拖动只在鼠标真正按下拖拽那一刻才把弹窗切成 position:fixed（用当前的
+// 屏幕坐标接管，不会跳一下）；弹窗每次重新 innerHTML 渲染都是全新节点，
+// 上次拖到哪不会带过来，下次打开还是居中的。
+function makeModalDraggable(cardSelector, handleSelector) {
+  const card = document.querySelector(cardSelector);
+  const handle = document.querySelector(handleSelector) || card;
+  if (!card || !handle) return;
+  let dragging = false;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  function onMouseMove(e) {
+    if (!dragging) return;
+    card.style.left = (startLeft + (e.clientX - startX)) + 'px';
+    card.style.top = (startTop + (e.clientY - startY)) + 'px';
+  }
+  function onMouseUp() {
+    dragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+  handle.style.cursor = 'move';
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const rect = card.getBoundingClientRect();
+    dragging = true;
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    card.style.position = 'fixed';
+    card.style.left = startLeft + 'px';
+    card.style.top = startTop + 'px';
+    card.style.margin = '0';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    e.preventDefault();
+  });
+}
+
 function openAddProductModal() {
   editingProductId = null;
   attachmentsState = { main: [], layout: [] };
@@ -3104,6 +3173,7 @@ function openAddProductModal() {
   modal.hidden = false;
   renderAttachmentThumbs('main');
   renderAttachmentThumbs('layout');
+  makeModalDraggable('#productModal .modal-card', '#productModal .modal-card h2');
 }
 
 function closeProductModal() {
@@ -3513,6 +3583,7 @@ function editProduct(id) {
   document.getElementById('pOptionalConfig').value = p.optional_config || '';
   renderAttachmentThumbs('main');
   renderAttachmentThumbs('layout');
+  makeModalDraggable('#productModal .modal-card', '#productModal .modal-card h2');
 }
 
 function uploadFileWithProgress(file, onProgress) {
@@ -3643,20 +3714,37 @@ function orderFlags(o) {
   return flags;
 }
 
-function monthKey(dateStr, offsetMonths = 0) {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}-${d.getMonth() - offsetMonths}`;
+let selectedOrderMonth = null; // { year, month(0-indexed) }，默认当月
+
+function buildMonthOptions() {
+  const now = new Date();
+  const opts = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    opts.push({ year: d.getFullYear(), month: d.getMonth() });
+  }
+  return opts;
 }
 
-function computeMonthlyGrowth(orderList) {
-  const now = new Date();
-  const thisKey = `${now.getFullYear()}-${now.getMonth()}`;
-  const lastRef = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastKey = `${lastRef.getFullYear()}-${lastRef.getMonth()}`;
-  const thisMonth = orderList.filter((o) => monthKey(o.created_at) === thisKey).length;
-  const lastMonth = orderList.filter((o) => monthKey(o.created_at) === lastKey).length;
-  const pct = lastMonth === 0 ? (thisMonth === 0 ? 0 : 100) : ((thisMonth - lastMonth) / lastMonth) * 100;
-  return pct;
+function ordersInMonth(orderList, year, month) {
+  return orderList.filter((o) => {
+    const d = new Date(o.created_at);
+    return d.getFullYear() === year && d.getMonth() === month;
+  });
+}
+
+function monthStats(orderList, year, month) {
+  const count = ordersInMonth(orderList, year, month).length;
+  const prev = new Date(year, month - 1, 1);
+  const prevCount = ordersInMonth(orderList, prev.getFullYear(), prev.getMonth()).length;
+  const pct = prevCount === 0 ? (count === 0 ? 0 : 100) : ((count - prevCount) / prevCount) * 100;
+  return { count, pct };
+}
+
+function onOrderMonthChange() {
+  const [y, m] = document.getElementById('orderMonthSel').value.split('-').map(Number);
+  selectedOrderMonth = { year: y, month: m };
+  renderSalesTabs();
 }
 
 function stageClass(key) {
@@ -3698,41 +3786,40 @@ async function renderOrderTrackingPage() {
   orderSearchQuery = '';
   orderStageFilter = 'all';
   salesFilter = 'all';
+  const monthOpts = buildMonthOptions();
+  selectedOrderMonth = monthOpts[0];
   el.innerHTML = `
-    <div class="page-title">订单信息</div>
+    <div class="page-header-row">
+      <div class="page-title">订单信息</div>
+      <select id="orderMonthSel" onchange="onOrderMonthChange()">
+        ${monthOpts.map((m) => `<option value="${m.year}-${m.month}">${m.year}年${m.month + 1}月</option>`).join('')}
+      </select>
+    </div>
     <div class="page-sub">销售录入客户信息，按1-8阶段跟踪</div>
     <div class="sales-stat-row" id="salesTabs"></div>
-    <div class="orders-layout">
-      <div class="panel">
-        <div class="panel-header-row">
-          <h2>订单列表</h2>
-          <div class="product-list-tools">
-            <input type="text" id="orderSearch" class="product-search-input" placeholder="搜索姓名/电话/销售跟单猿" oninput="onOrderSearchInput()">
-            <select id="orderStageFilterSel" onchange="onOrderStageFilterChange()">
-              <option value="all">全部阶段</option>
-              ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
-            </select>
-          </div>
+    <div class="panel">
+      <div class="panel-header-row">
+        <h2>订单列表</h2>
+        <div class="product-list-tools">
+          <input type="text" id="orderSearch" class="product-search-input" placeholder="搜索姓名/电话/销售跟单猿" oninput="onOrderSearchInput()">
+          <select id="orderStageFilterSel" onchange="onOrderStageFilterChange()">
+            <option value="all">全部阶段</option>
+            ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
+          </select>
         </div>
-        <div class="status-legend">
-          <span><span class="status-dot dot-red"></span>${FLAG_META.pending.label}</span>
-          <span><span class="status-dot dot-orange"></span>${FLAG_META.stale.label}</span>
-          <span><span class="status-dot dot-blue"></span>${FLAG_META.large.label}</span>
-          <span><span class="status-dot dot-green"></span>${FLAG_META.reminded.label}</span>
-        </div>
-        <div id="orderListEl"></div>
       </div>
-      <div class="orders-side">
-        <div class="panel" id="orderCalendarPanel"></div>
-        <div class="panel" id="orderInsightsPanel"></div>
+      <div class="status-legend">
+        <span><span class="status-dot dot-red"></span>${FLAG_META.pending.label}</span>
+        <span><span class="status-dot dot-orange"></span>${FLAG_META.stale.label}</span>
+        <span><span class="status-dot dot-blue"></span>${FLAG_META.large.label}</span>
+        <span><span class="status-dot dot-green"></span>${FLAG_META.reminded.label}</span>
       </div>
+      <div id="orderListEl"></div>
     </div>
     <button type="button" class="fab-btn" onclick="openAddOrderModal()" title="新建订单">+</button>
   `;
   renderSalesTabs();
   renderOrderListEl();
-  renderOrderCalendarPanel();
-  renderOrderInsightsPanel();
 }
 
 function orderFormModalHtml(title) {
@@ -3810,6 +3897,7 @@ function getSalesTabNames() {
 function renderSalesTabs() {
   const wrap = document.getElementById('salesTabs');
   if (!wrap) return;
+  const { year, month } = selectedOrderMonth;
   const cards = [
     { key: 'all', label: '全部客户数', avatarHtml: `<div class="avatar badge-blue">${DEFAULT_AVATAR_SVG}</div>`, orderList: orders },
     ...getSalesTabNames().map((name) => {
@@ -3821,14 +3909,17 @@ function renderSalesTabs() {
     }),
   ];
   wrap.innerHTML = cards.map((c) => {
-    const pct = computeMonthlyGrowth(c.orderList);
+    const { count, pct } = monthStats(c.orderList, year, month);
     const up = pct >= 0;
     return `
       <div class="sales-stat-card ${salesFilter === c.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(c.key)}')">
-        ${c.avatarHtml}
+        <div class="sales-stat-avatar-col">
+          ${c.avatarHtml}
+          <div class="sales-analysis-btn" onclick="event.stopPropagation();openSalesAnalysisModal('${escapeHtml(c.key)}')" title="智能分析">🤖分析</div>
+        </div>
         <div class="sales-stat-body">
           <div class="sales-stat-label">${escapeHtml(c.label)}</div>
-          <div class="sales-stat-value">${c.orderList.length}</div>
+          <div class="sales-stat-value">${count}</div>
           <div class="sales-stat-growth ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct).toFixed(1)}% 较上月</div>
         </div>
       </div>
@@ -3842,66 +3933,33 @@ function setSalesFilter(key) {
   renderOrderListEl();
 }
 
-function renderOrderCalendarPanel() {
-  const panel = document.getElementById('orderCalendarPanel');
-  if (!panel) return;
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const startWeekday = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayDate = now.getDate();
-
-  const countByDay = {};
-  orders.forEach((o) => {
-    const d = new Date(o.created_at);
-    if (d.getFullYear() === year && d.getMonth() === month) {
-      countByDay[d.getDate()] = (countByDay[d.getDate()] || 0) + 1;
-    }
-  });
-
-  const cells = [];
-  for (let i = 0; i < startWeekday; i++) cells.push('<div class="cal-cell empty"></div>');
-  for (let day = 1; day <= daysInMonth; day++) {
-    const count = countByDay[day] || 0;
-    cells.push(`
-      <div class="cal-cell ${day === todayDate ? 'today' : ''}">
-        <span class="cal-day">${day}</span>
-        ${count ? `<span class="cal-count">${count}</span>` : ''}
+function openSalesAnalysisModal(key) {
+  const orderList = key === 'all' ? orders : orders.filter((o) => o.assigned_to === key);
+  const label = key === 'all' ? '全部' : key;
+  const staleCount = orderList.filter((o) => orderFlags(o).includes('stale')).length;
+  const largeCount = orderList.filter((o) => orderFlags(o).includes('large') && o.stage !== 'delivered').length;
+  const pendingCount = orderList.filter((o) => orderFlags(o).includes('pending')).length;
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2>智能运营建议 · ${escapeHtml(label)}</h2>
+      <div class="diagnosis-meta">DeepSeek-V3 · 示例分析（未接入真实模型）</div>
+      <div class="diagnosis-block">
+        <span class="diagnosis-tag risk">跟进预警</span>
+        <span class="diagnosis-text">检测到 ${staleCount} 位客户超过 ${STALE_DAYS} 天未跟进，建议尽快联系，避免流失。</span>
       </div>
-    `);
-  }
-
-  panel.innerHTML = `
-    <h2>订单日历</h2>
-    <div class="cal-meta">${year}年${month + 1}月 · 数字为当天新增订单数</div>
-    <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
-    <div class="cal-grid">${cells.join('')}</div>
-  `;
-}
-
-function renderOrderInsightsPanel() {
-  const panel = document.getElementById('orderInsightsPanel');
-  if (!panel) return;
-  const staleCount = orders.filter((o) => orderFlags(o).includes('stale')).length;
-  const largeCount = orders.filter((o) => orderFlags(o).includes('large') && o.stage !== 'delivered').length;
-  const pendingCount = orders.filter((o) => orderFlags(o).includes('pending')).length;
-  panel.innerHTML = `
-    <h2>智能运营建议</h2>
-    <div class="diagnosis-meta">DeepSeek-V3 · 示例分析（未接入真实模型）</div>
-    <div class="diagnosis-block">
-      <span class="diagnosis-tag risk">跟进预警</span>
-      <span class="diagnosis-text">检测到 ${staleCount} 位客户超过 ${STALE_DAYS} 天未跟进，建议尽快联系，避免流失。</span>
-    </div>
-    <div class="diagnosis-block">
-      <span class="diagnosis-tag opportunity">大额跟进</span>
-      <span class="diagnosis-text">${largeCount} 笔大额订单（¥${LARGE_AMOUNT_THRESHOLD / 10000}万+）尚未交付，建议优先安排售后保障体验。</span>
-    </div>
-    <div class="diagnosis-block">
-      <span class="diagnosis-tag info">新客提醒</span>
-      <span class="diagnosis-text">${pendingCount} 位客户还在初聊阶段，尽快推进到深聊有助于提升转化。</span>
+      <div class="diagnosis-block">
+        <span class="diagnosis-tag opportunity">大额跟进</span>
+        <span class="diagnosis-text">${largeCount} 笔大额订单（¥${LARGE_AMOUNT_THRESHOLD / 10000}万+）尚未交付，建议优先安排售后保障体验。</span>
+      </div>
+      <div class="diagnosis-block">
+        <span class="diagnosis-tag info">新客提醒</span>
+        <span class="diagnosis-text">${pendingCount} 位客户还在初聊阶段，尽快推进到深聊有助于提升转化。</span>
+      </div>
+      <div class="actions"><button class="ghost" onclick="closeProductModal()">关闭</button></div>
     </div>
   `;
+  modal.hidden = false;
 }
 
 function toggleOrderStageFields() {
@@ -4061,7 +4119,6 @@ async function submitMaintainOrder(id) {
     orders = await api('/orders');
     renderSalesTabs();
     renderOrderListEl();
-    renderOrderInsightsPanel();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
@@ -4121,7 +4178,6 @@ async function changeOrderStage(id, newStage) {
     });
     orders = await api('/orders');
     renderOrderListEl();
-    renderOrderInsightsPanel();
   } catch (e) {
     alert('更新失败：' + e.message);
     renderOrderListEl();
@@ -4185,8 +4241,6 @@ async function submitOrder() {
     orders = await api('/orders');
     renderSalesTabs();
     renderOrderListEl();
-    renderOrderCalendarPanel();
-    renderOrderInsightsPanel();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
@@ -4200,8 +4254,6 @@ async function deleteOrder(id) {
     orders = await api('/orders');
     renderSalesTabs();
     renderOrderListEl();
-    renderOrderCalendarPanel();
-    renderOrderInsightsPanel();
   } catch (e) {
     alert('删除失败：' + e.message);
   }
