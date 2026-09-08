@@ -1888,6 +1888,18 @@ function renderPlatformStatRow(identity, accountId) {
   const row = document.getElementById('platformStatRow');
   const a = identity.accounts.find((x) => x.id === accountId);
   if (!row || !a) return;
+  const posts = a.recent_posts;
+  const postsHtml = posts && posts.length
+    ? `<div style="margin-top:10px;">
+        <div style="font-size:12px;color:var(--ink-faint);margin-bottom:6px;">最近作品预览（封面+点赞，抓取自主页，非完整数据）</div>
+        <div style="display:flex;gap:6px;overflow-x:auto;">${posts.slice(0, 8).map((p) => `
+          <div style="flex-shrink:0;width:60px;">
+            <img src="${escapeHtml(p.cover_url)}" style="width:60px;height:80px;object-fit:cover;border-radius:6px;display:block;">
+            <div style="font-size:11px;color:var(--ink-faint);text-align:center;">♥${p.likes ?? '-'}</div>
+          </div>
+        `).join('')}</div>
+      </div>`
+    : '';
   row.innerHTML = `
     <div class="platform-detail-row">
       <div class="avatar ${platformBadge(a.platform)}">${platformInitial(a.platform)}</div>
@@ -1903,6 +1915,7 @@ function renderPlatformStatRow(identity, accountId) {
         </div>
       ` : ''}
     </div>
+    ${postsHtml}
   `;
 }
 
@@ -2937,9 +2950,9 @@ function openImageCropper(file, title, onConfirm, vw = CROP_VW, vh = CROP_VH, ou
           <label class="row-sub">缩放</label>
           <input type="range" id="cropZoom" min="0" max="100" value="0">
         </div>
-        <p class="row-sub">拖动图片调整位置，拉动滑块缩放；保存时会自动裁剪并压缩到约 ${maxBytesKB}KB</p>
+        <p class="row-sub">拖动图片调整位置，拉动滑块缩放；确定后会自动裁剪并压缩到约 ${maxBytesKB}KB，最后别忘了点页面上的"保存"</p>
         <div class="actions">
-          <button onclick="confirmCrop()">裁剪并保存</button>
+          <button onclick="confirmCrop()">确定裁剪</button>
           <button class="ghost" onclick="cancelCrop()">取消</button>
         </div>
         <p class="msg" id="cropMsg"></p>
