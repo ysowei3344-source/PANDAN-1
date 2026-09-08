@@ -94,8 +94,23 @@
   .stage-done { background: #05070c; color: #fff; }
   .order-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
   .order-notes { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .order-stage-select { margin-top: 10px; }
   .empty-hint { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 60px 20px; }
+  .stage-tag-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+  .stage-edit-btn {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--card-2); border: 1px solid var(--line);
+    color: var(--ink-soft); font-size: 11px; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0;
+  }
+  .stage-edit-btn:active { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---- stage picker sheet ---- */
+  .modal-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(6, 8, 12, 0.65); display: flex; align-items: flex-end; justify-content: center; }
+  .stage-sheet { width: 100%; max-width: 480px; background: var(--card); border-radius: 16px 16px 0 0; padding: 18px 16px calc(18px + var(--safe-bottom)); box-shadow: var(--shadow); }
+  .stage-sheet-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .stage-sheet-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; max-height: 55vh; overflow-y: auto; }
+  .stage-option { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); }
+  .stage-option.active { border-color: var(--accent); background: var(--accent-soft); }
+  .stage-option-label { font-size: 14px; font-weight: 600; }
+  .stage-option-check { color: var(--accent); font-size: 16px; font-weight: 700; }
 
   /* ---- order form (full-screen overlay) ---- */
   #formScreen { display: none; position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; }
@@ -138,6 +153,14 @@
   <div class="search-wrap"><input type="text" id="orderSearch" placeholder="搜索姓名/电话/销售" oninput="onSearchInput()"></div>
   <div class="order-list" id="orderList"></div>
   <button class="fab" onclick="openOrderForm(null)">＋</button>
+</div>
+
+<div id="stageModalOverlay" class="modal-overlay" hidden onclick="closeStageModal()">
+  <div class="stage-sheet" onclick="event.stopPropagation()">
+    <div class="stage-sheet-title">修改客户阶段</div>
+    <div class="stage-sheet-list" id="stageSheetList"></div>
+    <button class="btn-ghost" style="width:100%;" onclick="closeStageModal()">取消</button>
+  </div>
 </div>
 
 <div id="formScreen">
@@ -359,14 +382,14 @@ function renderOrderList() {
     <div class="order-card" onclick="openOrderForm('${o.id}')">
       <div class="order-card-top">
         <div><span class="order-name">${escapeHtml(o.name)}</span>${o.phone ? `<span class="order-phone">${escapeHtml(o.phone)}</span>` : ''}</div>
-        <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+        <span class="stage-tag-wrap">
+          <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+          <button type="button" class="stage-edit-btn" onclick="event.stopPropagation(); openStageModal('${o.id}')" aria-label="修改客户阶段">✎</button>
+        </span>
       </div>
       <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
       ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="order-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
       ${o.notes ? `<div class="order-notes">${escapeHtml(o.notes)}</div>` : ''}
-      <select class="order-stage-select" onclick="event.stopPropagation()" onchange="changeOrderStage('${o.id}', this.value)">
-        ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === o.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
-      </select>
     </div>
   `).join('');
 }
@@ -394,6 +417,33 @@ async function changeOrderStage(id, newStage) {
     alert('更新失败：' + e.message);
     renderOrderList();
   }
+}
+
+let stageModalOrderId = null;
+
+function openStageModal(id) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
+  stageModalOrderId = id;
+  document.getElementById('stageSheetList').innerHTML = CUSTOMER_STAGES.map((s, i) => `
+    <div class="stage-option ${s.key === o.stage ? 'active' : ''}" onclick="pickStage('${s.key}')">
+      <span class="stage-option-label">${i + 1}. ${s.label}</span>
+      ${s.key === o.stage ? '<span class="stage-option-check">✓</span>' : ''}
+    </div>
+  `).join('');
+  document.getElementById('stageModalOverlay').hidden = false;
+}
+
+function closeStageModal() {
+  document.getElementById('stageModalOverlay').hidden = true;
+  stageModalOrderId = null;
+}
+
+async function pickStage(newStage) {
+  if (!stageModalOrderId) return;
+  const id = stageModalOrderId;
+  closeStageModal();
+  await changeOrderStage(id, newStage);
 }
 
 function toggleFormStageFields() {
