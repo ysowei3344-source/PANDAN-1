@@ -2,9 +2,7 @@ from datetime import datetime, timedelta
 
 from .schemas import (
     Account,
-    AfterSalesRecord,
     Banner,
-    Customer,
     Identity,
     Member,
     Order,
@@ -198,67 +196,49 @@ PRODUCTS: list[Product] = [
     ),
 ]
 
-CUSTOMERS: list[Customer] = [
-    Customer(
-        id="cust-1", name="张先生", phone="139****1101", source="抖音私信",
+ORDERS: list[Order] = [
+    Order(
+        id="order-1", name="张先生", phone="139****1101", source="抖音私信",
         stage="initial_chat", assigned_to="牛牛", notes="问了下大通V90的价格，还在比较阶段",
         created_at=(_now - timedelta(days=1)).isoformat(), updated_at=(_now - timedelta(days=1)).isoformat(),
     ),
-    Customer(
-        id="cust-2", name="李女士", phone="138****2202", source="小红书私信",
+    Order(
+        id="order-2", name="李女士", phone="138****2202", source="小红书私信",
         stage="deep_chat", assigned_to="牛牛", notes="聊了预算和用车场景，倾向B型",
         created_at=(_now - timedelta(days=3)).isoformat(), updated_at=(_now - timedelta(days=2)).isoformat(),
     ),
-    Customer(
-        id="cust-3", name="王先生", phone="137****3303", source="视频号私信",
+    Order(
+        id="order-3", name="王先生", phone="137****3303", source="视频号私信",
         stage="phone_call", assigned_to="牛牛", notes="已电话沟通，约了本周视频看车",
         created_at=(_now - timedelta(days=5)).isoformat(), updated_at=(_now - timedelta(days=1)).isoformat(),
     ),
-    Customer(
-        id="cust-4", name="陈女士", phone="136****4404", source="抖音私信",
+    Order(
+        id="order-4", name="陈女士", phone="136****4404", source="抖音私信",
         stage="video_call", assigned_to="牛牛", notes="视频看过内饰，约到店试车",
         created_at=(_now - timedelta(days=7)).isoformat(), updated_at=(_now - timedelta(days=2)).isoformat(),
     ),
-    Customer(
-        id="cust-5", name="刘先生", phone="135****5505", source="朋友介绍",
+    Order(
+        id="order-5", name="刘先生", phone="135****5505", source="朋友介绍",
         stage="car_viewing", assigned_to="牛牛", notes="到店试驾了大通V90，很满意，在考虑定金",
         created_at=(_now - timedelta(days=10)).isoformat(), updated_at=(_now - timedelta(hours=20)).isoformat(),
     ),
-    Customer(
-        id="cust-6", name="赵女士", phone="134****6606", source="小红书私信",
+    Order(
+        id="order-6", name="赵女士", phone="134****6606", source="小红书私信",
         stage="deposit", assigned_to="牛牛", notes="已付定金5000元，等提车安排",
         created_at=(_now - timedelta(days=14)).isoformat(), updated_at=(_now - timedelta(days=3)).isoformat(),
     ),
-    Customer(
-        id="cust-7", name="孙先生", phone="133****7707", source="抖音私信",
-        stage="deal_closed", assigned_to="牛牛", notes="已签合同，等排产交车",
+    Order(
+        id="order-7", name="孙先生", phone="133****7707", source="抖音私信",
+        stage="deal_closed", assigned_to="牛牛", product_id="prod-1", amount=395000,
+        signed_at=(_now - timedelta(days=5)).isoformat(), notes="已签合同，等排产交车，谈价5000元优惠",
         created_at=(_now - timedelta(days=20)).isoformat(), updated_at=(_now - timedelta(days=5)).isoformat(),
     ),
-    Customer(
-        id="cust-8", name="周女士", phone="132****8808", source="视频号私信",
-        stage="delivered", assigned_to="牛牛", notes="已提车，首保待安排",
+    Order(
+        id="order-8", name="周女士", phone="132****8808", source="视频号私信",
+        stage="delivered", assigned_to="牛牛", product_id="prod-2", amount=598000,
+        signed_at=(_now - timedelta(days=30)).isoformat(), delivered_at=(_now - timedelta(days=10)).isoformat(),
+        aftersales_status="质保中", aftersales_notes="交付时说明了保养周期，等首保预约",
+        notes="已提车，首保待安排",
         created_at=(_now - timedelta(days=45)).isoformat(), updated_at=(_now - timedelta(days=10)).isoformat(),
-    ),
-]
-
-ORDERS: list[Order] = [
-    Order(
-        id="order-1", customer_id="cust-7", product_id="prod-1", amount=395000,
-        signed_at=(_now - timedelta(days=5)).isoformat(), notes="谈价5000元优惠",
-        created_at=(_now - timedelta(days=5)).isoformat(),
-    ),
-    Order(
-        id="order-2", customer_id="cust-8", product_id="prod-2", amount=598000,
-        signed_at=(_now - timedelta(days=30)).isoformat(), notes="",
-        created_at=(_now - timedelta(days=30)).isoformat(),
-    ),
-]
-
-AFTERSALES: list[AfterSalesRecord] = [
-    AfterSalesRecord(
-        id="as-1", customer_id="cust-8", product_id="prod-2", order_id="order-2",
-        delivered_at=(_now - timedelta(days=10)).isoformat(), status="质保中",
-        notes="交付时说明了保养周期，等首保预约",
-        created_at=(_now - timedelta(days=10)).isoformat(), updated_at=(_now - timedelta(days=10)).isoformat(),
     ),
 ]

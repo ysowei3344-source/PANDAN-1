@@ -269,9 +269,10 @@ class DashboardSummary(BaseModel):
 
 
 # ---- Order tracking (M5) ----
-# 产品信息 -> 客户信息 (8 手动阶段) -> 订单信息 (成交客户×产品的匹配结果)
-# -> 售后运维 (交付客户×产品的匹配结果)。没有真实订单系统对接前，这一整套
-# 都是人工在后台维护的记录，不是自动生成的。
+# 商品信息 独立维护；一个 Order 从创建起就同时是"客户"和"订单"——销售直接
+# 手动录入客户信息 + 匹配商品，八个阶段(1-8)的变化都在同一条记录上调整，
+# 不再有"先建客户、成交了才建订单"的两段式流程。没有真实订单系统对接前，
+# 这一整套都是人工在后台/销售端手动维护的记录，不是自动生成的。
 
 class Product(BaseModel):
     id: str
@@ -309,71 +310,46 @@ CustomerStage = Literal[
 ]
 
 
-class Customer(BaseModel):
+class Order(BaseModel):
+    """One record per customer opportunity, created directly by a 销售 (not
+    gated behind reaching any particular stage first). Tracks the customer's
+    info, which product they're matched to, and their 1-8 stage all in one
+    place; amount/signed_at fill in once stage reaches deal_closed,
+    aftersales_status/aftersales_notes once it reaches delivered. Every order
+    must belong to a 销售 (assigned_to) — there is no such thing as an
+    unassigned order."""
+
     id: str
-    name: str
+    name: str  # 客户姓名
     phone: str = ""
-    source: str = ""
+    source: str = ""  # 来源渠道
     financial_status: str = ""  # 经济状况
+    product_id: str | None = None  # 意向/匹配车型
     stage: CustomerStage = "initial_chat"
-    intended_product_id: str | None = None  # 意向车型，关联 Product
-    assigned_to: str = ""  # 跟进销售
-    ai_wechat: str = ""  # AI微信（对接该客户的AI微信客服账号）
+    assigned_to: str  # 归属销售，必填
+    ai_wechat: str = ""
     notes: str = ""
+    amount: float = 0  # 成交金额
+    signed_at: str | None = None  # 成交日期
+    delivered_at: str | None = None  # 交付日期
+    aftersales_status: str = ""  # 售后状态，例如"质保中"
+    aftersales_notes: str = ""
     created_at: str
     updated_at: str
 
 
-class CustomerInput(BaseModel):
+class OrderInput(BaseModel):
     name: str
     phone: str = ""
     source: str = ""
     financial_status: str = ""
+    product_id: str | None = None
     stage: CustomerStage = "initial_chat"
-    intended_product_id: str | None = None
-    assigned_to: str = ""
+    assigned_to: str
     ai_wechat: str = ""
     notes: str = ""
-
-
-class Order(BaseModel):
-    """Created by manually matching a stage=deal_closed customer to a product."""
-
-    id: str
-    customer_id: str
-    product_id: str
     amount: float = 0
-    signed_at: str
-    notes: str = ""
-    created_at: str
-
-
-class OrderInput(BaseModel):
-    customer_id: str
-    product_id: str
-    amount: float = 0
-    signed_at: str
-    notes: str = ""
-
-
-class AfterSalesRecord(BaseModel):
-    """Created by manually matching a stage=delivered customer to a product."""
-
-    id: str
-    customer_id: str
-    product_id: str
-    order_id: str | None = None
-    delivered_at: str
-    status: str = "质保中"
-    notes: str = ""
-    created_at: str
-    updated_at: str
-
-
-class AfterSalesInput(BaseModel):
-    customer_id: str
-    product_id: str
-    order_id: str | None = None
-    delivered_at: str
-    status: str = "质保中"
-    notes: str = ""
+    signed_at: str | None = None
+    delivered_at: str | None = None
+    aftersales_status: str = ""
+    aftersales_notes: str = ""

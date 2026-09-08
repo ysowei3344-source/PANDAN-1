@@ -5,9 +5,7 @@ from pathlib import Path
 
 from .schemas import (
     Account,
-    AfterSalesRecord,
     Banner,
-    Customer,
     Identity,
     Member,
     Order,
@@ -426,56 +424,60 @@ def delete_product(product_id: str) -> bool:
     return True
 
 
-def _ensure_customers_file() -> None:
-    if not CUSTOMERS_FILE.exists():
-        from .mock_data import CUSTOMERS
-
-        _write_json(CUSTOMERS_FILE, [c.model_dump() for c in CUSTOMERS])
+ORDERS_MIGRATED_MARKER = DATA_DIR / ".orders_v2_migrated"
 
 
-def list_customers() -> list[Customer]:
-    _ensure_customers_file()
-    return [Customer(**c) for c in _read_json(CUSTOMERS_FILE)]
+def _migrate_legacy_customers_orders_aftersales() -> list[dict]:
+    """One-time merge of the old customers.json + orders.json + aftersales.json
+    (customer tracked separately, matched to an order only once deal_closed)
+    into the new unified orders.json (one record per customer opportunity,
+    created directly, stage adjusted in place). Runs once, gated by
+    ORDERS_MIGRATED_MARKER, so re-running the app never re-merges or
+    clobbers anything written under the new shape."""
+    customers = _read_json(CUSTOMERS_FILE) if CUSTOMERS_FILE.exists() else []
+    legacy_orders = _read_json(ORDERS_FILE) if ORDERS_FILE.exists() else []
+    legacy_aftersales = _read_json(AFTERSALES_FILE) if AFTERSALES_FILE.exists() else []
+    order_by_customer = {o["customer_id"]: o for o in legacy_orders if "customer_id" in o}
+    aftersales_by_customer = {a["customer_id"]: a for a in legacy_aftersales if "customer_id" in a}
 
-
-def get_customer(customer_id: str) -> Customer | None:
-    return next((c for c in list_customers() if c.id == customer_id), None)
-
-
-def create_customer(data: dict) -> Customer:
-    _ensure_customers_file()
-    items = _read_json(CUSTOMERS_FILE)
-    now = datetime.now(timezone.utc).isoformat()
-    customer = {**data, "id": f"cust-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
-    items.append(customer)
-    _write_json(CUSTOMERS_FILE, items)
-    return Customer(**customer)
-
-
-def update_customer(customer_id: str, data: dict) -> Customer | None:
-    items = _read_json(CUSTOMERS_FILE)
-    for i, c in enumerate(items):
-        if c["id"] == customer_id:
-            items[i] = {**c, **data, "id": customer_id, "updated_at": datetime.now(timezone.utc).isoformat()}
-            _write_json(CUSTOMERS_FILE, items)
-            return Customer(**items[i])
-    return None
-
-
-def delete_customer(customer_id: str) -> bool:
-    items = _read_json(CUSTOMERS_FILE)
-    remaining = [c for c in items if c["id"] != customer_id]
-    if len(remaining) == len(items):
-        return False
-    _write_json(CUSTOMERS_FILE, remaining)
-    return True
+    merged = []
+    for c in customers:
+        o = order_by_customer.get(c["id"], {})
+        a = aftersales_by_customer.get(c["id"], {})
+        merged.append({
+            "id": c["id"].replace("cust-", "order-", 1) if c["id"].startswith("cust-") else f"order-{uuid.uuid4().hex[:8]}",
+            "name": c.get("name", ""),
+            "phone": c.get("phone", ""),
+            "source": c.get("source", ""),
+            "financial_status": c.get("financial_status", ""),
+            "product_id": o.get("product_id") or c.get("intended_product_id"),
+            "stage": c.get("stage", "initial_chat"),
+            "assigned_to": c.get("assigned_to") or "",
+            "ai_wechat": c.get("ai_wechat", ""),
+            "notes": c.get("notes", ""),
+            "amount": o.get("amount", 0),
+            "signed_at": o.get("signed_at"),
+            "delivered_at": a.get("delivered_at"),
+            "aftersales_status": a.get("status", ""),
+            "aftersales_notes": a.get("notes", ""),
+            "created_at": c.get("created_at", datetime.now(timezone.utc).isoformat()),
+            "updated_at": c.get("updated_at", c.get("created_at", datetime.now(timezone.utc).isoformat())),
+        })
+    return merged
 
 
 def _ensure_orders_file() -> None:
-    if not ORDERS_FILE.exists():
-        from .mock_data import ORDERS
+    if ORDERS_MIGRATED_MARKER.exists():
+        if not ORDERS_FILE.exists():
+            _write_json(ORDERS_FILE, [])
+        return
+    if CUSTOMERS_FILE.exists() or ORDERS_FILE.exists() or AFTERSALES_FILE.exists():
+        _write_json(ORDERS_FILE, _migrate_legacy_customers_orders_aftersales())
+    else:
+        from .mock_data import ORDERS as MOCK_ORDERS
 
-        _write_json(ORDERS_FILE, [o.model_dump() for o in ORDERS])
+        _write_json(ORDERS_FILE, [o.model_dump() for o in MOCK_ORDERS])
+    ORDERS_MIGRATED_MARKER.write_text("done", encoding="utf-8")
 
 
 def list_orders() -> list[Order]:
@@ -487,14 +489,11 @@ def get_order(order_id: str) -> Order | None:
     return next((o for o in list_orders() if o.id == order_id), None)
 
 
-def get_order_by_customer(customer_id: str) -> Order | None:
-    return next((o for o in list_orders() if o.customer_id == customer_id), None)
-
-
 def create_order(data: dict) -> Order:
     _ensure_orders_file()
     items = _read_json(ORDERS_FILE)
-    order = {**data, "id": f"order-{uuid.uuid4().hex[:8]}", "created_at": datetime.now(timezone.utc).isoformat()}
+    now = datetime.now(timezone.utc).isoformat()
+    order = {**data, "id": f"order-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
     items.append(order)
     _write_json(ORDERS_FILE, items)
     return Order(**order)
@@ -504,7 +503,7 @@ def update_order(order_id: str, data: dict) -> Order | None:
     items = _read_json(ORDERS_FILE)
     for i, o in enumerate(items):
         if o["id"] == order_id:
-            items[i] = {**o, **data, "id": order_id}
+            items[i] = {**o, **data, "id": order_id, "updated_at": datetime.now(timezone.utc).isoformat()}
             _write_json(ORDERS_FILE, items)
             return Order(**items[i])
     return None
@@ -516,51 +515,6 @@ def delete_order(order_id: str) -> bool:
     if len(remaining) == len(items):
         return False
     _write_json(ORDERS_FILE, remaining)
-    return True
-
-
-def _ensure_aftersales_file() -> None:
-    if not AFTERSALES_FILE.exists():
-        from .mock_data import AFTERSALES
-
-        _write_json(AFTERSALES_FILE, [a.model_dump() for a in AFTERSALES])
-
-
-def list_aftersales() -> list[AfterSalesRecord]:
-    _ensure_aftersales_file()
-    return [AfterSalesRecord(**a) for a in _read_json(AFTERSALES_FILE)]
-
-
-def get_aftersales_by_customer(customer_id: str) -> AfterSalesRecord | None:
-    return next((a for a in list_aftersales() if a.customer_id == customer_id), None)
-
-
-def create_aftersales(data: dict) -> AfterSalesRecord:
-    _ensure_aftersales_file()
-    items = _read_json(AFTERSALES_FILE)
-    now = datetime.now(timezone.utc).isoformat()
-    record = {**data, "id": f"as-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
-    items.append(record)
-    _write_json(AFTERSALES_FILE, items)
-    return AfterSalesRecord(**record)
-
-
-def update_aftersales(aftersales_id: str, data: dict) -> AfterSalesRecord | None:
-    items = _read_json(AFTERSALES_FILE)
-    for i, a in enumerate(items):
-        if a["id"] == aftersales_id:
-            items[i] = {**a, **data, "id": aftersales_id, "updated_at": datetime.now(timezone.utc).isoformat()}
-            _write_json(AFTERSALES_FILE, items)
-            return AfterSalesRecord(**items[i])
-    return None
-
-
-def delete_aftersales(aftersales_id: str) -> bool:
-    items = _read_json(AFTERSALES_FILE)
-    remaining = [a for a in items if a["id"] != aftersales_id]
-    if len(remaining) == len(items):
-        return False
-    _write_json(AFTERSALES_FILE, remaining)
     return True
 
 

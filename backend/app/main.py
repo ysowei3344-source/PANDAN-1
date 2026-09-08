@@ -28,9 +28,7 @@ app.include_router(settings.public_router)
 app.include_router(settings.admin_router)
 app.include_router(tutorials.router)
 app.include_router(orders.products_router)
-app.include_router(orders.customers_router)
 app.include_router(orders.orders_router)
-app.include_router(orders.aftersales_router)
 
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 

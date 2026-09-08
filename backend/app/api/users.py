@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from .. import storage
-from ..auth import hash_password, require_role
+from ..auth import get_current_user, hash_password, require_role
 from ..schemas import ActivityLogEntry, BindIdentityInput, UserCreateInput, UserOut, UserUpdateInput
 
 router = APIRouter(prefix="/api/admin/users", tags=["users"])
@@ -25,6 +25,14 @@ def _public(user: dict) -> dict:
 @router.get("", response_model=list[UserOut], dependencies=[Depends(require_role("super_admin"))])
 def list_users() -> list[dict]:
     return [_public(u) for u in storage.list_users()]
+
+
+@router.get("/sales-list")
+def list_sales_users(current: dict = Depends(get_current_user)) -> list[dict]:
+    """Lightweight roster (id + username only) any authenticated user can
+    read, so a 销售 filling in 归属销售 on an order doesn't need
+    super_admin-only /users access."""
+    return [{"id": u["id"], "username": u["username"]} for u in storage.list_users() if u["role"] == "operator"]
 
 
 @router.post("", response_model=UserOut)
