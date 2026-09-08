@@ -655,11 +655,11 @@ const NAV_WORK = [
       { key: 'accounts-add', label: '添加账号', roles: ['super_admin'] },
     ],
   },
-  { key: 'create', label: 'AI创作平台' },
-  { key: 'benchmark', label: '爆款视频库', stub: true },
-  { key: 'service', label: 'AI 客服', stub: true },
+  { key: 'create', label: 'AI创作台' },
+  { key: 'benchmark', label: 'AI素材库', stub: true },
+  { key: 'service', label: 'AI机器人', stub: true },
   {
-    key: 'orders', label: '订单跟踪',
+    key: 'orders', label: '订单跟踪', sublabel: '跟单猿',
     children: [
       { key: 'orders-products', label: '商品信息' },
       { key: 'orders-orders', label: '订单信息' },
@@ -786,9 +786,11 @@ function renderNav() {
   const render = (items) => items
     .filter((item) => !item.roles || item.roles.includes(currentUser.role))
     .map((item) => {
+      const sublabelHtml = item.sublabel ? `<div class="nav-group-label">${item.sublabel}</div>` : '';
       if (item.children) {
         const expanded = expandedNavGroups.has(item.key);
         return `
+          ${sublabelHtml}
           <div class="nav-item" onclick="toggleNavGroup('${item.key}')">
             ${item.label}
             <span class="nav-caret">${expanded ? '▾' : '▸'}</span>
@@ -801,6 +803,7 @@ function renderNav() {
         `;
       }
       return `
+        ${sublabelHtml}
         <div class="nav-item ${item.key === activeSection ? 'active' : ''}" onclick="showSection('${item.key}')">
           ${item.label}${item.stub ? '<span class="tag">建设中</span>' : ''}
         </div>
@@ -1293,7 +1296,7 @@ function renderLockedDisplay(display, url, platform) {
   }
 }
 
-async function toggleLinkLock(inputId, btnId, skipScrape) {
+function toggleLinkLock(inputId, btnId) {
   const input = document.getElementById(inputId);
   const btn = document.getElementById(btnId);
   const display = document.getElementById(inputId + 'Display');
@@ -1311,37 +1314,11 @@ async function toggleLinkLock(inputId, btnId, skipScrape) {
   if (!input.value.trim()) { alert('您还没有输入网址'); return; }
   const url = input.value.trim();
 
-  if (!skipScrape) {
-    btn.disabled = true;
-    btn.textContent = '抓取中...';
-    try {
-      const res = await api('/scrape-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, url }),
-      });
-      scrapedData[platform] = res.data || null;
-    } catch (e) {
-      scrapedData[platform] = null;
-    }
-    // Video-list preview (cover + likes only) — only douyin has an extractor
-    // for this so far, see ARCHIVE.md 9.11. Failures here don't block the
-    // profile data that already succeeded above.
-    if (platform === 'douyin') {
-      try {
-        const vres = await api('/scrape-video-list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform, url }),
-        });
-        scrapedVideoList[platform] = vres.items || [];
-      } catch (e) {
-        scrapedVideoList[platform] = [];
-      }
-    }
-    btn.disabled = false;
-  }
-
+  // No scraping here — saving the link is instant. The backend scrapes
+  // nickname/头像/粉丝/作品数/最近作品预览 by itself in the background right
+  // after the account is created/updated (see accounts.py _auto_scrape_account),
+  // so this form never blocks on a ~20s scrape. Refresh the identity detail
+  // page a bit later to see the scraped data land.
   input.disabled = true;
   input.hidden = true;
   renderLockedDisplay(display, url, platform);
@@ -1456,7 +1433,7 @@ async function renderAddAccountForm() {
         scrapedData[p.key] = acc.nickname ? { nickname: acc.nickname, avatar_url: acc.avatar_url, follower_count: acc.follower_count, video_count: acc.video_count } : null;
         scrapedVideoList[p.key] = acc.recent_posts || [];
         document.getElementById(`newAcc_${p.key}_url`).value = acc.profile_url;
-        toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`, true);
+        toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`);
       }
     });
   }
@@ -1666,8 +1643,9 @@ async function editIdentityInfo(id) {
     const acc = identity.accounts.find((a) => a.platform === p.key);
     if (acc && acc.profile_url) {
       scrapedData[p.key] = acc.nickname ? { nickname: acc.nickname, avatar_url: acc.avatar_url, follower_count: acc.follower_count, video_count: acc.video_count } : null;
+      scrapedVideoList[p.key] = acc.recent_posts || [];
       document.getElementById(`newAcc_${p.key}_url`).value = acc.profile_url;
-      toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`, true);
+      toggleLinkLock(`newAcc_${p.key}_url`, `newAcc_${p.key}_lockBtn`);
     }
   });
 }
@@ -3694,7 +3672,7 @@ async function renderCreatePage() {
   activeCreativeProjectId = null;
   creativePersonPhoto = null;
   el.innerHTML = `
-    <div class="page-title">AI创作平台</div>
+    <div class="page-title">AI创作台</div>
     <div class="page-sub">上传人物照片、匹配商品，按时长切分分镜脚本，逐镜头调即梦生成视频，最后合成一条长视频</div>
     <div class="users-columns">
       <div class="panel">
