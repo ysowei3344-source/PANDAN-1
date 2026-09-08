@@ -71,7 +71,9 @@
   }
   .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  .search-wrap { padding: 0 16px 10px; }
+  .search-wrap { padding: 0 16px 10px; display: flex; gap: 8px; }
+  .search-wrap input { flex: 1; min-width: 0; }
+  .search-wrap select { width: auto; flex-shrink: 0; max-width: 38%; }
 
   .fab {
     position: fixed; right: 18px; bottom: calc(20px + var(--safe-bottom)); z-index: 30;
@@ -158,8 +160,11 @@
     </div>
     <button class="icon-btn-round" onclick="doLogout()">⏻</button>
   </div>
-  <div class="filter-chips" id="stageChips"></div>
-  <div class="search-wrap"><input type="text" id="orderSearch" placeholder="搜索姓名/电话/销售" oninput="onSearchInput()"></div>
+  <div class="filter-chips" id="salesChips"></div>
+  <div class="search-wrap">
+    <input type="text" id="orderSearch" placeholder="搜索姓名/电话/销售" oninput="onSearchInput()">
+    <select id="stageFilterSelect" onchange="onStageFilterChange()"></select>
+  </div>
   <div class="order-list" id="orderList"></div>
   <button class="fab" onclick="openOrderForm(null)">＋</button>
 </div>
@@ -269,6 +274,7 @@ let salesUsers = [];
 let currentUser = null;
 let editingOrderId = null;
 let stageFilter = 'all';
+let salesFilter = 'all';
 let searchQuery = '';
 
 function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
@@ -349,7 +355,7 @@ async function startApp() {
   if (currentUser) {
     document.getElementById('currentUserLabel').textContent = currentUser.username + (currentUser.role === 'super_admin' ? '（超级管理员）' : '（销售）');
   }
-  renderStageChips();
+  renderStageFilterOptions();
   await loadAll();
 }
 
@@ -359,18 +365,39 @@ async function loadAll() {
   } catch (e) {
     orders = []; products = []; salesUsers = [];
   }
+  renderSalesChips();
   renderOrderList();
 }
 
-function renderStageChips() {
-  const wrap = document.getElementById('stageChips');
-  const chips = [{ key: 'all', label: '全部' }, ...CUSTOMER_STAGES.map((s, i) => ({ key: s.key, label: `${i + 1}.${s.label}` }))];
-  wrap.innerHTML = chips.map((c) => `<span class="chip ${stageFilter === c.key ? 'active' : ''}" onclick="setStageFilter('${c.key}')">${c.label}</span>`).join('');
+function renderStageFilterOptions() {
+  const sel = document.getElementById('stageFilterSelect');
+  sel.innerHTML = `<option value="all">全部阶段</option>` + CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}.${s.label}</option>`).join('');
 }
 
-function setStageFilter(key) {
-  stageFilter = key;
-  renderStageChips();
+function onStageFilterChange() {
+  stageFilter = document.getElementById('stageFilterSelect').value;
+  renderOrderList();
+}
+
+function getSalesChipNames() {
+  const names = new Set(salesUsers.map((u) => u.username));
+  orders.forEach((o) => { if (o.assigned_to) names.add(o.assigned_to); });
+  return Array.from(names).sort((a, b) => {
+    if (currentUser && a === currentUser.username) return -1;
+    if (currentUser && b === currentUser.username) return 1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+}
+
+function renderSalesChips() {
+  const wrap = document.getElementById('salesChips');
+  const chips = [{ key: 'all', label: '全部' }, ...getSalesChipNames().map((n) => ({ key: n, label: n }))];
+  wrap.innerHTML = chips.map((c) => `<span class="chip ${salesFilter === c.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(c.key)}')">${escapeHtml(c.label)}</span>`).join('');
+}
+
+function setSalesFilter(key) {
+  salesFilter = key;
+  renderSalesChips();
   renderOrderList();
 }
 
@@ -387,6 +414,7 @@ function productNameById(id) {
 function getFilteredSortedOrders() {
   let list = orders.slice();
   if (stageFilter !== 'all') list = list.filter((o) => o.stage === stageFilter);
+  if (salesFilter !== 'all') list = list.filter((o) => o.assigned_to === salesFilter);
   if (searchQuery) {
     list = list.filter((o) => [o.name, o.phone, o.assigned_to].join(' ').toLowerCase().includes(searchQuery));
   }
