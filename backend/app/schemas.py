@@ -6,6 +6,16 @@ from pydantic import BaseModel
 Platform = Literal["douyin", "video_channel", "xiaohongshu"]
 
 
+class RecentPost(BaseModel):
+    """A lightweight preview of one recent post, scraped from the platform's
+    profile grid. Deliberately thin — only cover_url/likes are reliably
+    available (see ARCHIVE.md 9.10/9.11); no title/plays/comments/id/link,
+    so this is NOT the same thing as a full VideoStat record."""
+
+    cover_url: str
+    likes: int | None = None
+
+
 class Account(BaseModel):
     """One platform binding (抖音/视频号/小红书) under a matrix identity.
 
@@ -23,6 +33,7 @@ class Account(BaseModel):
     profile_url: str | None = None
     follower_count: int
     video_count: int
+    recent_posts: list[RecentPost] = []
 
 
 class Identity(BaseModel):
@@ -63,6 +74,7 @@ class AccountCreateInput(BaseModel):
     profile_url: str | None = None
     follower_count: int = 0
     video_count: int = 0
+    recent_posts: list[RecentPost] = []
 
 
 class AccountUpdateInput(BaseModel):
@@ -71,6 +83,7 @@ class AccountUpdateInput(BaseModel):
     profile_url: str | None = None
     follower_count: int = 0
     video_count: int = 0
+    recent_posts: list[RecentPost] = []
 
 
 class VideoStat(BaseModel):

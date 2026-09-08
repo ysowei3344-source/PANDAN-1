@@ -15,8 +15,35 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 # Internal scraper service (separate box, see ARCHIVE.md 九) — the bearer
 # token lives only in this process's environment, never sent to the browser.
+# SCRAPER_SERVICE_URL points at .../scraper-internal/scrape; the video-list
+# endpoint lives as a sibling path on the same service.
 SCRAPER_SERVICE_URL = os.environ.get("SCRAPER_SERVICE_URL", "")
+SCRAPER_SERVICE_VIDEO_LIST_URL = SCRAPER_SERVICE_URL.rsplit("/", 1)[0] + "/scrape-video-list" if SCRAPER_SERVICE_URL else ""
 SCRAPER_SERVICE_TOKEN = os.environ.get("SCRAPER_SERVICE_TOKEN", "")
+
+
+def _call_scraper(url: str, payload: dict) -> dict:
+    if not url or not SCRAPER_SERVICE_TOKEN:
+        raise HTTPException(status_code=503, detail="抓取服务没配置（SCRAPER_SERVICE_URL/SCRAPER_SERVICE_TOKEN 环境变量缺失）")
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {SCRAPER_SERVICE_TOKEN}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="ignore")
+        try:
+            detail = json.loads(detail).get("error", detail)
+        except ValueError:
+            pass
+        raise HTTPException(status_code=502, detail=f"抓取失败：{detail}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"抓取服务连不上：{e}")
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 ALLOWED_UPLOAD_EXT = {
@@ -85,30 +112,18 @@ def admin_delete_tutorial(tutorial_id: str, current: dict = Depends(get_current_
 
 @router.post("/scrape-profile")
 def admin_scrape_profile(payload: ScrapeProfileInput, current: dict = Depends(get_current_user)) -> dict:
-    if not SCRAPER_SERVICE_URL or not SCRAPER_SERVICE_TOKEN:
-        raise HTTPException(status_code=503, detail="抓取服务没配置（SCRAPER_SERVICE_URL/SCRAPER_SERVICE_TOKEN 环境变量缺失）")
-
-    body = json.dumps({"platform": payload.platform, "url": payload.url}).encode("utf-8")
-    req = urllib.request.Request(
-        SCRAPER_SERVICE_URL,
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {SCRAPER_SERVICE_TOKEN}"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="ignore")
-        try:
-            detail = json.loads(detail).get("error", detail)
-        except ValueError:
-            pass
-        raise HTTPException(status_code=502, detail=f"抓取失败：{detail}")
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"抓取服务连不上：{e}")
-
+    result = _call_scraper(SCRAPER_SERVICE_URL, {"platform": payload.platform, "url": payload.url})
     storage.log_activity(current["id"], current["username"], "抓取平台账号信息", f"{payload.platform} {payload.url}")
+    return result
+
+
+@router.post("/scrape-video-list")
+def admin_scrape_video_list(payload: ScrapeProfileInput, current: dict = Depends(get_current_user)) -> dict:
+    """Best-effort recent-posts preview (cover + likes only, see RecentPost).
+    Currently only implemented for douyin — other platforms 400 from the
+    scraper service itself."""
+    result = _call_scraper(SCRAPER_SERVICE_VIDEO_LIST_URL, {"platform": payload.platform, "url": payload.url})
+    storage.log_activity(current["id"], current["username"], "抓取作品预览", f"{payload.platform} {payload.url}")
     return result
 
 
