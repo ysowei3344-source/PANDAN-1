@@ -3757,22 +3757,6 @@ function orderStatusOptionLabel(s) {
   return s.stars ? `${orderStatusStars(s.stars)} ${s.label}` : `${s.icon} ${s.label}`;
 }
 
-async function changeOrderStatus(id, newStatus) {
-  const o = orders.find((x) => x.id === id);
-  if (!o) return;
-  try {
-    await api(`/orders/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...orderToPayload(o), order_status: newStatus }),
-    });
-    orders = await api('/orders');
-    renderOrderListEl();
-  } catch (e) {
-    alert('更新失败：' + e.message);
-    renderOrderListEl();
-  }
-}
-
 let selectedOrderMonth = null; // { year, month(0-indexed) }，默认当月
 
 function buildMonthOptions() {
@@ -4074,9 +4058,6 @@ function fullOrderRowHtml(o) {
       <td>
         <div class="order-status-cell">
           ${orderStatusDisplayHtml(o.order_status || 'new_lead')}
-          <select class="bind-select" onchange="changeOrderStatus('${o.id}', this.value)">
-            ${ORDER_STATUSES.map((s) => `<option value="${s.key}" ${s.key === (o.order_status || 'new_lead') ? 'selected' : ''}>${orderStatusOptionLabel(s)}</option>`).join('')}
-          </select>
         </div>
       </td>
       <td>
