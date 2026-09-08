@@ -546,6 +546,21 @@
     .brand-mark { width: 30px; height: 30px; font-size: 13px; }
     .brand-title { font-size: 13px; }
   }
+
+  /* ---------- AI创作平台 ---------- */
+  .shot-card { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-top: 12px; }
+  .shot-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .shot-time-label { font-weight: 600; font-size: 13px; }
+  .shot-status-badge { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
+  .shot-status-draft { background: var(--card-2); color: var(--ink-soft); }
+  .shot-status-generating { background: rgba(230, 160, 40, 0.18); color: #d99a28; }
+  .shot-status-done { background: var(--success-soft); color: var(--success); }
+  .shot-status-failed { background: rgba(220, 70, 70, 0.16); color: #dc4646; }
+  .shot-card textarea { width: 100%; margin-top: 6px; }
+  .shot-card video { width: 100%; max-width: 260px; border-radius: 8px; margin-top: 10px; display: block; }
+  .shot-error-text { color: #dc4646; font-size: 12px; margin-top: 6px; }
+  .creative-person-thumb { width: 90px; height: 90px; border-radius: 8px; overflow: hidden; background: var(--card-2); border: 1px solid var(--line); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ink-soft); }
+  .creative-person-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 </style>
 </head>
 <body>
@@ -606,6 +621,7 @@
         <section id="section-users" hidden></section>
         <section id="section-tutorials" hidden></section>
         <section id="section-orders" hidden></section>
+        <section id="section-create" hidden></section>
         <section id="section-stub" hidden></section>
       </div>
     </main>
@@ -637,7 +653,7 @@ const NAV_WORK = [
       { key: 'accounts-add', label: '添加账号', roles: ['super_admin'] },
     ],
   },
-  { key: 'create', label: 'AI创作平台', stub: true },
+  { key: 'create', label: 'AI创作平台' },
   { key: 'benchmark', label: '爆款视频库', stub: true },
   { key: 'service', label: 'AI 客服', stub: true },
   {
@@ -812,7 +828,8 @@ async function showSection(key) {
   renderNav();
   document.getElementById('headerLeft').innerHTML = '';
   stopActivityLogPolling();
-  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'orders', 'stub'].forEach((k) => {
+  stopAllShotPolling();
+  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'orders', 'create', 'stub'].forEach((k) => {
     document.getElementById(`section-${k}`).hidden = true;
   });
 
@@ -847,6 +864,9 @@ async function showSection(key) {
   } else if (key === 'orders-orders') {
     document.getElementById('section-orders').hidden = false;
     await renderOrderTrackingPage();
+  } else if (key === 'create') {
+    document.getElementById('section-create').hidden = false;
+    await renderCreatePage();
   } else {
     document.getElementById('section-stub').hidden = false;
     const item = findNavItem(key);
@@ -2400,22 +2420,92 @@ function renderUserList() {
   }).join('');
 }
 
+const AVATAR_CROP = { vw: 240, vh: 240, outW: 480, outH: 480, maxBytesKB: 100 };
+let avatarEntry = null; // { url?, file?, originalFile?, previewUrl? } | null, edited-user modal's single avatar slot
+
+function renderAvatarThumb() {
+  const wrap = document.getElementById('euAvatarThumbRow');
+  if (!wrap) return;
+  if (!avatarEntry) {
+    wrap.innerHTML = `<label class="img-thumb-add" for="euAvatarFileInput">＋<br>头像</label>`;
+    return;
+  }
+  const src = avatarEntry.previewUrl || staticUrl(avatarEntry.url);
+  wrap.innerHTML = `
+    <div class="img-thumb-item">
+      <img src="${src}" class="img-thumb-9x16" alt="">
+      ${avatarEntry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
+      <div class="img-thumb-actions">
+        <button type="button" class="img-thumb-btn" onclick="editAvatarThumb()">编辑</button>
+        <button type="button" class="img-thumb-btn danger" onclick="clearAvatarThumb()">删除</button>
+      </div>
+    </div>
+  `;
+}
+
+async function handleAvatarFileSelect(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !file.type.startsWith('image/')) return;
+  try {
+    const img = await loadImageFromFile(file);
+    const state = computeCoverCrop(img.naturalWidth, img.naturalHeight, AVATAR_CROP.vw, AVATAR_CROP.vh);
+    const blob = await cropImageElementToBlob(img, state, AVATAR_CROP.outW, AVATAR_CROP.outH, AVATAR_CROP.maxBytesKB * 1024);
+    URL.revokeObjectURL(img.src);
+    if (!blob) return;
+    avatarEntry = {
+      file: new File([blob], 'avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
+      originalFile: file,
+      previewUrl: URL.createObjectURL(blob),
+      url: null,
+    };
+    renderAvatarThumb();
+  } catch (e) { /* skip unreadable file */ }
+}
+
+function clearAvatarThumb() {
+  avatarEntry = null;
+  renderAvatarThumb();
+}
+
+async function editAvatarThumb() {
+  if (!avatarEntry) return;
+  let sourceFile = avatarEntry.originalFile || avatarEntry.file;
+  if (!sourceFile && avatarEntry.url) {
+    try {
+      const resp = await fetch(staticUrl(avatarEntry.url));
+      const blob = await resp.blob();
+      sourceFile = new File([blob], 'original.jpg', { type: blob.type || 'image/jpeg' });
+    } catch (e) {
+      alert('无法加载原图，请重新上传');
+      return;
+    }
+  }
+  if (!sourceFile) return;
+  openImageCropper(sourceFile, '裁剪头像（1:1）', (blob) => {
+    avatarEntry = {
+      file: new File([blob], 'avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
+      originalFile: sourceFile,
+      previewUrl: URL.createObjectURL(blob),
+      url: null,
+    };
+    renderAvatarThumb();
+  }, AVATAR_CROP.vw, AVATAR_CROP.vh, AVATAR_CROP.outW, AVATAR_CROP.outH, AVATAR_CROP.maxBytesKB);
+}
+
 function openEditUserModal(userId) {
   const u = users.find((x) => x.id === userId);
   if (!u) return;
+  avatarEntry = u.avatar_url ? { url: u.avatar_url, file: null, originalFile: null, previewUrl: null } : null;
   const modal = document.getElementById('passcodeModal');
   modal.innerHTML = `
     <div class="modal-card" onclick="event.stopPropagation()">
       <h2>编辑账号</h2>
       <div class="form-grid">
         <div class="full">
-          <label>头像</label>
-          <input type="file" id="euAvatar" accept="image/*" onchange="previewEditUserAvatar()">
-          <input type="hidden" id="euAvatarUrl" value="${escapeHtml(u.avatar_url || '')}" data-original="${escapeHtml(u.avatar_url || '')}">
-          <div class="img-preview-wrap">
-            <img id="euAvatarPreview" class="field-preview-img" src="${u.avatar_url ? staticUrl(u.avatar_url) : ''}" alt="预览" ${u.avatar_url ? '' : 'hidden'}>
-          </div>
-          ${u.avatar_url ? `<button type="button" class="ghost" style="margin-top:6px;" onclick="clearEditUserAvatar()">清除头像</button>` : ''}
+          <label>头像（1:1，自动压缩到约100KB）</label>
+          <div class="img-thumb-row" id="euAvatarThumbRow"></div>
+          <input type="file" id="euAvatarFileInput" accept="image/*" hidden onchange="handleAvatarFileSelect(event)">
         </div>
         <div class="full"><label>用户名</label><input type="text" id="euUsername" value="${escapeHtml(u.username)}"></div>
         <div class="full"><label>重置密码</label><input type="password" id="euPassword" placeholder="留空则不修改"></div>
@@ -2429,22 +2519,7 @@ function openEditUserModal(userId) {
     </div>
   `;
   modal.hidden = false;
-}
-
-function previewEditUserAvatar() {
-  const file = document.getElementById('euAvatar').files[0];
-  const img = document.getElementById('euAvatarPreview');
-  if (!file) return;
-  img.src = URL.createObjectURL(file);
-  img.hidden = false;
-}
-
-function clearEditUserAvatar() {
-  document.getElementById('euAvatar').value = '';
-  document.getElementById('euAvatarUrl').value = '';
-  const img = document.getElementById('euAvatarPreview');
-  img.hidden = true;
-  img.src = '';
+  renderAvatarThumb();
 }
 
 async function submitEditUser(userId) {
@@ -2458,15 +2533,14 @@ async function submitEditUser(userId) {
   msg.textContent = '保存中...';
   msg.className = 'msg';
   try {
-    const avatarFile = document.getElementById('euAvatar').files[0];
-    const avatarUrlField = document.getElementById('euAvatarUrl');
-    if (avatarFile) {
+    if (avatarEntry && avatarEntry.file) {
       const fd = new FormData();
-      fd.append('file', avatarFile);
+      fd.append('file', avatarEntry.file);
       const res = await api('/upload', { method: 'POST', body: fd });
       payload.avatar_url = res.url;
-    } else if (avatarUrlField.dataset.original && !avatarUrlField.value) {
-      payload.avatar_url = '';
+    } else if (!avatarEntry) {
+      const original = users.find((x) => x.id === userId);
+      if (original && original.avatar_url) payload.avatar_url = '';
     }
     await api(`/users/${userId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     closePasscodeModal();
@@ -2604,6 +2678,7 @@ let editingProductId = null;
 let attachmentsState = { main: [], layout: [] }; // kind -> { url?, file?, originalFile?, previewUrl?, isImage }[]
 let cropState = null;
 let cropConfirmCallback = null; // (blob) => void, set by whichever caller opened the cropper
+let cropOutputConfig = { outW: 720, outH: 1280, maxBytes: 200 * 1024 }; // set alongside cropConfirmCallback
 const CROP_VW = 270;
 const CROP_VH = 480;
 const ATTACHMENT_CONFIG = {
@@ -2682,28 +2757,27 @@ function loadImageFromFile(file) {
   });
 }
 
-function computeCoverCrop(nw, nh) {
-  const minScale = Math.max(CROP_VW / nw, CROP_VH / nh);
+function computeCoverCrop(nw, nh, vw = CROP_VW, vh = CROP_VH) {
+  const minScale = Math.max(vw / nw, vh / nh);
   return {
     naturalW: nw, naturalH: nh, scale: minScale, minScale, maxScale: minScale * 3,
-    left: (CROP_VW - nw * minScale) / 2,
-    top: (CROP_VH - nh * minScale) / 2,
+    left: (vw - nw * minScale) / 2,
+    top: (vh - nh * minScale) / 2,
+    vw, vh,
   };
 }
 
-async function cropImageElementToBlob(imgEl, state) {
-  const OUT_W = 720, OUT_H = 1280;
+async function cropImageElementToBlob(imgEl, state, outW = 720, outH = 1280, maxBytes = 200 * 1024) {
   const canvas = document.createElement('canvas');
-  canvas.width = OUT_W;
-  canvas.height = OUT_H;
+  canvas.width = outW;
+  canvas.height = outH;
   const ctx = canvas.getContext('2d');
   const sx = -state.left / state.scale;
   const sy = -state.top / state.scale;
-  const sw = CROP_VW / state.scale;
-  const sh = CROP_VH / state.scale;
-  ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, OUT_W, OUT_H);
+  const sw = (state.vw || CROP_VW) / state.scale;
+  const sh = (state.vh || CROP_VH) / state.scale;
+  ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, outW, outH);
 
-  const maxBytes = 200 * 1024;
   let quality = 0.9;
   let blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', quality));
   while (blob && blob.size > maxBytes && quality > 0.3) {
@@ -2818,20 +2892,21 @@ async function editAttachmentAt(kind, idx) {
   });
 }
 
-function openImageCropper(file, title, onConfirm) {
+function openImageCropper(file, title, onConfirm, vw = CROP_VW, vh = CROP_VH, outW = 720, outH = 1280, maxBytesKB = 200) {
   cropConfirmCallback = onConfirm;
+  cropOutputConfig = { outW, outH, maxBytes: maxBytesKB * 1024 };
   const reader = new FileReader();
   reader.onload = (e) => {
     const modal = document.getElementById('passcodeModal');
     modal.innerHTML = `
       <div class="modal-card wide" onclick="event.stopPropagation()">
         <h2>${title}</h2>
-        <div class="crop-viewport" id="cropViewport"><img id="cropImg" src="${e.target.result}" draggable="false"></div>
+        <div class="crop-viewport" id="cropViewport" style="width:${vw}px;height:${vh}px;"><img id="cropImg" src="${e.target.result}" draggable="false"></div>
         <div class="crop-controls">
           <label class="row-sub">缩放</label>
           <input type="range" id="cropZoom" min="0" max="100" value="0">
         </div>
-        <p class="row-sub">拖动图片调整位置，拉动滑块缩放；保存时会自动裁剪为 9:16 并压缩到约 200KB</p>
+        <p class="row-sub">拖动图片调整位置，拉动滑块缩放；保存时会自动裁剪并压缩到约 ${maxBytesKB}KB</p>
         <div class="actions">
           <button onclick="confirmCrop()">裁剪并保存</button>
           <button class="ghost" onclick="cancelCrop()">取消</button>
@@ -2840,21 +2915,17 @@ function openImageCropper(file, title, onConfirm) {
       </div>
     `;
     modal.hidden = false;
-    initCropper();
+    initCropper(vw, vh);
   };
   reader.readAsDataURL(file);
 }
 
-function initCropper() {
+function initCropper(vw = CROP_VW, vh = CROP_VH) {
   const img = document.getElementById('cropImg');
   const zoomSlider = document.getElementById('cropZoom');
 
   const onImgLoad = () => {
-    const nw = img.naturalWidth, nh = img.naturalHeight;
-    const minScale = Math.max(CROP_VW / nw, CROP_VH / nh);
-    cropState = { naturalW: nw, naturalH: nh, scale: minScale, minScale, maxScale: minScale * 3, left: 0, top: 0 };
-    cropState.left = (CROP_VW - nw * minScale) / 2;
-    cropState.top = (CROP_VH - nh * minScale) / 2;
+    cropState = computeCoverCrop(img.naturalWidth, img.naturalHeight, vw, vh);
     applyCropTransform();
     zoomSlider.value = 0;
   };
@@ -2883,7 +2954,7 @@ function initCropper() {
     if (!cropState) return;
     const t = zoomSlider.value / 100;
     const newScale = cropState.minScale + t * (cropState.maxScale - cropState.minScale);
-    const cx = CROP_VW / 2, cy = CROP_VH / 2;
+    const cx = vw / 2, cy = vh / 2;
     const imgX = (cx - cropState.left) / cropState.scale;
     const imgY = (cy - cropState.top) / cropState.scale;
     cropState.scale = newScale;
@@ -2895,12 +2966,14 @@ function initCropper() {
 }
 
 function clampCrop() {
+  const vw = cropState.vw || CROP_VW;
+  const vh = cropState.vh || CROP_VH;
   const w = cropState.naturalW * cropState.scale;
   const h = cropState.naturalH * cropState.scale;
   if (cropState.left > 0) cropState.left = 0;
-  if (cropState.left + w < CROP_VW) cropState.left = CROP_VW - w;
+  if (cropState.left + w < vw) cropState.left = vw - w;
   if (cropState.top > 0) cropState.top = 0;
-  if (cropState.top + h < CROP_VH) cropState.top = CROP_VH - h;
+  if (cropState.top + h < vh) cropState.top = vh - h;
 }
 
 function applyCropTransform() {
@@ -2918,7 +2991,7 @@ async function confirmCrop() {
   msg.textContent = '处理中...';
   msg.className = 'msg';
   const img = document.getElementById('cropImg');
-  const blob = await cropImageElementToBlob(img, cropState);
+  const blob = await cropImageElementToBlob(img, cropState, cropOutputConfig.outW, cropOutputConfig.outH, cropOutputConfig.maxBytes);
   if (!blob) { msg.textContent = '裁剪失败，请重试'; msg.className = 'msg error'; return; }
   cropState = null;
   const cb = cropConfirmCallback;
@@ -3530,6 +3603,392 @@ async function deleteOrder(id) {
     renderOrderListEl();
   } catch (e) {
     alert('删除失败：' + e.message);
+  }
+}
+
+/* ---------------- AI创作平台 ---------------- */
+
+let creativeProjects = [];
+let activeCreativeProjectId = null;
+let creativePersonPhoto = null; // { file, previewUrl } for the not-yet-created new-project form
+let shotPollTimers = {}; // shot index -> intervalId, only for the currently open project
+
+function getActiveCreativeProject() {
+  return creativeProjects.find((p) => p.id === activeCreativeProjectId) || null;
+}
+
+function setCreativeProject(project) {
+  const idx = creativeProjects.findIndex((p) => p.id === project.id);
+  if (idx === -1) creativeProjects.push(project); else creativeProjects[idx] = project;
+}
+
+function stopAllShotPolling() {
+  Object.values(shotPollTimers).forEach((t) => clearInterval(t));
+  shotPollTimers = {};
+}
+
+function creativeStatusLabel(status) {
+  return { draft: '草稿', queued: '排队中', generating: '生成中', done: '已完成', failed: '失败' }[status] || status;
+}
+
+async function renderCreatePage() {
+  const el = document.getElementById('section-create');
+  el.innerHTML = '<div class="empty-hint">加载中...</div>';
+  try {
+    [creativeProjects, products] = await Promise.all([api('/creative'), api('/products')]);
+  } catch (e) {
+    creativeProjects = []; products = [];
+  }
+  activeCreativeProjectId = null;
+  creativePersonPhoto = null;
+  el.innerHTML = `
+    <div class="page-title">AI创作平台</div>
+    <div class="page-sub">上传人物照片、匹配商品，按时长切分分镜脚本，逐镜头调即梦生成视频，最后合成一条长视频</div>
+    <div class="users-columns">
+      <div class="panel">
+        <div class="panel-header-row"><h2>创作项目</h2><button onclick="newCreativeProject()">+ 新建项目</button></div>
+        <div id="creativeProjectList"></div>
+      </div>
+      <div class="panel" id="creativeRightPanel"></div>
+    </div>
+  `;
+  renderCreativeProjectList();
+  renderCreateRightPanel();
+}
+
+function renderCreativeProjectList() {
+  const list = document.getElementById('creativeProjectList');
+  if (!creativeProjects.length) { list.innerHTML = '<div class="empty-hint">还没有创作项目，右侧新建一个</div>'; return; }
+  list.innerHTML = creativeProjects.map((p) => `
+    <div class="row-item">
+      <div class="row-body">
+        <div class="row-title">${escapeHtml(p.name)} <span class="shot-status-badge shot-status-${p.status}">${creativeStatusLabel(p.status)}</span></div>
+        <div class="row-sub">${p.product_id ? escapeHtml(productNameById(p.product_id)) + ' · ' : ''}${p.duration_seconds}秒 · ${p.shots.length} 个分镜</div>
+      </div>
+      <div class="row-btns">
+        <button class="ghost" onclick="selectCreativeProject('${p.id}')">打开</button>
+        <button class="danger" onclick="deleteCreativeProject('${p.id}')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function newCreativeProject() {
+  activeCreativeProjectId = null;
+  creativePersonPhoto = null;
+  stopAllShotPolling();
+  renderCreativeProjectList();
+  renderCreateRightPanel();
+}
+
+function selectCreativeProject(id) {
+  activeCreativeProjectId = id;
+  creativePersonPhoto = null;
+  stopAllShotPolling();
+  renderCreativeProjectList();
+  renderCreateRightPanel();
+  const project = getActiveCreativeProject();
+  if (project) project.shots.forEach((s) => { if (s.status === 'generating') startShotPolling(project.id, s.index); });
+}
+
+async function deleteCreativeProject(id) {
+  if (!confirm('确定删除这个创作项目吗？')) return;
+  try {
+    await api(`/creative/${id}`, { method: 'DELETE' });
+    if (activeCreativeProjectId === id) { activeCreativeProjectId = null; stopAllShotPolling(); }
+    creativeProjects = await api('/creative');
+    renderCreativeProjectList();
+    renderCreateRightPanel();
+  } catch (e) {
+    alert('删除失败：' + e.message);
+  }
+}
+
+function productOptionsHtml(selectedId) {
+  return '<option value="">未选择</option>' + products.map((p) => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+}
+
+function renderCreateRightPanel() {
+  const panel = document.getElementById('creativeRightPanel');
+  const project = getActiveCreativeProject();
+  panel.innerHTML = project ? renderCreativeWizard(project) : renderNewCreativeProjectForm();
+}
+
+function renderNewCreativeProjectForm() {
+  const thumb = creativePersonPhoto ? `<img src="${creativePersonPhoto.previewUrl}" alt="">` : '未选择';
+  return `
+    <h2>新建创作项目</h2>
+    <div class="form-grid">
+      <div class="full"><label>项目名称</label><input type="text" id="cpName" placeholder="例如：XX车型口播短视频"></div>
+      <div class="full">
+        <label>人物照片（数字人形象）</label>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:6px;">
+          <div class="creative-person-thumb">${thumb}</div>
+          <div>
+            <input type="file" id="cpPersonInput" accept="image/*" hidden onchange="handleCreativePersonSelect(event)">
+            <button class="ghost" type="button" onclick="document.getElementById('cpPersonInput').click()">选择照片</button>
+          </div>
+        </div>
+      </div>
+      <div><label>匹配商品</label><select id="cpProduct">${productOptionsHtml(null)}</select></div>
+      <div><label>视频时长（秒，1-30）</label><input type="number" id="cpDuration" min="1" max="30" value="15"></div>
+    </div>
+    <div class="actions"><button onclick="submitNewCreativeProject()">创建项目</button></div>
+    <p class="msg" id="creativeFormMsg"></p>
+  `;
+}
+
+function handleCreativePersonSelect(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  creativePersonPhoto = { file, previewUrl: URL.createObjectURL(file) };
+  renderCreateRightPanel();
+}
+
+async function submitNewCreativeProject() {
+  const msg = document.getElementById('creativeFormMsg');
+  const name = document.getElementById('cpName').value.trim();
+  if (!name) { msg.textContent = '请填写项目名称'; msg.className = 'msg error'; return; }
+  if (!creativePersonPhoto) { msg.textContent = '请先选择人物照片'; msg.className = 'msg error'; return; }
+  msg.textContent = '创建中...';
+  msg.className = 'msg';
+  try {
+    const uploaded = await uploadFileWithProgress(creativePersonPhoto.file);
+    const payload = {
+      name,
+      person_photo_url: uploaded.url,
+      product_id: document.getElementById('cpProduct').value || null,
+      duration_seconds: Number(document.getElementById('cpDuration').value) || 15,
+    };
+    const project = await api('/creative', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    setCreativeProject(project);
+    activeCreativeProjectId = project.id;
+    creativePersonPhoto = null;
+    renderCreativeProjectList();
+    renderCreateRightPanel();
+  } catch (e) {
+    msg.textContent = '创建失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+function renderCreativeWizard(project) {
+  const personImg = project.person_photo_url ? `<img src="${staticUrl(project.person_photo_url)}" alt="">` : '未上传';
+  const allDone = project.shots.length > 0 && project.shots.every((s) => s.status === 'done');
+  return `
+    <h2>${escapeHtml(project.name)}</h2>
+    <div class="form-grid">
+      <div class="full">
+        <label>人物照片</label>
+        <div style="display:flex; gap:12px; align-items:center; margin-top:6px;">
+          <div class="creative-person-thumb">${personImg}</div>
+          <div>
+            <input type="file" id="cwPersonInput" accept="image/*" hidden onchange="handleWizardPersonReplace(event)">
+            <button class="ghost" type="button" onclick="document.getElementById('cwPersonInput').click()">更换照片</button>
+          </div>
+        </div>
+      </div>
+      <div><label>匹配商品</label><select id="cwProduct" onchange="updateCreativeBasic()">${productOptionsHtml(project.product_id)}</select></div>
+      <div><label>视频时长（秒，1-30）</label><input type="number" id="cwDuration" min="1" max="30" value="${project.duration_seconds}" onchange="updateCreativeBasic()"></div>
+    </div>
+    <p class="msg" id="creativeBasicMsg"></p>
+
+    <div class="actions">
+      <button onclick="generateCreativeScript()">${project.script_text ? '重新生成脚本' : '生成脚本'}</button>
+    </div>
+
+    ${project.shots.length ? `
+      <div style="margin-top:16px;">
+        <label>完整文案</label>
+        <textarea id="creativeScriptText" rows="4" style="width:100%; margin-top:6px;">${escapeHtml(project.script_text)}</textarea>
+      </div>
+      <div id="creativeShotsList">${project.shots.map((s) => renderShotCard(s)).join('')}</div>
+      <div class="actions">
+        <button class="ghost" onclick="saveCreativeScript()">保存脚本修改</button>
+        <button onclick="composeCreativeVideo()" ${allDone ? '' : 'disabled'}>合成长视频</button>
+      </div>
+      <p class="msg" id="creativeScriptMsg"></p>
+    ` : '<div class="empty-hint" style="margin-top:12px;">还没有脚本，点上面「生成脚本」</div>'}
+
+    ${project.final_video_url ? `
+      <div style="margin-top:16px;"><label>最终合成视频</label><br><video controls src="${staticUrl(project.final_video_url)}" style="max-width:320px; border-radius:8px; margin-top:6px;"></video></div>
+    ` : ''}
+  `;
+}
+
+function renderShotCard(shot) {
+  const statusText = creativeStatusLabel(shot.status);
+  const isRedo = shot.status === 'done' || shot.status === 'failed';
+  return `
+    <div class="shot-card" id="shotCard-${shot.index}">
+      <div class="shot-card-head">
+        <span class="shot-time-label">分镜 ${shot.index + 1} · ${shot.start_sec}-${shot.end_sec}秒</span>
+        <span class="shot-status-badge shot-status-${shot.status}">${statusText}</span>
+      </div>
+      <label>台词</label>
+      <textarea id="shotNarration-${shot.index}" rows="2">${escapeHtml(shot.narration)}</textarea>
+      <label>画面描述</label>
+      <textarea id="shotVisual-${shot.index}" rows="2">${escapeHtml(shot.visual_desc)}</textarea>
+      ${shot.error_message ? `<div class="shot-error-text">${escapeHtml(shot.error_message)}</div>` : ''}
+      ${shot.video_url ? `<video controls src="${shot.video_url}"></video>` : ''}
+      <div class="actions">
+        <button ${shot.status === 'generating' ? 'disabled' : ''} onclick="${isRedo ? 'regenerateShot' : 'generateShot'}(${shot.index})">${isRedo ? '重新生成' : '生成本镜头'}</button>
+      </div>
+    </div>
+  `;
+}
+
+async function updateCreativeBasic() {
+  const project = getActiveCreativeProject();
+  if (!project) return;
+  const msg = document.getElementById('creativeBasicMsg');
+  const payload = {
+    name: project.name,
+    person_photo_url: project.person_photo_url,
+    product_id: document.getElementById('cwProduct').value || null,
+    duration_seconds: Number(document.getElementById('cwDuration').value) || project.duration_seconds,
+  };
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
+  try {
+    const updated = await api(`/creative/${project.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    setCreativeProject(updated);
+    msg.textContent = '已保存';
+    msg.className = 'msg ok';
+    renderCreativeProjectList();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+async function handleWizardPersonReplace(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  const project = getActiveCreativeProject();
+  if (!project) return;
+  const msg = document.getElementById('creativeBasicMsg');
+  msg.textContent = '上传中...';
+  msg.className = 'msg';
+  try {
+    const uploaded = await uploadFileWithProgress(file);
+    const updated = await api(`/creative/${project.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: project.name, person_photo_url: uploaded.url, product_id: project.product_id, duration_seconds: project.duration_seconds }),
+    });
+    setCreativeProject(updated);
+    renderCreateRightPanel();
+  } catch (e) {
+    msg.textContent = '上传失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+async function generateCreativeScript() {
+  const project = getActiveCreativeProject();
+  if (!project) return;
+  try {
+    const updated = await api(`/creative/${project.id}/generate-script`, { method: 'POST' });
+    setCreativeProject(updated);
+    stopAllShotPolling();
+    renderCreativeProjectList();
+    renderCreateRightPanel();
+  } catch (e) {
+    alert('生成脚本失败：' + e.message);
+  }
+}
+
+function collectShotsFromForm(project) {
+  return project.shots.map((s) => ({
+    ...s,
+    narration: document.getElementById(`shotNarration-${s.index}`).value,
+    visual_desc: document.getElementById(`shotVisual-${s.index}`).value,
+  }));
+}
+
+function persistScriptEdits(project) {
+  const scriptTextEl = document.getElementById('creativeScriptText');
+  const payload = {
+    script_text: scriptTextEl ? scriptTextEl.value : project.script_text,
+    shots: collectShotsFromForm(project),
+  };
+  return api(`/creative/${project.id}/script`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+}
+
+async function saveCreativeScript() {
+  const project = getActiveCreativeProject();
+  if (!project) return;
+  const msg = document.getElementById('creativeScriptMsg');
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
+  try {
+    const updated = await persistScriptEdits(project);
+    setCreativeProject(updated);
+    msg.textContent = '已保存';
+    msg.className = 'msg ok';
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+function applyShotUpdate(projectId, shot) {
+  const project = creativeProjects.find((p) => p.id === projectId);
+  if (!project) return;
+  const idx = project.shots.findIndex((s) => s.index === shot.index);
+  if (idx !== -1) project.shots[idx] = shot; else project.shots.push(shot);
+  const card = document.getElementById(`shotCard-${shot.index}`);
+  if (card) card.outerHTML = renderShotCard(shot);
+  const composeBtn = document.querySelector('#creativeRightPanel .actions button[onclick="composeCreativeVideo()"]');
+  if (composeBtn) composeBtn.disabled = !(project.shots.length && project.shots.every((s) => s.status === 'done'));
+}
+
+async function triggerShot(index, action) {
+  const project = getActiveCreativeProject();
+  if (!project) return;
+  try {
+    const saved = await persistScriptEdits(project);
+    setCreativeProject(saved);
+    const shot = await api(`/creative/${project.id}/shots/${index}/${action}`, { method: 'POST' });
+    applyShotUpdate(project.id, shot);
+    if (shot.status === 'generating') startShotPolling(project.id, index);
+  } catch (e) {
+    alert('操作失败：' + e.message);
+  }
+}
+
+function generateShot(index) { triggerShot(index, 'generate'); }
+function regenerateShot(index) { triggerShot(index, 'regenerate'); }
+
+function startShotPolling(projectId, index) {
+  if (shotPollTimers[index]) clearInterval(shotPollTimers[index]);
+  shotPollTimers[index] = setInterval(async () => {
+    try {
+      const shot = await api(`/creative/${projectId}/shots/${index}/status`);
+      applyShotUpdate(projectId, shot);
+      if (shot.status !== 'generating') {
+        clearInterval(shotPollTimers[index]);
+        delete shotPollTimers[index];
+      }
+    } catch (e) {
+      clearInterval(shotPollTimers[index]);
+      delete shotPollTimers[index];
+    }
+  }, 5000);
+}
+
+async function composeCreativeVideo() {
+  const project = getActiveCreativeProject();
+  if (!project) return;
+  try {
+    const updated = await api(`/creative/${project.id}/compose`, { method: 'POST' });
+    setCreativeProject(updated);
+    renderCreativeProjectList();
+    renderCreateRightPanel();
+  } catch (e) {
+    alert('合成失败：' + e.message);
   }
 }
 

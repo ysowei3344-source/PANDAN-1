@@ -358,3 +358,52 @@ class OrderInput(BaseModel):
     delivered_at: str | None = None
     aftersales_status: str = ""
     aftersales_notes: str = ""
+
+
+# ---- AI创作平台（数字人+产品 分镜短视频生成） ----
+# 一个 CreativeProject = 一张人物照片 + 一个商品 + 目标时长，先机械/模板生成
+# 脚本文案，按 7 秒一段切成 CreativeShot 列表，每个分镜单独调用即梦
+# （script_template.py / jimeng_client.py 是两个占位适配层，等真 LLM／即梦
+# API文档到位后只改那两个文件，这里的数据模型和流转状态不用跟着变）。
+
+JobStatus = Literal["draft", "queued", "generating", "done", "failed"]
+
+
+class CreativeShot(BaseModel):
+    index: int
+    start_sec: int
+    end_sec: int
+    narration: str = ""  # 台词/口播文案
+    visual_desc: str = ""  # 画面描述，给视频生成用的提示词
+    status: JobStatus = "draft"
+    video_url: str | None = None
+    jimeng_task_id: str | None = None
+    error_message: str | None = None
+    generated_at: str | None = None
+
+
+class CreativeProject(BaseModel):
+    id: str
+    name: str
+    person_photo_url: str = ""
+    product_id: str | None = None
+    duration_seconds: int = 15
+    script_text: str = ""
+    shots: list[CreativeShot] = []
+    status: JobStatus = "draft"  # draft 直到脚本生成；compose 成功后 done
+    final_video_url: str | None = None
+    created_by: str = ""
+    created_at: str
+    updated_at: str
+
+
+class CreativeProjectInput(BaseModel):
+    name: str
+    person_photo_url: str = ""
+    product_id: str | None = None
+    duration_seconds: int = 15
+
+
+class CreativeScriptEditInput(BaseModel):
+    script_text: str
+    shots: list[CreativeShot]

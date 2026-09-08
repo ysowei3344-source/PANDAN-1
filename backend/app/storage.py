@@ -6,6 +6,7 @@ from pathlib import Path
 from .schemas import (
     Account,
     Banner,
+    CreativeProject,
     Identity,
     Member,
     Order,
@@ -29,6 +30,7 @@ PRODUCTS_FILE = DATA_DIR / "products.json"
 CUSTOMERS_FILE = DATA_DIR / "customers.json"
 ORDERS_FILE = DATA_DIR / "orders.json"
 AFTERSALES_FILE = DATA_DIR / "aftersales.json"
+CREATIVE_PROJECTS_FILE = DATA_DIR / "creative_projects.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -515,6 +517,44 @@ def delete_order(order_id: str) -> bool:
     if len(remaining) == len(items):
         return False
     _write_json(ORDERS_FILE, remaining)
+    return True
+
+
+# ---- AI创作平台 ----
+
+def list_creative_projects() -> list[CreativeProject]:
+    return [CreativeProject(**p) for p in _read_json(CREATIVE_PROJECTS_FILE)]
+
+
+def get_creative_project(project_id: str) -> CreativeProject | None:
+    return next((p for p in list_creative_projects() if p.id == project_id), None)
+
+
+def create_creative_project(data: dict) -> CreativeProject:
+    items = _read_json(CREATIVE_PROJECTS_FILE)
+    now = datetime.now(timezone.utc).isoformat()
+    project = {**data, "id": f"creative-{uuid.uuid4().hex[:8]}", "shots": [], "script_text": "", "status": "draft", "final_video_url": None, "created_at": now, "updated_at": now}
+    items.append(project)
+    _write_json(CREATIVE_PROJECTS_FILE, items)
+    return CreativeProject(**project)
+
+
+def update_creative_project(project_id: str, data: dict) -> CreativeProject | None:
+    items = _read_json(CREATIVE_PROJECTS_FILE)
+    for i, p in enumerate(items):
+        if p["id"] == project_id:
+            items[i] = {**p, **data, "id": project_id, "updated_at": datetime.now(timezone.utc).isoformat()}
+            _write_json(CREATIVE_PROJECTS_FILE, items)
+            return CreativeProject(**items[i])
+    return None
+
+
+def delete_creative_project(project_id: str) -> bool:
+    items = _read_json(CREATIVE_PROJECTS_FILE)
+    remaining = [p for p in items if p["id"] != project_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(CREATIVE_PROJECTS_FILE, remaining)
     return True
 
 
