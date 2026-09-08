@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from .. import storage
-from ..auth import get_current_user
-from ..schemas import Order, OrderInput, Product, ProductInput
+from ..auth import MASTER_PASSCODE, get_current_user, verify_password
+from ..schemas import Order, OrderInput, Product, ProductInput, VerifySalesPasscodeInput
 
 products_router = APIRouter(prefix="/api/admin/products", tags=["order-tracking"])
 orders_router = APIRouter(prefix="/api/admin/orders", tags=["order-tracking"])
@@ -48,6 +48,26 @@ def delete_product(product_id: str, current: dict = Depends(get_current_user)) -
 @orders_router.get("", response_model=list[Order], dependencies=[Depends(get_current_user)])
 def list_orders() -> list[Order]:
     return storage.list_orders()
+
+
+@orders_router.post("/verify-sales-passcode")
+def verify_sales_passcode(payload: VerifySalesPasscodeInput, current: dict = Depends(get_current_user)) -> dict:
+    """Unlocks another 销售's order details in the grouped list. Reuses the
+    same passcode a 销售 already has for their 矩阵号详情页 gate (set in
+    内部账号管理) — one passcode per salesperson, matched by username, plus
+    the super_admin 万能码 override, same shape as
+    identities.verify_identity_passcode."""
+    if payload.passcode == MASTER_PASSCODE:
+        storage.log_activity(current["id"], current["username"], "订单口令验证成功（万能码）", payload.sales_username)
+        return {"ok": True}
+
+    target = storage.get_user_by_username(payload.sales_username)
+    if target and target.get("passcode_hash") and verify_password(payload.passcode, target["passcode_salt"], target["passcode_hash"]):
+        storage.log_activity(current["id"], current["username"], "订单口令验证成功", payload.sales_username)
+        return {"ok": True}
+
+    storage.log_activity(current["id"], current["username"], "订单口令验证失败", payload.sales_username)
+    raise HTTPException(status_code=403, detail="口令不正确")
 
 
 @orders_router.post("", response_model=Order)

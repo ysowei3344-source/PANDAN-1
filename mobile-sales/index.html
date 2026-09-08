@@ -112,6 +112,15 @@
   .stage-option-label { font-size: 14px; font-weight: 600; }
   .stage-option-check { color: var(--accent); font-size: 16px; font-weight: 700; }
 
+  .sales-group-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px 8px; }
+  .sales-group-name { font-size: 14px; font-weight: 700; }
+  .sales-group-count { font-size: 12px; color: var(--ink-soft); }
+  .sales-unlock-btn {
+    margin-left: auto; padding: 6px 12px; font-size: 12px; font-weight: 600;
+    background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line); border-radius: 999px;
+  }
+  .stage-sheet .field-row button { flex: 1; width: auto; }
+
   /* ---- order form (full-screen overlay) ---- */
   #formScreen { display: none; position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; }
   .form-topbar {
@@ -160,6 +169,18 @@
     <div class="stage-sheet-title">修改客户阶段</div>
     <div class="stage-sheet-list" id="stageSheetList"></div>
     <button class="btn-ghost" style="width:100%;" onclick="closeStageModal()">取消</button>
+  </div>
+</div>
+
+<div id="passcodeModalOverlay" class="modal-overlay" hidden onclick="closeSalesPasscodeModal()">
+  <div class="stage-sheet" onclick="event.stopPropagation()">
+    <div class="stage-sheet-title" id="passcodeModalTitle">需要管理口令</div>
+    <div class="field"><input type="text" id="salesPasscodeInput" placeholder="输入管理口令"></div>
+    <p class="msg" id="salesPasscodeMsg"></p>
+    <div class="field-row">
+      <button class="btn-ghost" onclick="closeSalesPasscodeModal()">取消</button>
+      <button class="btn-primary" onclick="submitSalesPasscode()">解锁</button>
+    </div>
   </div>
 </div>
 
@@ -373,12 +394,14 @@ function getFilteredSortedOrders() {
   return list;
 }
 
-function renderOrderList() {
-  const list = document.getElementById('orderList');
-  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，点右下角＋新建一个</div>'; return; }
-  const filtered = getFilteredSortedOrders();
-  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
-  list.innerHTML = filtered.map((o) => `
+let unlockedSalesGroups = new Set();
+
+function isSalesGroupUnlocked(salesName) {
+  return !currentUser || currentUser.role === 'super_admin' || salesName === currentUser.username || unlockedSalesGroups.has(salesName);
+}
+
+function fullOrderCardHtml(o) {
+  return `
     <div class="order-card" onclick="openOrderForm('${o.id}')">
       <div class="order-card-top">
         <div><span class="order-name">${escapeHtml(o.name)}</span>${o.phone ? `<span class="order-phone">${escapeHtml(o.phone)}</span>` : ''}</div>
@@ -387,11 +410,56 @@ function renderOrderList() {
           <button type="button" class="stage-edit-btn" onclick="event.stopPropagation(); openStageModal('${o.id}')" aria-label="修改客户阶段">✎</button>
         </span>
       </div>
-      <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+      <div class="order-sub">创建于 ${new Date(o.created_at).toLocaleDateString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
       ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="order-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
       ${o.notes ? `<div class="order-notes">${escapeHtml(o.notes)}</div>` : ''}
     </div>
-  `).join('');
+  `;
+}
+
+function lockedOrderCardHtml(o) {
+  return `
+    <div class="order-card" onclick="promptSalesPasscode('${escapeHtml(o.assigned_to)}')">
+      <div class="order-card-top">
+        <div><span class="order-name">${escapeHtml(o.name)}</span></div>
+        <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+      </div>
+      <div class="order-sub">创建于 ${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
+    </div>
+  `;
+}
+
+function renderOrderList() {
+  const list = document.getElementById('orderList');
+  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，点右下角＋新建一个</div>'; return; }
+  const filtered = getFilteredSortedOrders();
+  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
+
+  const groups = {};
+  const salesNames = [];
+  filtered.forEach((o) => {
+    const key = o.assigned_to || '未分配';
+    if (!groups[key]) { groups[key] = []; salesNames.push(key); }
+    groups[key].push(o);
+  });
+  salesNames.sort((a, b) => {
+    if (currentUser && a === currentUser.username) return -1;
+    if (currentUser && b === currentUser.username) return 1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+
+  list.innerHTML = salesNames.map((salesName) => {
+    const unlocked = isSalesGroupUnlocked(salesName);
+    const cards = groups[salesName].map((o) => (unlocked ? fullOrderCardHtml(o) : lockedOrderCardHtml(o))).join('');
+    return `
+      <div class="sales-group-header">
+        <span class="sales-group-name">${escapeHtml(salesName)}</span>
+        <span class="sales-group-count">${groups[salesName].length}个</span>
+        ${unlocked ? '' : `<button type="button" class="sales-unlock-btn" onclick="promptSalesPasscode('${escapeHtml(salesName)}')">🔒 查看详情</button>`}
+      </div>
+      ${cards}
+    `;
+  }).join('');
 }
 
 function orderToPayload(o) {
@@ -444,6 +512,41 @@ async function pickStage(newStage) {
   const id = stageModalOrderId;
   closeStageModal();
   await changeOrderStage(id, newStage);
+}
+
+let passcodeTargetSales = null;
+
+function promptSalesPasscode(salesName) {
+  passcodeTargetSales = salesName;
+  document.getElementById('passcodeModalTitle').textContent = `查看「${salesName}」的订单详情`;
+  document.getElementById('salesPasscodeInput').value = '';
+  document.getElementById('salesPasscodeMsg').textContent = '';
+  document.getElementById('passcodeModalOverlay').hidden = false;
+}
+
+function closeSalesPasscodeModal() {
+  document.getElementById('passcodeModalOverlay').hidden = true;
+  passcodeTargetSales = null;
+}
+
+async function submitSalesPasscode() {
+  const msg = document.getElementById('salesPasscodeMsg');
+  const passcode = document.getElementById('salesPasscodeInput').value.trim();
+  if (!passcode) { msg.textContent = '请输入口令'; msg.className = 'msg error'; return; }
+  msg.textContent = '验证中...';
+  msg.className = 'msg';
+  try {
+    await api('/orders/verify-sales-passcode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sales_username: passcodeTargetSales, passcode }),
+    });
+    unlockedSalesGroups.add(passcodeTargetSales);
+    closeSalesPasscodeModal();
+    renderOrderList();
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
 }
 
 function toggleFormStageFields() {

@@ -183,6 +183,11 @@ class VerifyPasscodeInput(BaseModel):
     passcode: str
 
 
+class VerifySalesPasscodeInput(BaseModel):
+    sales_username: str
+    passcode: str
+
+
 class ScrapeProfileInput(BaseModel):
     platform: Platform
     url: str

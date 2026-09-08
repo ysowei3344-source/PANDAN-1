@@ -190,6 +190,11 @@
   .stage-mid { background: rgba(230, 160, 40, 0.18); color: #d99a28; }
   .stage-late { background: var(--success-soft); color: var(--success); }
   .stage-done { background: #05070c; color: #fff; }
+  .sales-group { margin-bottom: 10px; }
+  .sales-group-header { display: flex; align-items: center; gap: 10px; padding: 10px 0 6px; border-bottom: 1px solid var(--line); }
+  .sales-group-name { font-size: 14px; font-weight: 700; }
+  .sales-group-count { font-size: 12px; color: var(--ink-soft); }
+  .sales-unlock-btn { margin-left: auto; padding: 5px 12px; font-size: 12px; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px; }
   .content-body { padding: 24px 28px 80px; max-width: 1200px; }
 
@@ -637,7 +642,7 @@ const NAV_WORK = [
       { key: 'accounts-add', label: '添加账号', roles: ['super_admin'] },
     ],
   },
-  { key: 'create', label: '内容创作台', stub: true },
+  { key: 'create', label: 'AI创作平台', stub: true },
   { key: 'benchmark', label: '爆款视频库', stub: true },
   { key: 'service', label: 'AI 客服', stub: true },
   {
@@ -3207,7 +3212,7 @@ async function renderOrderTrackingPage() {
   orderStageFilter = 'all';
   el.innerHTML = `
     <div class="page-title">订单信息</div>
-    <div class="page-sub">销售直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；每条订单都必须归属一名销售</div>
+    <div class="page-sub">销售直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；订单按归属销售分组展示，别的销售名下的订单默认只显示姓名/创建时间/阶段，输入对应销售的管理口令才能看详情</div>
     <div class="users-columns">
       <div class="panel">
         <div class="panel-header-row">
@@ -3307,19 +3312,21 @@ function onOrderStageFilterChange() {
   renderOrderListEl();
 }
 
-function renderOrderListEl() {
-  const list = document.getElementById('orderListEl');
-  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，右侧新建一个</div>'; return; }
-  const filtered = getFilteredSortedOrders();
-  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
-  list.innerHTML = filtered.map((o) => `
+let unlockedSalesGroups = new Set();
+
+function isSalesGroupUnlocked(salesName) {
+  return !currentUser || currentUser.role === 'super_admin' || salesName === currentUser.username || unlockedSalesGroups.has(salesName);
+}
+
+function fullOrderRowHtml(o) {
+  return `
     <div class="row-item">
       <div class="row-body">
         <div class="row-title">
           ${escapeHtml(o.name)}${o.phone ? ` <span class="row-sub">${escapeHtml(o.phone)}</span>` : ''}
           <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
         </div>
-        <div class="row-sub">归属销售：${escapeHtml(o.assigned_to)}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+        <div class="row-sub">创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
         ${o.financial_status || o.ai_wechat ? `<div class="row-sub">${o.financial_status ? '经济状况：' + escapeHtml(o.financial_status) : ''}${o.ai_wechat ? (o.financial_status ? ' · ' : '') + 'AI微信：' + escapeHtml(o.ai_wechat) : ''}</div>` : ''}
         ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="row-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
         ${o.stage === 'delivered' ? `<div class="row-sub">交付于 ${String(o.delivered_at || '').slice(0, 10)}${o.aftersales_status ? ' · <span class="role-badge">' + escapeHtml(o.aftersales_status) + '</span>' : ''}</div>` : ''}
@@ -3333,7 +3340,96 @@ function renderOrderListEl() {
         <button class="danger" onclick="deleteOrder('${o.id}')">删除</button>
       </div>
     </div>
-  `).join('');
+  `;
+}
+
+function lockedOrderRowHtml(o) {
+  return `
+    <div class="row-item">
+      <div class="row-body">
+        <div class="row-title">
+          ${escapeHtml(o.name)}
+          <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+        </div>
+        <div class="row-sub">创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderOrderListEl() {
+  const list = document.getElementById('orderListEl');
+  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，右侧新建一个</div>'; return; }
+  const filtered = getFilteredSortedOrders();
+  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
+
+  const groups = {};
+  const salesNames = [];
+  filtered.forEach((o) => {
+    const key = o.assigned_to || '未分配';
+    if (!groups[key]) { groups[key] = []; salesNames.push(key); }
+    groups[key].push(o);
+  });
+  salesNames.sort((a, b) => {
+    if (currentUser && a === currentUser.username) return -1;
+    if (currentUser && b === currentUser.username) return 1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+
+  list.innerHTML = salesNames.map((salesName) => {
+    const unlocked = isSalesGroupUnlocked(salesName);
+    const rows = groups[salesName].map((o) => (unlocked ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('');
+    return `
+      <div class="sales-group">
+        <div class="sales-group-header">
+          <span class="sales-group-name">${escapeHtml(salesName)}</span>
+          <span class="sales-group-count">${groups[salesName].length} 个客户</span>
+          ${unlocked ? '' : `<button class="ghost sales-unlock-btn" onclick="promptSalesPasscode('${escapeHtml(salesName)}')">🔒 输入口令查看详情</button>`}
+        </div>
+        ${rows}
+      </div>
+    `;
+  }).join('');
+}
+
+function promptSalesPasscode(salesName) {
+  const modal = document.getElementById('passcodeModal');
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h2>需要管理口令</h2>
+      <div class="page-sub" style="margin-bottom:16px;">查看「${escapeHtml(salesName)}」名下订单的详细信息，需要输入这位销售的管理口令</div>
+      <input type="text" id="salesPasscodeInput" placeholder="输入管理口令"
+             onkeydown="if(event.key==='Enter'){submitSalesPasscode('${escapeHtml(salesName)}')}">
+      <div class="actions">
+        <button onclick="submitSalesPasscode('${escapeHtml(salesName)}')">解锁</button>
+        <button class="ghost" onclick="closePasscodeModal()">取消</button>
+      </div>
+      <p class="msg" id="salesPasscodeMsg"></p>
+    </div>
+  `;
+  modal.hidden = false;
+  document.getElementById('salesPasscodeInput').focus();
+}
+
+async function submitSalesPasscode(salesName) {
+  const input = document.getElementById('salesPasscodeInput');
+  const msg = document.getElementById('salesPasscodeMsg');
+  const passcode = input.value.trim();
+  if (!passcode) { msg.textContent = '请输入口令'; msg.className = 'msg error'; return; }
+  msg.className = 'msg';
+  msg.textContent = '验证中...';
+  try {
+    await api('/orders/verify-sales-passcode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sales_username: salesName, passcode }),
+    });
+    unlockedSalesGroups.add(salesName);
+    closePasscodeModal();
+    renderOrderListEl();
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
 }
 
 async function changeOrderStage(id, newStage) {
