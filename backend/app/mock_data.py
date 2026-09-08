@@ -177,7 +177,7 @@ PRODUCTS: list[Product] = [
         internal_code="DT-V90-C6", chassis_info="大通 V90 2.0T 自动挡 C型底盘",
         chassis_number="LSJA00000A000001",
         standard_config="独立卫浴、6座、太阳能板200W、二类底盘、行车/驻车空调",
-        customer_notes="紧凑型 C 型房车，适合家庭自驾露营。",
+        optional_config="车顶空调升级、加装400W太阳能板、真皮座椅",
         created_at=(_now - timedelta(days=90)).isoformat(),
     ),
     Product(
@@ -185,7 +185,7 @@ PRODUCTS: list[Product] = [
         internal_code="JL-TRO-C4", chassis_info="江铃途睿欧 2.0T 进口底盘",
         chassis_number="LJXA00000B000002",
         standard_config="4座、大容量水箱、太阳能板300W、越野胎",
-        customer_notes="进口底盘，长途穿越首选。",
+        optional_config="越野胎升级、加装卫星电视天线",
         created_at=(_now - timedelta(days=90)).isoformat(),
     ),
     Product(
@@ -193,7 +193,7 @@ PRODUCTS: list[Product] = [
         internal_code="SAIC-RG10-B2", chassis_info="上汽大通 RG10 B型底盘",
         chassis_number="LSAA00000C000003",
         standard_config="2座、灵活车身、城市通勤+露营两用配置",
-        customer_notes="B型房车，灵活好开。",
+        optional_config="加装拖挂钩、车顶行李架",
         created_at=(_now - timedelta(days=60)).isoformat(),
     ),
 ]

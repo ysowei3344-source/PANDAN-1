@@ -282,7 +282,7 @@ class Product(BaseModel):
     main_image_urls: list[str] = []  # 商品主图，支持多张，列表页轮播展示
     layout_urls: list[str] = []  # 配置布局，支持多张图片或文档，最多5个
     standard_config: str = ""  # 标准配置
-    customer_notes: str = ""  # 客户备注
+    optional_config: str = ""  # 增选配置
     created_at: str
 
 
@@ -294,7 +294,7 @@ class ProductInput(BaseModel):
     main_image_urls: list[str] = []
     layout_urls: list[str] = []
     standard_config: str = ""
-    customer_notes: str = ""
+    optional_config: str = ""
 
 
 CustomerStage = Literal[

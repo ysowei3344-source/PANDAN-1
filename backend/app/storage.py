@@ -384,6 +384,8 @@ def _normalize_product(p: dict) -> dict:
     if "layout_urls" not in p:
         old_layout = p.get("layout_image_url")
         p = {**p, "layout_urls": [old_layout] if old_layout else []}
+    if "optional_config" not in p:
+        p = {**p, "optional_config": p.get("customer_notes", "")}
     return p
 
 

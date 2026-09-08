@@ -2659,7 +2659,7 @@ async function renderProductsPage() {
             <input type="file" id="pLayoutImageAdd" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple hidden onchange="handleAttachmentsSelect(event,'layout')">
           </div>
           <div><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
-          <div><label>客户备注</label><textarea id="pCustomerNotes" rows="3"></textarea></div>
+          <div><label>增选配置</label><textarea id="pOptionalConfig" rows="3"></textarea></div>
         </div>
         <div class="actions">
           <button onclick="submitProduct()">保存</button>
@@ -3001,7 +3001,7 @@ function renderProductList() {
           <div class="row-sub">${p.layout_urls && p.layout_urls.length ? `配置布局：${p.layout_urls.map((u, i) => `<a href="${staticUrl(u)}" target="_blank" rel="noopener">文件${i + 1}</a>`).join(' ')}` : ''}</div>
           <div class="row-sub">${p.standard_config ? `<span class="row-label-bold">标准配置：</span>${escapeHtml(p.standard_config)}` : ''}</div>
           <div class="row-notes-line">
-            <span class="row-notes-text" title="${escapeHtml(p.customer_notes || '')}">${p.customer_notes ? `<span class="row-label-bold">客户备注：</span>${escapeHtml(p.customer_notes)}` : ''}</span>
+            <span class="row-notes-text" title="${escapeHtml(p.optional_config || '')}">${p.optional_config ? `<span class="row-label-bold">增选配置：</span>${escapeHtml(p.optional_config)}` : ''}</span>
             <span class="row-notes-actions">
               <button type="button" class="icon-btn" onclick="editProduct('${p.id}')" title="编辑">✎</button>
               <button type="button" class="icon-btn danger" onclick="deleteProduct('${p.id}')" title="删除">🗑</button>
@@ -3055,7 +3055,7 @@ function editProduct(id) {
   document.getElementById('pChassisInfo').value = p.chassis_info || '';
   document.getElementById('pChassisNumber').value = p.chassis_number || '';
   document.getElementById('pStandardConfig').value = p.standard_config || '';
-  document.getElementById('pCustomerNotes').value = p.customer_notes || '';
+  document.getElementById('pOptionalConfig').value = p.optional_config || '';
   renderAttachmentThumbs('main');
   renderAttachmentThumbs('layout');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3065,7 +3065,7 @@ function resetProductForm() {
   editingProductId = null;
   attachmentsState = { main: [], layout: [] };
   document.getElementById('productFormTitle').textContent = '新增商品';
-  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pCustomerNotes'].forEach((id) => { document.getElementById(id).value = ''; });
+  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pOptionalConfig'].forEach((id) => { document.getElementById(id).value = ''; });
   renderAttachmentThumbs('main');
   renderAttachmentThumbs('layout');
   document.getElementById('productFormMsg').textContent = '';
@@ -3140,7 +3140,7 @@ async function submitProduct() {
       main_image_urls: mainImageUrls,
       layout_urls: layoutUrls,
       standard_config: document.getElementById('pStandardConfig').value.trim(),
-      customer_notes: document.getElementById('pCustomerNotes').value.trim(),
+      optional_config: document.getElementById('pOptionalConfig').value.trim(),
     };
     if (!payload.name) { msg.textContent = '请填写商品名称'; msg.className = 'msg error'; return; }
     if (editingProductId) {
