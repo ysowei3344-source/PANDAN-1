@@ -190,11 +190,6 @@
   .stage-mid { background: rgba(230, 160, 40, 0.18); color: #d99a28; }
   .stage-late { background: var(--success-soft); color: var(--success); }
   .stage-done { background: #05070c; color: #fff; }
-  .sales-group { margin-bottom: 10px; }
-  .sales-group-header { display: flex; align-items: center; gap: 10px; padding: 10px 0 6px; border-bottom: 1px solid var(--line); }
-  .sales-group-name { font-size: 14px; font-weight: 700; }
-  .sales-group-count { font-size: 12px; color: var(--ink-soft); }
-  .sales-unlock-btn { margin-left: auto; padding: 5px 12px; font-size: 12px; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px; }
   .content-body { padding: 24px 28px 80px; max-width: 1200px; }
 
@@ -3176,6 +3171,7 @@ let editingOrderId = null;
 let salesUsers = [];
 let orderSearchQuery = '';
 let orderStageFilter = 'all';
+let salesFilter = 'all';
 
 function stageClass(key) {
   const idx = CUSTOMER_STAGES.findIndex((s) => s.key === key);
@@ -3210,11 +3206,13 @@ async function renderOrderTrackingPage() {
   editingOrderId = null;
   orderSearchQuery = '';
   orderStageFilter = 'all';
+  salesFilter = 'all';
   el.innerHTML = `
     <div class="page-title">订单信息</div>
-    <div class="page-sub">销售直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；订单按归属销售分组展示，别的销售名下的订单默认只显示姓名/创建时间/阶段，输入对应销售的管理口令才能看详情</div>
+    <div class="page-sub">销售直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；顶部按归属销售切换查看，别的销售名下的订单默认只显示姓名/创建时间/阶段，输入对应销售的管理口令才能看详情</div>
     <div class="users-columns">
       <div class="panel">
+        <div class="platform-tabs" id="salesTabs"></div>
         <div class="panel-header-row">
           <h2>订单列表</h2>
           <div class="product-list-tools">
@@ -3279,6 +3277,30 @@ async function renderOrderTrackingPage() {
     </div>
   `;
   toggleOrderStageFields();
+  renderSalesTabs();
+  renderOrderListEl();
+}
+
+function getSalesTabNames() {
+  const names = new Set(salesUsers.map((u) => u.username));
+  orders.forEach((o) => { if (o.assigned_to) names.add(o.assigned_to); });
+  return Array.from(names).sort((a, b) => {
+    if (currentUser && a === currentUser.username) return -1;
+    if (currentUser && b === currentUser.username) return 1;
+    return a.localeCompare(b, 'zh-CN');
+  });
+}
+
+function renderSalesTabs() {
+  const wrap = document.getElementById('salesTabs');
+  if (!wrap) return;
+  const tabs = [{ key: 'all', label: '全部' }, ...getSalesTabNames().map((n) => ({ key: n, label: n }))];
+  wrap.innerHTML = tabs.map((t) => `<div class="tab-chip ${salesFilter === t.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(t.key)}')">${escapeHtml(t.label)}</div>`).join('');
+}
+
+function setSalesFilter(key) {
+  salesFilter = key;
+  renderSalesTabs();
   renderOrderListEl();
 }
 
@@ -3294,6 +3316,7 @@ function toggleOrderStageFields() {
 function getFilteredSortedOrders() {
   let list = orders.slice();
   if (orderStageFilter !== 'all') list = list.filter((o) => o.stage === orderStageFilter);
+  if (salesFilter !== 'all') list = list.filter((o) => o.assigned_to === salesFilter);
   if (orderSearchQuery) {
     const q = orderSearchQuery;
     list = list.filter((o) => [o.name, o.phone, o.assigned_to].join(' ').toLowerCase().includes(q));
@@ -3326,7 +3349,7 @@ function fullOrderRowHtml(o) {
           ${escapeHtml(o.name)}${o.phone ? ` <span class="row-sub">${escapeHtml(o.phone)}</span>` : ''}
           <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
         </div>
-        <div class="row-sub">创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+        <div class="row-sub">归属销售：${escapeHtml(o.assigned_to)} · 创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
         ${o.financial_status || o.ai_wechat ? `<div class="row-sub">${o.financial_status ? '经济状况：' + escapeHtml(o.financial_status) : ''}${o.ai_wechat ? (o.financial_status ? ' · ' : '') + 'AI微信：' + escapeHtml(o.ai_wechat) : ''}</div>` : ''}
         ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="row-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
         ${o.stage === 'delivered' ? `<div class="row-sub">交付于 ${String(o.delivered_at || '').slice(0, 10)}${o.aftersales_status ? ' · <span class="role-badge">' + escapeHtml(o.aftersales_status) + '</span>' : ''}</div>` : ''}
@@ -3351,7 +3374,10 @@ function lockedOrderRowHtml(o) {
           ${escapeHtml(o.name)}
           <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
         </div>
-        <div class="row-sub">创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+        <div class="row-sub">归属销售：${escapeHtml(o.assigned_to)} · 创建于 ${new Date(o.created_at).toLocaleString('zh-CN')}</div>
+      </div>
+      <div class="row-btns">
+        <button class="ghost" onclick="promptSalesPasscode('${escapeHtml(o.assigned_to)}')">🔒 查看详情</button>
       </div>
     </div>
   `;
@@ -3362,34 +3388,7 @@ function renderOrderListEl() {
   if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，右侧新建一个</div>'; return; }
   const filtered = getFilteredSortedOrders();
   if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
-
-  const groups = {};
-  const salesNames = [];
-  filtered.forEach((o) => {
-    const key = o.assigned_to || '未分配';
-    if (!groups[key]) { groups[key] = []; salesNames.push(key); }
-    groups[key].push(o);
-  });
-  salesNames.sort((a, b) => {
-    if (currentUser && a === currentUser.username) return -1;
-    if (currentUser && b === currentUser.username) return 1;
-    return a.localeCompare(b, 'zh-CN');
-  });
-
-  list.innerHTML = salesNames.map((salesName) => {
-    const unlocked = isSalesGroupUnlocked(salesName);
-    const rows = groups[salesName].map((o) => (unlocked ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('');
-    return `
-      <div class="sales-group">
-        <div class="sales-group-header">
-          <span class="sales-group-name">${escapeHtml(salesName)}</span>
-          <span class="sales-group-count">${groups[salesName].length} 个客户</span>
-          ${unlocked ? '' : `<button class="ghost sales-unlock-btn" onclick="promptSalesPasscode('${escapeHtml(salesName)}')">🔒 输入口令查看详情</button>`}
-        </div>
-        ${rows}
-      </div>
-    `;
-  }).join('');
+  list.innerHTML = filtered.map((o) => (isSalesGroupUnlocked(o.assigned_to) ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('');
 }
 
 function promptSalesPasscode(salesName) {

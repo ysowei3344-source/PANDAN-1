@@ -114,13 +114,6 @@
   .stage-option-label { font-size: 14px; font-weight: 600; }
   .stage-option-check { color: var(--accent); font-size: 16px; font-weight: 700; }
 
-  .sales-group-header { display: flex; align-items: center; gap: 8px; padding: 14px 16px 8px; }
-  .sales-group-name { font-size: 14px; font-weight: 700; }
-  .sales-group-count { font-size: 12px; color: var(--ink-soft); }
-  .sales-unlock-btn {
-    margin-left: auto; padding: 6px 12px; font-size: 12px; font-weight: 600;
-    background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line); border-radius: 999px;
-  }
   .stage-sheet .field-row button { flex: 1; width: auto; }
 
   /* ---- order form (full-screen overlay) ---- */
@@ -438,7 +431,7 @@ function fullOrderCardHtml(o) {
           <button type="button" class="stage-edit-btn" onclick="event.stopPropagation(); openStageModal('${o.id}')" aria-label="修改客户阶段">✎</button>
         </span>
       </div>
-      <div class="order-sub">创建于 ${new Date(o.created_at).toLocaleDateString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+      <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)} · ${new Date(o.created_at).toLocaleDateString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
       ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="order-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
       ${o.notes ? `<div class="order-notes">${escapeHtml(o.notes)}</div>` : ''}
     </div>
@@ -452,7 +445,7 @@ function lockedOrderCardHtml(o) {
         <div><span class="order-name">${escapeHtml(o.name)}</span></div>
         <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
       </div>
-      <div class="order-sub">创建于 ${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
+      <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)} · ${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
     </div>
   `;
 }
@@ -462,32 +455,7 @@ function renderOrderList() {
   if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，点右下角＋新建一个</div>'; return; }
   const filtered = getFilteredSortedOrders();
   if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
-
-  const groups = {};
-  const salesNames = [];
-  filtered.forEach((o) => {
-    const key = o.assigned_to || '未分配';
-    if (!groups[key]) { groups[key] = []; salesNames.push(key); }
-    groups[key].push(o);
-  });
-  salesNames.sort((a, b) => {
-    if (currentUser && a === currentUser.username) return -1;
-    if (currentUser && b === currentUser.username) return 1;
-    return a.localeCompare(b, 'zh-CN');
-  });
-
-  list.innerHTML = salesNames.map((salesName) => {
-    const unlocked = isSalesGroupUnlocked(salesName);
-    const cards = groups[salesName].map((o) => (unlocked ? fullOrderCardHtml(o) : lockedOrderCardHtml(o))).join('');
-    return `
-      <div class="sales-group-header">
-        <span class="sales-group-name">${escapeHtml(salesName)}</span>
-        <span class="sales-group-count">${groups[salesName].length}个</span>
-        ${unlocked ? '' : `<button type="button" class="sales-unlock-btn" onclick="promptSalesPasscode('${escapeHtml(salesName)}')">🔒 查看详情</button>`}
-      </div>
-      ${cards}
-    `;
-  }).join('');
+  list.innerHTML = filtered.map((o) => (isSalesGroupUnlocked(o.assigned_to) ? fullOrderCardHtml(o) : lockedOrderCardHtml(o))).join('');
 }
 
 function orderToPayload(o) {
