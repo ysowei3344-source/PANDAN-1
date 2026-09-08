@@ -387,6 +387,8 @@
   .badge-pink { background: var(--danger-soft); color: var(--danger); }
   .badge-blue { background: var(--accent-soft); color: var(--accent); }
   .badge-gray { background: var(--card-2); color: var(--ink-soft); }
+  .badge-silver { background: rgba(201, 204, 214, 0.16); color: #c9ccd6; }
+  .badge-gold { background: var(--warning-soft); color: var(--warning); }
 
   .mini-tag {
     display: inline-flex; align-items: center; justify-content: center;
@@ -585,8 +587,14 @@
   }
   .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   .data-table tbody tr:hover { background: var(--card-2); }
-  .order-id-cell { display: flex; align-items: center; gap: 4px; font-family: monospace; font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+  .order-status-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .order-status-stars { color: var(--warning); font-size: 14px; letter-spacing: 1px; white-space: nowrap; }
+  .order-status-icon-pill {
+    display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 24px;
+    border-radius: 6px; font-size: 13px;
+  }
   .user-cell { display: flex; align-items: center; gap: 8px; }
+  .user-cell-dots { display: flex; flex-direction: column; gap: 2px; }
   .user-cell .avatar { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
   .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -3715,6 +3723,56 @@ function orderFlags(o) {
   return flags;
 }
 
+// 独立于"客户阶段"(1-8)的另一条进度线——星级/图标表示的"订单状态"，跟单猿
+// 手动推进，跟客户阶段并存互不影响。
+const ORDER_STATUSES = [
+  { key: 'new_lead', label: '新添加客户', stars: 1 },
+  { key: 'ai_contacted', label: 'AI已沟通', stars: 2 },
+  { key: 'human_involved', label: '人工已介入', stars: 3 },
+  { key: 'call_contacted', label: '电话/视频沟通过', stars: 4 },
+  { key: 'site_visited', label: '客户到现场看过车', stars: 5 },
+  { key: 'deposit_paid', label: '已付定金', icon: '🥈', badge: 'badge-silver' },
+  { key: 'full_deposit_paid', label: '已付大定，等待生产', icon: '🥇', badge: 'badge-gold' },
+  { key: 'in_production', label: '生产中', icon: '🔨', badge: 'badge-silver' },
+  { key: 'production_done', label: '生产完结', icon: '🔨', badge: 'badge-gold' },
+  { key: 'delivered', label: '已交付', icon: '🚗', badge: 'badge-green' },
+];
+
+function orderStatusMeta(key) {
+  return ORDER_STATUSES.find((s) => s.key === key) || ORDER_STATUSES[0];
+}
+
+function orderStatusStars(count) {
+  return '★'.repeat(count) + '☆'.repeat(5 - count);
+}
+
+function orderStatusDisplayHtml(key) {
+  const s = orderStatusMeta(key);
+  return s.stars
+    ? `<span class="order-status-stars" title="${escapeHtml(s.label)}">${orderStatusStars(s.stars)}</span>`
+    : `<span class="order-status-icon-pill ${s.badge}" title="${escapeHtml(s.label)}">${s.icon}</span>`;
+}
+
+function orderStatusOptionLabel(s) {
+  return s.stars ? `${orderStatusStars(s.stars)} ${s.label}` : `${s.icon} ${s.label}`;
+}
+
+async function changeOrderStatus(id, newStatus) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
+  try {
+    await api(`/orders/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...orderToPayload(o), order_status: newStatus }),
+    });
+    orders = await api('/orders');
+    renderOrderListEl();
+  } catch (e) {
+    alert('更新失败：' + e.message);
+    renderOrderListEl();
+  }
+}
+
 let selectedOrderMonth = null; // { year, month(0-indexed) }，默认当月
 
 function buildMonthOptions() {
@@ -3768,7 +3826,7 @@ function truncateName(name, max = 6) {
 function orderToPayload(o) {
   return {
     name: o.name, phone: o.phone, source: o.source, financial_status: o.financial_status,
-    product_id: o.product_id, stage: o.stage, assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
+    product_id: o.product_id, stage: o.stage, order_status: o.order_status || 'new_lead', assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
     notes: o.notes, amount: o.amount, signed_at: o.signed_at, delivered_at: o.delivered_at,
     aftersales_status: o.aftersales_status, aftersales_notes: o.aftersales_notes,
     last_reminded_at: o.last_reminded_at || null,
@@ -3843,6 +3901,12 @@ function orderFormModalHtml(title) {
           <label>客户阶段</label>
           <select id="oStage" onchange="toggleOrderStageFields()">
             ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>订单状态</label>
+          <select id="oOrderStatus">
+            ${ORDER_STATUSES.map((s) => `<option value="${s.key}">${orderStatusOptionLabel(s)}</option>`).join('')}
           </select>
         </div>
         <div class="full">
@@ -4007,9 +4071,17 @@ function fullOrderRowHtml(o) {
     ? `<div class="row-sub">¥${fmtNum(o.amount)}</div>` : '';
   return `
     <tr>
-      <td><div class="order-id-cell">${dotsHtml}<span>${escapeHtml(o.id.replace('order-', ''))}</span></div></td>
+      <td>
+        <div class="order-status-cell">
+          ${orderStatusDisplayHtml(o.order_status || 'new_lead')}
+          <select class="bind-select" onchange="changeOrderStatus('${o.id}', this.value)">
+            ${ORDER_STATUSES.map((s) => `<option value="${s.key}" ${s.key === (o.order_status || 'new_lead') ? 'selected' : ''}>${orderStatusOptionLabel(s)}</option>`).join('')}
+          </select>
+        </div>
+      </td>
       <td>
         <div class="user-cell">
+          ${dotsHtml ? `<div class="user-cell-dots">${dotsHtml}</div>` : ''}
           <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
           <div>
             <div class="row-title" style="font-size:13px;" title="${escapeHtml(o.name)}">${escapeHtml(truncateName(o.name))}</div>
@@ -4041,7 +4113,7 @@ function fullOrderRowHtml(o) {
 function lockedOrderRowHtml(o) {
   return `
     <tr>
-      <td>${escapeHtml(o.id.replace('order-', ''))}</td>
+      <td>${orderStatusDisplayHtml(o.order_status || 'new_lead')}</td>
       <td>
         <div class="user-cell">
           <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
@@ -4071,7 +4143,7 @@ function renderOrderListEl() {
       <table class="data-table">
         <thead>
           <tr>
-            <th>订单编号</th><th>用户</th><th>电话</th><th>来源渠道</th><th>经济状况</th><th>匹配商品</th><th>客户阶段</th><th>操作</th>
+            <th>订单状态</th><th>用户</th><th>电话</th><th>来源渠道</th><th>经济状况</th><th>匹配商品</th><th>客户阶段</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -4198,6 +4270,7 @@ function editOrder(id) {
   document.getElementById('oFinancial').value = o.financial_status || '';
   document.getElementById('oProduct').value = o.product_id || '';
   document.getElementById('oStage').value = o.stage;
+  document.getElementById('oOrderStatus').value = o.order_status || 'new_lead';
   document.getElementById('oAssigned').value = o.assigned_to;
   document.getElementById('oAiWechat').value = o.ai_wechat || '';
   document.getElementById('oAmount').value = o.amount || 0;
@@ -4218,6 +4291,7 @@ async function submitOrder() {
     financial_status: document.getElementById('oFinancial').value.trim(),
     product_id: document.getElementById('oProduct').value || null,
     stage: document.getElementById('oStage').value,
+    order_status: document.getElementById('oOrderStatus').value,
     assigned_to: document.getElementById('oAssigned').value,
     ai_wechat: document.getElementById('oAiWechat').value.trim(),
     notes: document.getElementById('oNotes').value.trim(),

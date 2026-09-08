@@ -14,6 +14,7 @@ from .schemas import (
     ProductCategory,
     Settings,
     Tutorial,
+    WorkLog,
 )
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -33,6 +34,7 @@ CUSTOMERS_FILE = DATA_DIR / "customers.json"
 ORDERS_FILE = DATA_DIR / "orders.json"
 AFTERSALES_FILE = DATA_DIR / "aftersales.json"
 CREATIVE_PROJECTS_FILE = DATA_DIR / "creative_projects.json"
+WORK_LOGS_FILE = DATA_DIR / "work_logs.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -520,9 +522,27 @@ def _ensure_orders_file() -> None:
     ORDERS_MIGRATED_MARKER.write_text("done", encoding="utf-8")
 
 
+STAGE_TO_ORDER_STATUS = {
+    "initial_chat": "new_lead",
+    "deep_chat": "human_involved",
+    "phone_call": "call_contacted",
+    "video_call": "call_contacted",
+    "car_viewing": "site_visited",
+    "deposit": "deposit_paid",
+    "deal_closed": "full_deposit_paid",
+    "delivered": "delivered",
+}
+
+
+def _normalize_order(o: dict) -> dict:
+    if "order_status" not in o:
+        o = {**o, "order_status": STAGE_TO_ORDER_STATUS.get(o.get("stage", "initial_chat"), "new_lead")}
+    return o
+
+
 def list_orders() -> list[Order]:
     _ensure_orders_file()
-    return [Order(**o) for o in _read_json(ORDERS_FILE)]
+    return [Order(**_normalize_order(o)) for o in _read_json(ORDERS_FILE)]
 
 
 def get_order(order_id: str) -> Order | None:
@@ -555,6 +575,44 @@ def delete_order(order_id: str) -> bool:
     if len(remaining) == len(items):
         return False
     _write_json(ORDERS_FILE, remaining)
+    return True
+
+
+# ---- 销售日志记录：跟单猿日志 ----
+
+def list_work_logs() -> list[WorkLog]:
+    return [WorkLog(**w) for w in _read_json(WORK_LOGS_FILE)]
+
+
+def get_work_log(log_id: str) -> WorkLog | None:
+    return next((w for w in list_work_logs() if w.id == log_id), None)
+
+
+def create_work_log(data: dict) -> WorkLog:
+    items = _read_json(WORK_LOGS_FILE)
+    now = datetime.now(timezone.utc).isoformat()
+    log = {**data, "id": f"log-{uuid.uuid4().hex[:8]}", "created_at": now, "updated_at": now}
+    items.append(log)
+    _write_json(WORK_LOGS_FILE, items)
+    return WorkLog(**log)
+
+
+def update_work_log(log_id: str, data: dict) -> WorkLog | None:
+    items = _read_json(WORK_LOGS_FILE)
+    for i, item in enumerate(items):
+        if item["id"] == log_id:
+            items[i] = {**item, **data, "id": log_id, "updated_at": datetime.now(timezone.utc).isoformat()}
+            _write_json(WORK_LOGS_FILE, items)
+            return WorkLog(**items[i])
+    return None
+
+
+def delete_work_log(log_id: str) -> bool:
+    items = _read_json(WORK_LOGS_FILE)
+    remaining = [w for w in items if w["id"] != log_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(WORK_LOGS_FILE, remaining)
     return True
 
 
