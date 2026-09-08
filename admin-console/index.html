@@ -554,6 +554,20 @@
 
   .orders-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
   @media (max-width: 900px) { .orders-layout { grid-template-columns: 1fr; } }
+  .orders-side { display: flex; flex-direction: column; gap: 16px; }
+
+  .cal-meta { font-size: 11px; color: var(--ink-faint); margin-bottom: 10px; }
+  .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); font-size: 11px; color: var(--ink-faint); text-align: center; margin-bottom: 4px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-cell {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 6px; background: var(--card-2); gap: 2px;
+  }
+  .cal-cell.empty { background: transparent; }
+  .cal-cell.today { background: var(--accent-soft); border: 1px solid var(--accent); }
+  .cal-day { font-size: 11px; color: var(--ink-soft); }
+  .cal-cell.today .cal-day { color: var(--accent); font-weight: 700; }
+  .cal-count { font-size: 10px; color: var(--accent); font-weight: 700; line-height: 1; }
 
   .status-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-soft); margin: 4px 0 14px; }
   .status-legend span { display: flex; align-items: center; }
@@ -3629,10 +3643,20 @@ function orderFlags(o) {
   return flags;
 }
 
-function mockGrowthPct(seed) {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return ((h % 400) / 10) - 10; // -10.0 ~ 29.9，纯示例数字，没有历史快照数据支撑
+function monthKey(dateStr, offsetMonths = 0) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${d.getMonth() - offsetMonths}`;
+}
+
+function computeMonthlyGrowth(orderList) {
+  const now = new Date();
+  const thisKey = `${now.getFullYear()}-${now.getMonth()}`;
+  const lastRef = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastKey = `${lastRef.getFullYear()}-${lastRef.getMonth()}`;
+  const thisMonth = orderList.filter((o) => monthKey(o.created_at) === thisKey).length;
+  const lastMonth = orderList.filter((o) => monthKey(o.created_at) === lastKey).length;
+  const pct = lastMonth === 0 ? (thisMonth === 0 ? 0 : 100) : ((thisMonth - lastMonth) / lastMonth) * 100;
+  return pct;
 }
 
 function stageClass(key) {
@@ -3676,7 +3700,7 @@ async function renderOrderTrackingPage() {
   salesFilter = 'all';
   el.innerHTML = `
     <div class="page-title">订单信息</div>
-    <div class="page-sub">销售跟单猿直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；点下面的统计卡片按归属销售跟单猿切换查看，别的销售跟单猿名下的订单默认只显示姓名/创建时间/阶段，输入对应销售跟单猿的管理口令才能看详情</div>
+    <div class="page-sub">销售录入客户信息，按1-8阶段跟踪</div>
     <div class="sales-stat-row" id="salesTabs"></div>
     <div class="orders-layout">
       <div class="panel">
@@ -3698,12 +3722,16 @@ async function renderOrderTrackingPage() {
         </div>
         <div id="orderListEl"></div>
       </div>
-      <div class="panel" id="orderInsightsPanel"></div>
+      <div class="orders-side">
+        <div class="panel" id="orderCalendarPanel"></div>
+        <div class="panel" id="orderInsightsPanel"></div>
+      </div>
     </div>
     <button type="button" class="fab-btn" onclick="openAddOrderModal()" title="新建订单">+</button>
   `;
   renderSalesTabs();
   renderOrderListEl();
+  renderOrderCalendarPanel();
   renderOrderInsightsPanel();
 }
 
@@ -3783,25 +3811,25 @@ function renderSalesTabs() {
   const wrap = document.getElementById('salesTabs');
   if (!wrap) return;
   const cards = [
-    { key: 'all', label: '全部客户数', avatarHtml: `<div class="avatar badge-blue">${DEFAULT_AVATAR_SVG}</div>`, count: orders.length },
+    { key: 'all', label: '全部客户数', avatarHtml: `<div class="avatar badge-blue">${DEFAULT_AVATAR_SVG}</div>`, orderList: orders },
     ...getSalesTabNames().map((name) => {
       const u = salesUsers.find((x) => x.username === name);
       const avatarHtml = u && u.avatar_url
         ? `<img class="avatar avatar-img" src="${staticUrl(u.avatar_url)}" alt="">`
         : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`;
-      return { key: name, label: `${name}的客户数`, avatarHtml, count: orders.filter((o) => o.assigned_to === name).length };
+      return { key: name, label: `${name}的客户数`, avatarHtml, orderList: orders.filter((o) => o.assigned_to === name) };
     }),
   ];
   wrap.innerHTML = cards.map((c) => {
-    const pct = mockGrowthPct(c.key);
+    const pct = computeMonthlyGrowth(c.orderList);
     const up = pct >= 0;
     return `
       <div class="sales-stat-card ${salesFilter === c.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(c.key)}')">
         ${c.avatarHtml}
         <div class="sales-stat-body">
           <div class="sales-stat-label">${escapeHtml(c.label)}</div>
-          <div class="sales-stat-value">${c.count}</div>
-          <div class="sales-stat-growth ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct).toFixed(1)}%（示例）</div>
+          <div class="sales-stat-value">${c.orderList.length}</div>
+          <div class="sales-stat-growth ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct).toFixed(1)}% 较上月</div>
         </div>
       </div>
     `;
@@ -3812,6 +3840,44 @@ function setSalesFilter(key) {
   salesFilter = key;
   renderSalesTabs();
   renderOrderListEl();
+}
+
+function renderOrderCalendarPanel() {
+  const panel = document.getElementById('orderCalendarPanel');
+  if (!panel) return;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const startWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayDate = now.getDate();
+
+  const countByDay = {};
+  orders.forEach((o) => {
+    const d = new Date(o.created_at);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      countByDay[d.getDate()] = (countByDay[d.getDate()] || 0) + 1;
+    }
+  });
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push('<div class="cal-cell empty"></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const count = countByDay[day] || 0;
+    cells.push(`
+      <div class="cal-cell ${day === todayDate ? 'today' : ''}">
+        <span class="cal-day">${day}</span>
+        ${count ? `<span class="cal-count">${count}</span>` : ''}
+      </div>
+    `);
+  }
+
+  panel.innerHTML = `
+    <h2>订单日历</h2>
+    <div class="cal-meta">${year}年${month + 1}月 · 数字为当天新增订单数</div>
+    <div class="cal-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+    <div class="cal-grid">${cells.join('')}</div>
+  `;
 }
 
 function renderOrderInsightsPanel() {
@@ -4119,6 +4185,7 @@ async function submitOrder() {
     orders = await api('/orders');
     renderSalesTabs();
     renderOrderListEl();
+    renderOrderCalendarPanel();
     renderOrderInsightsPanel();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
@@ -4133,6 +4200,7 @@ async function deleteOrder(id) {
     orders = await api('/orders');
     renderSalesTabs();
     renderOrderListEl();
+    renderOrderCalendarPanel();
     renderOrderInsightsPanel();
   } catch (e) {
     alert('删除失败：' + e.message);
