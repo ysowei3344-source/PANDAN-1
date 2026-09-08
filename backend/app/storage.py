@@ -11,6 +11,7 @@ from .schemas import (
     Member,
     Order,
     Product,
+    ProductCategory,
     Settings,
     Tutorial,
 )
@@ -27,6 +28,7 @@ IDENTITIES_FILE = DATA_DIR / "identities.json"
 ACCOUNTS_FILE = DATA_DIR / "accounts.json"
 TUTORIALS_FILE = DATA_DIR / "tutorials.json"
 PRODUCTS_FILE = DATA_DIR / "products.json"
+PRODUCT_CATEGORIES_FILE = DATA_DIR / "product_categories.json"
 CUSTOMERS_FILE = DATA_DIR / "customers.json"
 ORDERS_FILE = DATA_DIR / "orders.json"
 AFTERSALES_FILE = DATA_DIR / "aftersales.json"
@@ -423,6 +425,42 @@ def delete_product(product_id: str) -> bool:
     if len(remaining) == len(items):
         return False
     _write_json(PRODUCTS_FILE, remaining)
+    return True
+
+
+def list_product_categories() -> list[ProductCategory]:
+    items = [ProductCategory(**c) for c in _read_json(PRODUCT_CATEGORIES_FILE)]
+    return sorted(items, key=lambda c: (c.sort_order, c.created_at))
+
+
+def get_product_category(category_id: str) -> ProductCategory | None:
+    return next((c for c in list_product_categories() if c.id == category_id), None)
+
+
+def create_product_category(data: dict) -> ProductCategory:
+    items = _read_json(PRODUCT_CATEGORIES_FILE)
+    category = {**data, "id": f"cat-{uuid.uuid4().hex[:8]}", "created_at": datetime.now(timezone.utc).isoformat()}
+    items.append(category)
+    _write_json(PRODUCT_CATEGORIES_FILE, items)
+    return ProductCategory(**category)
+
+
+def update_product_category(category_id: str, data: dict) -> ProductCategory | None:
+    items = _read_json(PRODUCT_CATEGORIES_FILE)
+    for i, c in enumerate(items):
+        if c["id"] == category_id:
+            items[i] = {**c, **data, "id": category_id}
+            _write_json(PRODUCT_CATEGORIES_FILE, items)
+            return ProductCategory(**items[i])
+    return None
+
+
+def delete_product_category(category_id: str) -> bool:
+    items = _read_json(PRODUCT_CATEGORIES_FILE)
+    remaining = [c for c in items if c["id"] != category_id]
+    if len(remaining) == len(items):
+        return False
+    _write_json(PRODUCT_CATEGORIES_FILE, remaining)
     return True
 
 

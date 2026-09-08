@@ -2,10 +2,51 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from .. import storage
 from ..auth import MASTER_PASSCODE, get_current_user, verify_password
-from ..schemas import Order, OrderInput, Product, ProductInput, VerifySalesPasscodeInput
+from ..schemas import (
+    Order,
+    OrderInput,
+    Product,
+    ProductCategory,
+    ProductCategoryInput,
+    ProductInput,
+    VerifySalesPasscodeInput,
+)
 
 products_router = APIRouter(prefix="/api/admin/products", tags=["order-tracking"])
 orders_router = APIRouter(prefix="/api/admin/orders", tags=["order-tracking"])
+
+
+# ---- 商品分类 ----
+# 定义顺序在 /products 路由之前注册，避免 "/categories" 被 "/{product_id}" 吞掉。
+
+@products_router.get("/categories", response_model=list[ProductCategory], dependencies=[Depends(get_current_user)])
+def list_product_categories() -> list[ProductCategory]:
+    return storage.list_product_categories()
+
+
+@products_router.post("/categories", response_model=ProductCategory)
+def create_product_category(payload: ProductCategoryInput, current: dict = Depends(get_current_user)) -> ProductCategory:
+    category = storage.create_product_category(payload.model_dump())
+    storage.log_activity(current["id"], current["username"], "新增商品分类", category.name)
+    return category
+
+
+@products_router.put("/categories/{category_id}", response_model=ProductCategory)
+def update_product_category(category_id: str, payload: ProductCategoryInput, current: dict = Depends(get_current_user)) -> ProductCategory:
+    category = storage.update_product_category(category_id, payload.model_dump())
+    if category is None:
+        raise HTTPException(status_code=404, detail="category not found")
+    storage.log_activity(current["id"], current["username"], "编辑商品分类", category.name)
+    return category
+
+
+@products_router.delete("/categories/{category_id}")
+def delete_product_category(category_id: str, current: dict = Depends(get_current_user)) -> dict:
+    category = storage.get_product_category(category_id)
+    if category is None or not storage.delete_product_category(category_id):
+        raise HTTPException(status_code=404, detail="category not found")
+    storage.log_activity(current["id"], current["username"], "删除商品分类", category.name)
+    return {"ok": True}
 
 
 # ---- 商品信息 ----

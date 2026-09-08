@@ -292,10 +292,26 @@ class DashboardSummary(BaseModel):
 # 不再有"先建客户、成交了才建订单"的两段式流程。没有真实订单系统对接前，
 # 这一整套都是人工在后台/销售端手动维护的记录，不是自动生成的。
 
+class ProductCategory(BaseModel):
+    id: str
+    name: str
+    icon_url: str | None = None
+    sort_order: int = 0
+    created_at: str
+
+
+class ProductCategoryInput(BaseModel):
+    name: str
+    icon_url: str | None = None
+    sort_order: int = 0
+
+
 class Product(BaseModel):
     id: str
     name: str  # 商品名称
     internal_code: str = ""  # 内部编码
+    category_id: str | None = None  # 商品分类
+    price: float = 0  # 商品价格
     chassis_info: str = ""  # 底盘信息
     chassis_number: str = ""  # 底盘编号
     main_image_urls: list[str] = []  # 商品主图，支持多张，列表页轮播展示
@@ -308,6 +324,8 @@ class Product(BaseModel):
 class ProductInput(BaseModel):
     name: str
     internal_code: str = ""
+    category_id: str | None = None
+    price: float = 0
     chassis_info: str = ""
     chassis_number: str = ""
     main_image_urls: list[str] = []
