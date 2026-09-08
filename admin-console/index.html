@@ -380,11 +380,12 @@
     width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 700; flex-shrink: 0;
   }
-  .avatar-img { object-fit: cover; background: var(--card-2); }
+  .row-item img.avatar-img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: var(--card-2); }
   .badge-dark { background: #05070c; color: #fff; }
   .badge-green { background: var(--success-soft); color: var(--success); }
   .badge-pink { background: var(--danger-soft); color: var(--danger); }
   .badge-blue { background: var(--accent-soft); color: var(--accent); }
+  .badge-gray { background: var(--card-2); color: var(--ink-soft); }
 
   .mini-tag {
     display: inline-flex; align-items: center; justify-content: center;
@@ -2445,7 +2446,7 @@ function renderUserList() {
       `;
     const avatarHtml = u.avatar_url
       ? `<img class="avatar avatar-img" src="${staticUrl(u.avatar_url)}" alt="">`
-      : `<div class="avatar badge-blue">${DEFAULT_AVATAR_SVG}</div>`;
+      : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`;
     return `
       <div class="row-item">
         ${avatarHtml}
@@ -3132,7 +3133,7 @@ function renderProductList() {
 }
 
 const COPY_ICON_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
-const DEFAULT_AVATAR_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"></path></svg>';
+const DEFAULT_AVATAR_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"></path><circle cx="12" cy="13.5" r="3.5"></circle></svg>';
 const CHECK_ICON_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
 function copyChassisNumber(evt, text) {
