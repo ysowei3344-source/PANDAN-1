@@ -185,6 +185,11 @@
   .header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .header-right { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--ink-soft); }
   .role-badge { font-size: 11px; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .stage-pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; margin-left: 6px; display: inline-block; }
+  .stage-early { background: var(--accent-soft); color: var(--accent); }
+  .stage-mid { background: rgba(230, 160, 40, 0.18); color: #d99a28; }
+  .stage-late { background: var(--success-soft); color: var(--success); }
+  .stage-done { background: #05070c; color: #fff; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 6px; }
   .content-body { padding: 24px 28px 80px; max-width: 1200px; }
 
@@ -639,9 +644,7 @@ const NAV_WORK = [
     key: 'orders', label: '订单跟踪',
     children: [
       { key: 'orders-products', label: '商品信息' },
-      { key: 'orders-customers', label: '客户信息' },
       { key: 'orders-orders', label: '订单信息' },
-      { key: 'orders-aftersales', label: '售后运维' },
     ],
   },
 ];
@@ -841,15 +844,9 @@ async function showSection(key) {
   } else if (key === 'orders-products') {
     document.getElementById('section-orders').hidden = false;
     await renderProductsPage();
-  } else if (key === 'orders-customers') {
-    document.getElementById('section-orders').hidden = false;
-    await renderCustomersPage();
   } else if (key === 'orders-orders') {
     document.getElementById('section-orders').hidden = false;
-    await renderOrdersPage();
-  } else if (key === 'orders-aftersales') {
-    document.getElementById('section-orders').hidden = false;
-    await renderAfterSalesPage();
+    await renderOrderTrackingPage();
   } else {
     document.getElementById('section-stub').hidden = false;
     const item = findNavItem(key);
@@ -2599,9 +2596,7 @@ const CUSTOMER_STAGES = [
 function stageLabel(key) { return (CUSTOMER_STAGES.find((s) => s.key === key) || {}).label || key; }
 
 let products = [];
-let customers = [];
 let orders = [];
-let aftersalesList = [];
 
 /* ---- 商品信息 ---- */
 
@@ -3170,57 +3165,19 @@ async function deleteProduct(id) {
   }
 }
 
-/* ---- 客户信息 ---- */
+/* ---- 订单信息（客户信息 + 商品匹配，一条记录随 1-8 阶段调整） ---- */
 
-let editingCustomerId = null;
+let editingOrderId = null;
+let salesUsers = [];
+let orderSearchQuery = '';
+let orderStageFilter = 'all';
 
-async function renderCustomersPage() {
-  const el = document.getElementById('section-orders');
-  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
-  try { customers = await api('/customers'); } catch (e) { customers = []; }
-  try { products = await api('/products'); } catch (e) { products = products || []; }
-  editingCustomerId = null;
-  el.innerHTML = `
-    <div class="page-title">客户信息</div>
-    <div class="page-sub">客户阶段可以随时手动调整；调到"成交客户"后去「订单信息」匹配商品，调到"交付客户"后去「售后运维」匹配</div>
-    <div class="users-columns">
-      <div class="panel">
-        <h2>客户列表</h2>
-        <div id="customerList"></div>
-      </div>
-      <div class="panel sticky-edit-panel">
-        <h2 id="customerFormTitle">新增客户</h2>
-        <div class="form-grid">
-          <div><label>客户姓名</label><input type="text" id="cName"></div>
-          <div><label>联系电话</label><input type="text" id="cPhone"></div>
-          <div><label>来源渠道</label><input type="text" id="cSource" placeholder="例如：抖音私信"></div>
-          <div><label>经济状况</label><input type="text" id="cFinancial" placeholder="例如：预算30万内，全款"></div>
-          <div>
-            <label>客户阶段</label>
-            <select id="cStage">
-              ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
-            </select>
-          </div>
-          <div>
-            <label>意向车型</label>
-            <select id="cIntendedProduct">
-              <option value="">未选择</option>
-              ${products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
-            </select>
-          </div>
-          <div><label>跟进销售</label><input type="text" id="cAssigned"></div>
-          <div><label>AI微信</label><input type="text" id="cAiWechat"></div>
-          <div class="full"><label>备注</label><textarea id="cNotes" rows="3"></textarea></div>
-        </div>
-        <div class="actions">
-          <button onclick="submitCustomer()">保存</button>
-          <button class="ghost" onclick="resetCustomerForm()">清空</button>
-        </div>
-        <p class="msg" id="customerFormMsg"></p>
-      </div>
-    </div>
-  `;
-  renderCustomerList();
+function stageClass(key) {
+  const idx = CUSTOMER_STAGES.findIndex((s) => s.key === key);
+  if (idx <= 2) return 'stage-early';
+  if (idx <= 5) return 'stage-mid';
+  if (idx === 6) return 'stage-late';
+  return 'stage-done';
 }
 
 function productNameById(id) {
@@ -3228,311 +3185,256 @@ function productNameById(id) {
   return p ? p.name : '';
 }
 
-function renderCustomerList() {
-  const list = document.getElementById('customerList');
-  if (!customers.length) { list.innerHTML = '<div class="empty-hint">暂无客户</div>'; return; }
-  list.innerHTML = customers.map((c) => `
+function orderToPayload(o) {
+  return {
+    name: o.name, phone: o.phone, source: o.source, financial_status: o.financial_status,
+    product_id: o.product_id, stage: o.stage, assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
+    notes: o.notes, amount: o.amount, signed_at: o.signed_at, delivered_at: o.delivered_at,
+    aftersales_status: o.aftersales_status, aftersales_notes: o.aftersales_notes,
+  };
+}
+
+async function renderOrderTrackingPage() {
+  const el = document.getElementById('section-orders');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  try {
+    [orders, products, salesUsers] = await Promise.all([api('/orders'), api('/products'), api('/users/sales-list')]);
+  } catch (e) {
+    orders = []; products = []; salesUsers = [];
+  }
+  editingOrderId = null;
+  orderSearchQuery = '';
+  orderStageFilter = 'all';
+  el.innerHTML = `
+    <div class="page-title">订单信息</div>
+    <div class="page-sub">销售直接录入客户信息并匹配商品，1-8 阶段随时在这条记录上调整；每条订单都必须归属一名销售</div>
+    <div class="users-columns">
+      <div class="panel">
+        <div class="panel-header-row">
+          <h2>订单列表</h2>
+          <div class="product-list-tools">
+            <input type="text" id="orderSearch" class="product-search-input" placeholder="搜索姓名/电话/销售" oninput="onOrderSearchInput()">
+            <select id="orderStageFilterSel" onchange="onOrderStageFilterChange()">
+              <option value="all">全部阶段</option>
+              ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div id="orderListEl"></div>
+      </div>
+      <div class="panel sticky-edit-panel">
+        <h2 id="orderFormTitle">新建订单</h2>
+        <div class="form-grid">
+          <div><label>客户姓名</label><input type="text" id="oName"></div>
+          <div><label>联系电话</label><input type="text" id="oPhone"></div>
+          <div><label>来源渠道</label><input type="text" id="oSource" placeholder="例如：抖音私信"></div>
+          <div><label>经济状况</label><input type="text" id="oFinancial" placeholder="例如：预算30万内，全款"></div>
+          <div>
+            <label>匹配车型</label>
+            <select id="oProduct">
+              <option value="">未选择</option>
+              ${products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label>客户阶段</label>
+            <select id="oStage" onchange="toggleOrderStageFields()">
+              ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="full">
+            <label>归属销售</label>
+            <select id="oAssigned">
+              <option value="">-- 选择销售 --</option>
+              ${salesUsers.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join('')}
+            </select>
+            ${salesUsers.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售账号，先去「内部账号管理」新建一个</div>' : ''}
+          </div>
+          <div class="full"><label>AI微信</label><input type="text" id="oAiWechat"></div>
+          <div id="oAmountField"><label>成交金额</label><input type="number" id="oAmount" value="0"></div>
+          <div id="oSignedAtField"><label>签约日期</label><input type="date" id="oSignedAt"></div>
+          <div id="oDeliveredAtField"><label>交付日期</label><input type="date" id="oDeliveredAt"></div>
+          <div id="oAftersalesStatusField">
+            <label>售后状态</label>
+            <select id="oAftersalesStatus">
+              <option value="质保中">质保中</option>
+              <option value="质保结束">质保结束</option>
+              <option value="维修中">维修中</option>
+            </select>
+          </div>
+          <div class="full" id="oAftersalesNotesField"><label>售后备注</label><textarea id="oAftersalesNotes" rows="2"></textarea></div>
+          <div class="full"><label>备注</label><textarea id="oNotes" rows="3"></textarea></div>
+        </div>
+        <div class="actions">
+          <button onclick="submitOrder()">保存</button>
+          <button class="ghost" onclick="resetOrderForm()">清空</button>
+        </div>
+        <p class="msg" id="orderFormMsg"></p>
+      </div>
+    </div>
+  `;
+  toggleOrderStageFields();
+  renderOrderListEl();
+}
+
+function toggleOrderStageFields() {
+  const stage = document.getElementById('oStage').value;
+  const idx = CUSTOMER_STAGES.findIndex((s) => s.key === stage);
+  const showDeal = idx >= 6;
+  const showDeliver = idx >= 7;
+  ['oAmountField', 'oSignedAtField'].forEach((id) => { document.getElementById(id).style.display = showDeal ? '' : 'none'; });
+  ['oDeliveredAtField', 'oAftersalesStatusField', 'oAftersalesNotesField'].forEach((id) => { document.getElementById(id).style.display = showDeliver ? '' : 'none'; });
+}
+
+function getFilteredSortedOrders() {
+  let list = orders.slice();
+  if (orderStageFilter !== 'all') list = list.filter((o) => o.stage === orderStageFilter);
+  if (orderSearchQuery) {
+    const q = orderSearchQuery;
+    list = list.filter((o) => [o.name, o.phone, o.assigned_to].join(' ').toLowerCase().includes(q));
+  }
+  list.sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
+  return list;
+}
+
+function onOrderSearchInput() {
+  orderSearchQuery = document.getElementById('orderSearch').value.trim().toLowerCase();
+  renderOrderListEl();
+}
+
+function onOrderStageFilterChange() {
+  orderStageFilter = document.getElementById('orderStageFilterSel').value;
+  renderOrderListEl();
+}
+
+function renderOrderListEl() {
+  const list = document.getElementById('orderListEl');
+  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，右侧新建一个</div>'; return; }
+  const filtered = getFilteredSortedOrders();
+  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
+  list.innerHTML = filtered.map((o) => `
     <div class="row-item">
       <div class="row-body">
-        <div class="row-title">${escapeHtml(c.name)}${c.phone ? ` <span class="row-sub">${escapeHtml(c.phone)}</span>` : ''}</div>
-        <div class="row-sub">${escapeHtml(c.source || '')}${c.assigned_to ? ' · 跟进销售 ' + escapeHtml(c.assigned_to) : ''}${c.ai_wechat ? ' · AI微信 ' + escapeHtml(c.ai_wechat) : ''}</div>
-        ${c.financial_status || c.intended_product_id ? `<div class="row-sub">${c.financial_status ? '经济状况：' + escapeHtml(c.financial_status) : ''}${c.intended_product_id ? (c.financial_status ? ' · ' : '') + '意向车型：' + escapeHtml(productNameById(c.intended_product_id)) : ''}</div>` : ''}
-        ${c.notes ? `<div class="row-notes-text" title="${escapeHtml(c.notes)}"><span class="row-label-bold">备注：</span>${escapeHtml(c.notes)}</div>` : ''}
+        <div class="row-title">
+          ${escapeHtml(o.name)}${o.phone ? ` <span class="row-sub">${escapeHtml(o.phone)}</span>` : ''}
+          <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+        </div>
+        <div class="row-sub">归属销售：${escapeHtml(o.assigned_to)}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+        ${o.financial_status || o.ai_wechat ? `<div class="row-sub">${o.financial_status ? '经济状况：' + escapeHtml(o.financial_status) : ''}${o.ai_wechat ? (o.financial_status ? ' · ' : '') + 'AI微信：' + escapeHtml(o.ai_wechat) : ''}</div>` : ''}
+        ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="row-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
+        ${o.stage === 'delivered' ? `<div class="row-sub">交付于 ${String(o.delivered_at || '').slice(0, 10)}${o.aftersales_status ? ' · <span class="role-badge">' + escapeHtml(o.aftersales_status) + '</span>' : ''}</div>` : ''}
+        ${o.notes ? `<div class="row-notes-text" title="${escapeHtml(o.notes)}"><span class="row-label-bold">备注：</span>${escapeHtml(o.notes)}</div>` : ''}
       </div>
-      <select class="bind-select" onchange="changeCustomerStage('${c.id}', this.value)">
-        ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === c.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
+      <select class="bind-select" onchange="changeOrderStage('${o.id}', this.value)">
+        ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === o.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
       </select>
       <div class="row-btns">
-        <button class="ghost" onclick="editCustomer('${c.id}')">编辑</button>
-        <button class="danger" onclick="deleteCustomer('${c.id}')">删除</button>
+        <button class="ghost" onclick="editOrder('${o.id}')">编辑</button>
+        <button class="danger" onclick="deleteOrder('${o.id}')">删除</button>
       </div>
     </div>
   `).join('');
 }
 
-async function changeCustomerStage(id, newStage) {
-  const c = customers.find((x) => x.id === id);
-  if (!c) return;
+async function changeOrderStage(id, newStage) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
   try {
-    await api(`/customers/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: c.name, phone: c.phone, source: c.source, financial_status: c.financial_status,
-        stage: newStage, intended_product_id: c.intended_product_id, assigned_to: c.assigned_to,
-        ai_wechat: c.ai_wechat, notes: c.notes,
-      }),
+    await api(`/orders/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...orderToPayload(o), stage: newStage }),
     });
-    customers = await api('/customers');
-    renderCustomerList();
+    orders = await api('/orders');
+    renderOrderListEl();
   } catch (e) {
     alert('更新失败：' + e.message);
-    renderCustomerList();
+    renderOrderListEl();
   }
 }
 
-function editCustomer(id) {
-  const c = customers.find((x) => x.id === id);
-  if (!c) return;
-  editingCustomerId = id;
-  document.getElementById('customerFormTitle').textContent = '编辑客户';
-  document.getElementById('cName').value = c.name;
-  document.getElementById('cPhone').value = c.phone;
-  document.getElementById('cSource').value = c.source;
-  document.getElementById('cFinancial').value = c.financial_status || '';
-  document.getElementById('cStage').value = c.stage;
-  document.getElementById('cIntendedProduct').value = c.intended_product_id || '';
-  document.getElementById('cAssigned').value = c.assigned_to;
-  document.getElementById('cAiWechat').value = c.ai_wechat || '';
-  document.getElementById('cNotes').value = c.notes;
+function editOrder(id) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
+  editingOrderId = id;
+  document.getElementById('orderFormTitle').textContent = '编辑订单';
+  document.getElementById('oName').value = o.name;
+  document.getElementById('oPhone').value = o.phone;
+  document.getElementById('oSource').value = o.source;
+  document.getElementById('oFinancial').value = o.financial_status || '';
+  document.getElementById('oProduct').value = o.product_id || '';
+  document.getElementById('oStage').value = o.stage;
+  document.getElementById('oAssigned').value = o.assigned_to;
+  document.getElementById('oAiWechat').value = o.ai_wechat || '';
+  document.getElementById('oAmount').value = o.amount || 0;
+  document.getElementById('oSignedAt').value = o.signed_at ? String(o.signed_at).slice(0, 10) : '';
+  document.getElementById('oDeliveredAt').value = o.delivered_at ? String(o.delivered_at).slice(0, 10) : '';
+  document.getElementById('oAftersalesStatus').value = o.aftersales_status || '质保中';
+  document.getElementById('oAftersalesNotes').value = o.aftersales_notes || '';
+  document.getElementById('oNotes').value = o.notes;
+  toggleOrderStageFields();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function resetCustomerForm() {
-  editingCustomerId = null;
-  document.getElementById('customerFormTitle').textContent = '新增客户';
-  ['cName', 'cPhone', 'cSource', 'cFinancial', 'cAssigned', 'cAiWechat', 'cNotes'].forEach((id) => { document.getElementById(id).value = ''; });
-  document.getElementById('cStage').value = 'initial_chat';
-  document.getElementById('cIntendedProduct').value = '';
-  document.getElementById('customerFormMsg').textContent = '';
+function resetOrderForm() {
+  editingOrderId = null;
+  document.getElementById('orderFormTitle').textContent = '新建订单';
+  ['oName', 'oPhone', 'oSource', 'oFinancial', 'oAiWechat', 'oAmount', 'oSignedAt', 'oDeliveredAt', 'oAftersalesNotes', 'oNotes'].forEach((id) => { document.getElementById(id).value = ''; });
+  document.getElementById('oProduct').value = '';
+  document.getElementById('oStage').value = 'initial_chat';
+  document.getElementById('oAssigned').value = '';
+  document.getElementById('oAftersalesStatus').value = '质保中';
+  document.getElementById('oAmount').value = 0;
+  toggleOrderStageFields();
+  document.getElementById('orderFormMsg').textContent = '';
 }
 
-async function submitCustomer() {
-  const msg = document.getElementById('customerFormMsg');
+async function submitOrder() {
+  const msg = document.getElementById('orderFormMsg');
   const payload = {
-    name: document.getElementById('cName').value.trim(),
-    phone: document.getElementById('cPhone').value.trim(),
-    source: document.getElementById('cSource').value.trim(),
-    financial_status: document.getElementById('cFinancial').value.trim(),
-    stage: document.getElementById('cStage').value,
-    intended_product_id: document.getElementById('cIntendedProduct').value || null,
-    assigned_to: document.getElementById('cAssigned').value.trim(),
-    ai_wechat: document.getElementById('cAiWechat').value.trim(),
-    notes: document.getElementById('cNotes').value.trim(),
+    name: document.getElementById('oName').value.trim(),
+    phone: document.getElementById('oPhone').value.trim(),
+    source: document.getElementById('oSource').value.trim(),
+    financial_status: document.getElementById('oFinancial').value.trim(),
+    product_id: document.getElementById('oProduct').value || null,
+    stage: document.getElementById('oStage').value,
+    assigned_to: document.getElementById('oAssigned').value,
+    ai_wechat: document.getElementById('oAiWechat').value.trim(),
+    notes: document.getElementById('oNotes').value.trim(),
+    amount: Number(document.getElementById('oAmount').value) || 0,
+    signed_at: document.getElementById('oSignedAt').value || null,
+    delivered_at: document.getElementById('oDeliveredAt').value || null,
+    aftersales_status: document.getElementById('oAftersalesStatus').value,
+    aftersales_notes: document.getElementById('oAftersalesNotes').value.trim(),
   };
   if (!payload.name) { msg.textContent = '请填写客户姓名'; msg.className = 'msg error'; return; }
-  try {
-    if (editingCustomerId) {
-      await api(`/customers/${editingCustomerId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    } else {
-      await api('/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    }
-    msg.textContent = '已保存';
-    msg.className = 'msg ok';
-    resetCustomerForm();
-    customers = await api('/customers');
-    renderCustomerList();
-  } catch (e) {
-    msg.textContent = '保存失败：' + e.message;
-    msg.className = 'msg error';
-  }
-}
-
-async function deleteCustomer(id) {
-  if (!confirm('确定删除这个客户吗？')) return;
-  try {
-    await api(`/customers/${id}`, { method: 'DELETE' });
-    customers = await api('/customers');
-    renderCustomerList();
-  } catch (e) {
-    alert('删除失败：' + e.message);
-  }
-}
-
-/* ---- 订单信息：成交客户 × 商品 ---- */
-
-async function renderOrdersPage() {
-  const el = document.getElementById('section-orders');
-  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
-  try {
-    [customers, products, orders] = await Promise.all([api('/customers'), api('/products'), api('/orders')]);
-  } catch (e) {
-    customers = []; products = []; orders = [];
-  }
-  el.innerHTML = `
-    <div class="page-title">订单信息</div>
-    <div class="page-sub">成交客户（含已交付）与商品的匹配结果，没匹配的可以在这里手动创建订单</div>
-    <div class="panel"><div id="orderList"></div></div>
-  `;
-  renderOrderList();
-}
-
-function renderOrderList() {
-  const eligible = customers.filter((c) => c.stage === 'deal_closed' || c.stage === 'delivered');
-  const list = document.getElementById('orderList');
-  if (!eligible.length) { list.innerHTML = '<div class="empty-hint">还没有成交客户</div>'; return; }
-  list.innerHTML = eligible.map((c) => {
-    const order = orders.find((o) => o.customer_id === c.id);
-    const product = order ? products.find((p) => p.id === order.product_id) : null;
-    return `
-      <div class="row-item">
-        <div class="row-body">
-          <div class="row-title">${escapeHtml(c.name)} <span class="role-badge">${stageLabel(c.stage)}</span></div>
-          ${order
-            ? `<div class="row-sub">${product ? escapeHtml(product.name) : '未知商品'} · ¥${fmtNum(order.amount)} · 签约于 ${String(order.signed_at).slice(0, 10)}</div>${order.notes ? `<div class="row-sub">${escapeHtml(order.notes)}</div>` : ''}`
-            : '<div class="row-sub">还没有匹配商品</div>'}
-        </div>
-        <div class="row-btns">
-          <button class="ghost" onclick="showOrderFormModal('${c.id}', ${order ? `'${order.id}'` : 'null'})">${order ? '编辑订单' : '匹配商品'}</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function showOrderFormModal(customerId, existingOrderId) {
-  if (!products.length) { alert('还没有商品，请先去「商品信息」添加'); return; }
-  const order = existingOrderId ? orders.find((o) => o.id === existingOrderId) : null;
-  const modal = document.getElementById('passcodeModal');
-  modal.innerHTML = `
-    <div class="modal-card" onclick="event.stopPropagation()">
-      <h2>${order ? '编辑订单' : '匹配商品'}</h2>
-      <div class="form-grid">
-        <div class="full">
-          <label>商品</label>
-          <select id="ordProduct">
-            ${products.map((p) => `<option value="${p.id}" ${order && order.product_id === p.id ? 'selected' : ''}>${escapeHtml(p.name)}${p.internal_code ? `（${escapeHtml(p.internal_code)}）` : ''}</option>`).join('')}
-          </select>
-        </div>
-        <div><label>成交金额</label><input type="number" id="ordAmount" value="${order ? order.amount : 0}"></div>
-        <div><label>签约日期</label><input type="date" id="ordDate" value="${order ? String(order.signed_at).slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
-        <div class="full"><label>备注</label><input type="text" id="ordNotes" value="${order ? escapeHtml(order.notes) : ''}"></div>
-      </div>
-      <div class="actions">
-        <button onclick="submitOrderForm('${customerId}', ${order ? `'${order.id}'` : 'null'})">保存</button>
-        <button class="ghost" onclick="closePasscodeModal()">取消</button>
-      </div>
-      <p class="msg" id="ordMsg"></p>
-    </div>
-  `;
-  modal.hidden = false;
-}
-
-async function submitOrderForm(customerId, existingOrderId) {
-  const msg = document.getElementById('ordMsg');
-  const payload = {
-    customer_id: customerId,
-    product_id: document.getElementById('ordProduct').value,
-    amount: Number(document.getElementById('ordAmount').value) || 0,
-    signed_at: document.getElementById('ordDate').value,
-    notes: document.getElementById('ordNotes').value.trim(),
-  };
-  msg.className = 'msg';
+  if (!payload.assigned_to) { msg.textContent = '请选择归属销售'; msg.className = 'msg error'; return; }
   msg.textContent = '保存中...';
+  msg.className = 'msg';
   try {
-    if (existingOrderId) {
-      await api(`/orders/${existingOrderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (editingOrderId) {
+      await api(`/orders/${editingOrderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } else {
       await api('/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     }
-    closePasscodeModal();
-    await renderOrdersPage();
+    msg.textContent = '已保存';
+    msg.className = 'msg ok';
+    resetOrderForm();
+    orders = await api('/orders');
+    renderOrderListEl();
   } catch (e) {
     msg.textContent = '保存失败：' + e.message;
     msg.className = 'msg error';
   }
 }
 
-/* ---- 售后运维：交付客户 × 商品 ---- */
-
-async function renderAfterSalesPage() {
-  const el = document.getElementById('section-orders');
-  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+async function deleteOrder(id) {
+  if (!confirm('确定删除这条订单吗？')) return;
   try {
-    [customers, products, orders, aftersalesList] = await Promise.all([api('/customers'), api('/products'), api('/orders'), api('/aftersales')]);
+    await api(`/orders/${id}`, { method: 'DELETE' });
+    orders = await api('/orders');
+    renderOrderListEl();
   } catch (e) {
-    customers = []; products = []; orders = []; aftersalesList = [];
-  }
-  el.innerHTML = `
-    <div class="page-title">售后运维</div>
-    <div class="page-sub">已交付客户与商品的匹配结果，记录交付时间和售后状态</div>
-    <div class="panel"><div id="aftersalesListEl"></div></div>
-  `;
-  renderAfterSalesList();
-}
-
-function renderAfterSalesList() {
-  const eligible = customers.filter((c) => c.stage === 'delivered');
-  const list = document.getElementById('aftersalesListEl');
-  if (!eligible.length) { list.innerHTML = '<div class="empty-hint">还没有交付客户</div>'; return; }
-  list.innerHTML = eligible.map((c) => {
-    const record = aftersalesList.find((a) => a.customer_id === c.id);
-    const product = record ? products.find((p) => p.id === record.product_id) : null;
-    return `
-      <div class="row-item">
-        <div class="row-body">
-          <div class="row-title">${escapeHtml(c.name)} <span class="role-badge">${stageLabel(c.stage)}</span></div>
-          ${record
-            ? `<div class="row-sub">${product ? escapeHtml(product.name) : '未知商品'} · 交付于 ${String(record.delivered_at).slice(0, 10)} · <span class="role-badge">${escapeHtml(record.status)}</span></div>${record.notes ? `<div class="row-sub">${escapeHtml(record.notes)}</div>` : ''}`
-            : '<div class="row-sub">还没有售后记录</div>'}
-        </div>
-        <div class="row-btns">
-          <button class="ghost" onclick="showAfterSalesFormModal('${c.id}', ${record ? `'${record.id}'` : 'null'})">${record ? '编辑' : '匹配商品'}</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function showAfterSalesFormModal(customerId, existingId) {
-  if (!products.length) { alert('还没有商品，请先去「商品信息」添加'); return; }
-  const record = existingId ? aftersalesList.find((a) => a.id === existingId) : null;
-  const relatedOrder = orders.find((o) => o.customer_id === customerId);
-  const modal = document.getElementById('passcodeModal');
-  modal.innerHTML = `
-    <div class="modal-card" onclick="event.stopPropagation()">
-      <h2>${record ? '编辑售后记录' : '匹配商品'}</h2>
-      <div class="form-grid">
-        <div class="full">
-          <label>商品</label>
-          <select id="asProduct">
-            ${products.map((p) => `<option value="${p.id}" ${(record ? record.product_id : (relatedOrder ? relatedOrder.product_id : '')) === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div><label>交付日期</label><input type="date" id="asDate" value="${record ? String(record.delivered_at).slice(0, 10) : new Date().toISOString().slice(0, 10)}"></div>
-        <div>
-          <label>售后状态</label>
-          <select id="asStatus">
-            <option value="质保中" ${record && record.status === '质保中' ? 'selected' : ''}>质保中</option>
-            <option value="质保结束" ${record && record.status === '质保结束' ? 'selected' : ''}>质保结束</option>
-            <option value="维修中" ${record && record.status === '维修中' ? 'selected' : ''}>维修中</option>
-          </select>
-        </div>
-        <div class="full"><label>备注</label><input type="text" id="asNotes" value="${record ? escapeHtml(record.notes) : ''}"></div>
-      </div>
-      <div class="actions">
-        <button onclick="submitAfterSalesForm('${customerId}', ${record ? `'${record.id}'` : 'null'}, ${relatedOrder ? `'${relatedOrder.id}'` : 'null'})">保存</button>
-        <button class="ghost" onclick="closePasscodeModal()">取消</button>
-      </div>
-      <p class="msg" id="asMsg"></p>
-    </div>
-  `;
-  modal.hidden = false;
-}
-
-async function submitAfterSalesForm(customerId, existingId, orderId) {
-  const msg = document.getElementById('asMsg');
-  const payload = {
-    customer_id: customerId,
-    product_id: document.getElementById('asProduct').value,
-    order_id: orderId,
-    delivered_at: document.getElementById('asDate').value,
-    status: document.getElementById('asStatus').value,
-    notes: document.getElementById('asNotes').value.trim(),
-  };
-  msg.className = 'msg';
-  msg.textContent = '保存中...';
-  try {
-    if (existingId) {
-      await api(`/aftersales/${existingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    } else {
-      await api('/aftersales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    }
-    closePasscodeModal();
-    await renderAfterSalesPage();
-  } catch (e) {
-    msg.textContent = '保存失败：' + e.message;
-    msg.className = 'msg error';
+    alert('删除失败：' + e.message);
   }
 }
 
