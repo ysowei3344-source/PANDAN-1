@@ -514,6 +514,13 @@
   .sticky-edit-panel { position: sticky; top: 20px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; }
   @media (max-width: 900px) { .sticky-edit-panel { position: static; max-height: none; overflow-y: visible; } }
 
+  .fab-btn {
+    position: fixed; right: 32px; bottom: 32px; width: 52px; height: 52px; border-radius: 50%;
+    background: var(--accent); color: #fff; border: none; font-size: 26px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); z-index: 90;
+  }
+  .fab-btn:hover { filter: brightness(1.08); }
+
   .product-thumb-carousel { position: relative; width: 90px; height: 160px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0; }
   .product-thumb-carousel img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .product-thumb-empty {
@@ -631,6 +638,7 @@
 
 <div class="modal-overlay" id="passcodeModal" hidden onclick="closePasscodeModal()"></div>
 <div class="modal-overlay" id="cropModal" hidden onclick="cancelCrop()"></div>
+<div class="modal-overlay" id="productModal" hidden onclick="closeProductModal()"></div>
 <div class="modal-overlay" id="tutorialModal" hidden onclick="closeTutorialModal()"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
@@ -2720,51 +2728,69 @@ async function renderProductsPage() {
   el.innerHTML = `
     <div class="page-title">商品信息</div>
     <div class="page-sub">房车商品库，客户成交/交付时会从这里选商品匹配</div>
-    <div class="users-columns">
-      <div class="panel">
-        <div class="panel-header-row">
-          <h2>商品列表</h2>
-          <div class="product-list-tools">
-            <input type="text" id="productSearch" class="product-search-input" placeholder="搜索名称/编码/底盘" oninput="onProductSearchInput()">
-            <select id="productSort" onchange="onProductSortChange()">
-              <option value="desc">最新优先</option>
-              <option value="asc">最早优先</option>
-            </select>
-          </div>
+    <div class="panel">
+      <div class="panel-header-row">
+        <h2>商品列表</h2>
+        <div class="product-list-tools">
+          <input type="text" id="productSearch" class="product-search-input" placeholder="搜索名称/编码/底盘" oninput="onProductSearchInput()">
+          <select id="productSort" onchange="onProductSortChange()">
+            <option value="desc">最新优先</option>
+            <option value="asc">最早优先</option>
+          </select>
         </div>
-        <div id="productList"></div>
       </div>
-      <div class="panel sticky-edit-panel">
-        <h2 id="productFormTitle">新增商品</h2>
-        <div class="form-grid">
-          <div><label>商品名称</label><input type="text" id="pName"></div>
-          <div><label>内部编码</label><input type="text" id="pCode"></div>
-          <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
-          <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
-          <div>
-            <label>商品主图（最多5张，保存后生效）</label>
-            <div class="img-thumb-row" id="pMainImageList"></div>
-            <input type="file" id="pMainImageAdd" accept="image/*" multiple hidden onchange="handleAttachmentsSelect(event,'main')">
-          </div>
-          <div>
-            <label>配置布局（最多5张，保存后生效）</label>
-            <div class="img-thumb-row" id="pLayoutImageList"></div>
-            <input type="file" id="pLayoutImageAdd" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple hidden onchange="handleAttachmentsSelect(event,'layout')">
-          </div>
-          <div><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
-          <div><label>增选配置</label><textarea id="pOptionalConfig" rows="3"></textarea></div>
+      <div id="productList"></div>
+    </div>
+    <button type="button" class="fab-btn" onclick="openAddProductModal()" title="新增商品">+</button>
+  `;
+  renderProductList();
+}
+
+function productFormModalHtml(title) {
+  return `
+    <div class="modal-card wide" onclick="event.stopPropagation()">
+      <h2 id="productFormTitle">${title}</h2>
+      <div class="form-grid">
+        <div><label>商品名称</label><input type="text" id="pName"></div>
+        <div><label>内部编码</label><input type="text" id="pCode"></div>
+        <div><label>底盘信息</label><input type="text" id="pChassisInfo"></div>
+        <div><label>底盘编号</label><input type="text" id="pChassisNumber"></div>
+        <div>
+          <label>商品主图（最多5张，保存后生效）</label>
+          <div class="img-thumb-row" id="pMainImageList"></div>
+          <input type="file" id="pMainImageAdd" accept="image/*" multiple hidden onchange="handleAttachmentsSelect(event,'main')">
         </div>
-        <div class="actions">
-          <button onclick="submitProduct()">保存</button>
-          <button class="ghost" onclick="resetProductForm()">清空</button>
+        <div>
+          <label>配置布局（最多5张，保存后生效）</label>
+          <div class="img-thumb-row" id="pLayoutImageList"></div>
+          <input type="file" id="pLayoutImageAdd" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" multiple hidden onchange="handleAttachmentsSelect(event,'layout')">
         </div>
-        <p class="msg" id="productFormMsg"></p>
+        <div><label>标准配置</label><textarea id="pStandardConfig" rows="3"></textarea></div>
+        <div><label>增选配置</label><textarea id="pOptionalConfig" rows="3"></textarea></div>
       </div>
+      <div class="actions">
+        <button onclick="submitProduct()">保存</button>
+        <button class="ghost" onclick="closeProductModal()">取消</button>
+      </div>
+      <p class="msg" id="productFormMsg"></p>
     </div>
   `;
+}
+
+function openAddProductModal() {
+  editingProductId = null;
+  attachmentsState = { main: [], layout: [] };
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = productFormModalHtml('新增商品');
+  modal.hidden = false;
   renderAttachmentThumbs('main');
   renderAttachmentThumbs('layout');
-  renderProductList();
+}
+
+function closeProductModal() {
+  const modal = document.getElementById('productModal');
+  modal.hidden = true;
+  modal.innerHTML = '';
 }
 
 function isImageUrl(url) {
@@ -3147,7 +3173,9 @@ function editProduct(id) {
     main: (p.main_image_urls || []).map((url) => ({ url, file: null, originalFile: null, previewUrl: null, isImage: true })),
     layout: (p.layout_urls || []).map((url) => ({ url, file: null, originalFile: null, previewUrl: null, isImage: isImageUrl(url) })),
   };
-  document.getElementById('productFormTitle').textContent = '编辑商品';
+  const modal = document.getElementById('productModal');
+  modal.innerHTML = productFormModalHtml('编辑商品');
+  modal.hidden = false;
   document.getElementById('pName').value = p.name;
   document.getElementById('pCode').value = p.internal_code || '';
   document.getElementById('pChassisInfo').value = p.chassis_info || '';
@@ -3156,17 +3184,6 @@ function editProduct(id) {
   document.getElementById('pOptionalConfig').value = p.optional_config || '';
   renderAttachmentThumbs('main');
   renderAttachmentThumbs('layout');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function resetProductForm() {
-  editingProductId = null;
-  attachmentsState = { main: [], layout: [] };
-  document.getElementById('productFormTitle').textContent = '新增商品';
-  ['pName', 'pCode', 'pChassisInfo', 'pChassisNumber', 'pStandardConfig', 'pOptionalConfig'].forEach((id) => { document.getElementById(id).value = ''; });
-  renderAttachmentThumbs('main');
-  renderAttachmentThumbs('layout');
-  document.getElementById('productFormMsg').textContent = '';
 }
 
 function uploadFileWithProgress(file, onProgress) {
@@ -3246,9 +3263,7 @@ async function submitProduct() {
     } else {
       await api('/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     }
-    msg.textContent = '已保存';
-    msg.className = 'msg ok';
-    resetProductForm();
+    closeProductModal();
     products = await api('/products');
     renderProductList();
   } catch (e) {
