@@ -545,8 +545,9 @@
   }
   .category-badge img { width: 14px; height: 14px; border-radius: 3px; object-fit: cover; }
 
-  .page-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .page-header-row .page-title { margin: 0; }
+  .page-sub-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .page-sub-row .page-sub { margin: 0; }
+  .month-select { width: auto; padding: 6px 10px; font-size: 12px; flex-shrink: 0; }
 
   .sales-stat-row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 18px; }
   .sales-stat-card {
@@ -3789,13 +3790,13 @@ async function renderOrderTrackingPage() {
   const monthOpts = buildMonthOptions();
   selectedOrderMonth = monthOpts[0];
   el.innerHTML = `
-    <div class="page-header-row">
-      <div class="page-title">订单信息</div>
-      <select id="orderMonthSel" onchange="onOrderMonthChange()">
+    <div class="page-title">订单信息</div>
+    <div class="page-sub-row">
+      <div class="page-sub">销售录入客户信息，按1-8阶段跟踪</div>
+      <select id="orderMonthSel" class="month-select" onchange="onOrderMonthChange()">
         ${monthOpts.map((m) => `<option value="${m.year}-${m.month}">${m.year}年${m.month + 1}月</option>`).join('')}
       </select>
     </div>
-    <div class="page-sub">销售录入客户信息，按1-8阶段跟踪</div>
     <div class="sales-stat-row" id="salesTabs"></div>
     <div class="panel">
       <div class="panel-header-row">
