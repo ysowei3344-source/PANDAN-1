@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>销售订单</title>
+<style>
+  :root {
+    --bg: #0f1218;
+    --card: #1a1e2b;
+    --card-2: #232838;
+    --line: #2a3040;
+    --ink: #e8eaf0;
+    --ink-soft: #8890a3;
+    --ink-faint: #5b6377;
+    --accent: #4f7dfa;
+    --accent-soft: rgba(79, 125, 250, 0.16);
+    --success: #34d399;
+    --success-soft: rgba(52, 211, 153, 0.14);
+    --danger: #f472b6;
+    --danger-soft: rgba(244, 114, 182, 0.14);
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --radius: 14px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 15px; -webkit-tap-highlight-color: transparent; }
+  input, select, textarea, button { font-family: inherit; }
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], select, textarea {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card-2); color: var(--ink); font-size: 15px;
+  }
+  textarea { resize: vertical; }
+  label { font-size: 12px; color: var(--ink-soft); display: block; margin-bottom: 5px; }
+  .field { margin-bottom: 14px; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  button { border: none; border-radius: 10px; font-size: 15px; cursor: pointer; font-weight: 600; }
+  .btn-primary { background: var(--accent); color: #fff; padding: 13px; width: 100%; }
+  .btn-primary:active { opacity: 0.85; }
+  .btn-ghost { background: var(--card-2); color: var(--ink); padding: 13px; border: 1px solid var(--line); }
+  .btn-danger { background: var(--danger-soft); color: var(--danger); padding: 10px; }
+  .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: var(--success); }
+
+  /* ---- login ---- */
+  #loginScreen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .login-card { width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px 22px; box-shadow: var(--shadow); }
+  .login-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .login-sub { font-size: 13px; color: var(--ink-soft); margin-bottom: 22px; }
+
+  /* ---- app shell ---- */
+  #appScreen { display: none; min-height: 100vh; padding-bottom: calc(24px + var(--safe-bottom)); }
+  .topbar {
+    position: sticky; top: 0; z-index: 20; background: rgba(15, 18, 24, 0.92); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .topbar-title { font-size: 17px; font-weight: 700; }
+  .topbar-sub { font-size: 12px; color: var(--ink-soft); }
+  .icon-btn-round {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--card-2); border: 1px solid var(--line);
+    color: var(--ink-soft); display: flex; align-items: center; justify-content: center; font-size: 14px; padding: 0;
+  }
+
+  .filter-chips { display: flex; gap: 6px; overflow-x: auto; padding: 12px 16px; -webkit-overflow-scrolling: touch; }
+  .filter-chips::-webkit-scrollbar { display: none; }
+  .chip {
+    flex-shrink: 0; padding: 6px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line); white-space: nowrap;
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .search-wrap { padding: 0 16px 10px; }
+
+  .fab {
+    position: fixed; right: 18px; bottom: calc(20px + var(--safe-bottom)); z-index: 30;
+    width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow);
+  }
+
+  .order-list { padding: 4px 16px 90px; }
+  .order-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px; margin-bottom: 10px;
+  }
+  .order-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .order-name { font-size: 16px; font-weight: 700; }
+  .order-phone { font-size: 12.5px; color: var(--ink-soft); font-weight: 400; margin-left: 6px; }
+  .stage-pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  .stage-early { background: var(--accent-soft); color: var(--accent); }
+  .stage-mid { background: rgba(230, 160, 40, 0.18); color: #d99a28; }
+  .stage-late { background: var(--success-soft); color: var(--success); }
+  .stage-done { background: #05070c; color: #fff; }
+  .order-sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 3px; }
+  .order-notes { font-size: 12.5px; color: var(--ink-soft); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .order-stage-select { margin-top: 10px; }
+  .empty-hint { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 60px 20px; }
+
+  /* ---- order form (full-screen overlay) ---- */
+  #formScreen { display: none; position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; }
+  .form-topbar {
+    position: sticky; top: 0; z-index: 5; background: rgba(15, 18, 24, 0.96); backdrop-filter: blur(6px);
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .form-topbar-title { font-size: 16px; font-weight: 700; flex: 1; }
+  .form-body { padding: 18px 16px calc(100px + var(--safe-bottom)); }
+  .form-section-label { font-size: 12px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.04em; margin: 20px 0 10px; }
+  .form-section-label:first-child { margin-top: 0; }
+  .form-actions { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + var(--safe-bottom)); background: rgba(15, 18, 24, 0.96); backdrop-filter: blur(6px); border-top: 1px solid var(--line); display: flex; gap: 10px; z-index: 41; }
+  .form-actions .btn-primary { flex: 2; }
+  .form-actions .btn-danger { flex: 1; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-title">销售订单</div>
+    <div class="login-sub">房车矩阵中枢 · 手机端销售入口</div>
+    <div class="field"><label>用户名</label><input type="text" id="loginUsername" autocomplete="username"></div>
+    <div class="field"><label>密码</label><input type="password" id="loginPassword" autocomplete="current-password"></div>
+    <button class="btn-primary" onclick="doLogin()">登录</button>
+    <p class="msg" id="loginMsg"></p>
+  </div>
+</div>
+
+<div id="appScreen">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">销售订单</div>
+      <div class="topbar-sub" id="currentUserLabel"></div>
+    </div>
+    <button class="icon-btn-round" onclick="doLogout()">⏻</button>
+  </div>
+  <div class="filter-chips" id="stageChips"></div>
+  <div class="search-wrap"><input type="text" id="orderSearch" placeholder="搜索姓名/电话/销售" oninput="onSearchInput()"></div>
+  <div class="order-list" id="orderList"></div>
+  <button class="fab" onclick="openOrderForm(null)">＋</button>
+</div>
+
+<div id="formScreen">
+  <div class="form-topbar">
+    <button class="icon-btn-round" onclick="closeOrderForm()">←</button>
+    <div class="form-topbar-title" id="formTitle">新建订单</div>
+  </div>
+  <div class="form-body">
+    <div class="form-section-label">客户信息</div>
+    <div class="field"><label>客户姓名</label><input type="text" id="fName"></div>
+    <div class="field-row">
+      <div class="field"><label>联系电话</label><input type="text" id="fPhone"></div>
+      <div class="field"><label>来源渠道</label><input type="text" id="fSource" placeholder="例如：抖音私信"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>经济状况</label><input type="text" id="fFinancial" placeholder="预算/付款方式"></div>
+      <div class="field"><label>AI微信</label><input type="text" id="fAiWechat"></div>
+    </div>
+
+    <div class="form-section-label">匹配与阶段</div>
+    <div class="field"><label>匹配车型</label><select id="fProduct"><option value="">未选择</option></select></div>
+    <div class="field"><label>客户阶段</label><select id="fStage" onchange="toggleFormStageFields()"></select></div>
+    <div class="field"><label>归属销售</label><select id="fAssigned"><option value="">-- 选择销售 --</option></select></div>
+
+    <div id="dealSection" hidden>
+      <div class="form-section-label">成交信息</div>
+      <div class="field-row">
+        <div class="field"><label>成交金额</label><input type="number" id="fAmount" value="0"></div>
+        <div class="field"><label>签约日期</label><input type="date" id="fSignedAt"></div>
+      </div>
+    </div>
+
+    <div id="deliverSection" hidden>
+      <div class="form-section-label">交付 / 售后</div>
+      <div class="field-row">
+        <div class="field"><label>交付日期</label><input type="date" id="fDeliveredAt"></div>
+        <div class="field">
+          <label>售后状态</label>
+          <select id="fAftersalesStatus">
+            <option value="质保中">质保中</option>
+            <option value="质保结束">质保结束</option>
+            <option value="维修中">维修中</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>售后备注</label><textarea id="fAftersalesNotes" rows="2"></textarea></div>
+    </div>
+
+    <div class="form-section-label">备注</div>
+    <div class="field"><textarea id="fNotes" rows="3" placeholder="跟进记录、客户偏好等"></textarea></div>
+    <p class="msg" id="formMsg"></p>
+  </div>
+  <div class="form-actions">
+    <button class="btn-danger" id="formDeleteBtn" onclick="deleteCurrentOrder()" hidden>删除</button>
+    <button class="btn-primary" onclick="submitOrderForm()">保存</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = '/admin/api/admin';
+const TOKEN_KEY = 'rv_admin_token';
+
+const CUSTOMER_STAGES = [
+  { key: 'initial_chat', label: '初聊客户' },
+  { key: 'deep_chat', label: '深聊客户' },
+  { key: 'phone_call', label: '电话客户' },
+  { key: 'video_call', label: '视频客户' },
+  { key: 'car_viewing', label: '看车客户' },
+  { key: 'deposit', label: '定金客户' },
+  { key: 'deal_closed', label: '成交客户' },
+  { key: 'delivered', label: '交付客户' },
+];
+function stageLabel(key) { return (CUSTOMER_STAGES.find((s) => s.key === key) || {}).label || key; }
+function stageClass(key) {
+  const idx = CUSTOMER_STAGES.findIndex((s) => s.key === key);
+  if (idx <= 2) return 'stage-early';
+  if (idx <= 5) return 'stage-mid';
+  if (idx === 6) return 'stage-late';
+  return 'stage-done';
+}
+
+let orders = [];
+let products = [];
+let salesUsers = [];
+let currentUser = null;
+let editingOrderId = null;
+let stageFilter = 'all';
+let searchQuery = '';
+
+function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
+function setToken(t) { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtNum(n) {
+  if (n === undefined || n === null) return '0';
+  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万';
+  return Math.round(n).toLocaleString('zh-CN');
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${token()}` },
+  });
+  if (res.status === 401) {
+    setToken(null);
+    showLogin('登录已过期，请重新登录');
+    throw new Error('unauthorized');
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch (e) {}
+    throw new Error(detail);
+  }
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : null;
+}
+
+function showLogin(msg) {
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('formScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginMsg').textContent = msg || '';
+  document.getElementById('loginMsg').className = msg ? 'msg error' : 'msg';
+}
+
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msg = document.getElementById('loginMsg');
+  if (!username || !password) { msg.textContent = '请输入用户名和密码'; msg.className = 'msg error'; return; }
+  msg.textContent = '登录中...';
+  msg.className = 'msg';
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    if (!res.ok) {
+      let detail = '登录失败';
+      try { detail = (await res.json()).detail || detail; } catch (e) {}
+      throw new Error(detail);
+    }
+    const data = await res.json();
+    setToken(data.token);
+    currentUser = data.user;
+    document.getElementById('loginScreen').style.display = 'none';
+    await startApp();
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.className = 'msg error';
+  }
+}
+
+function doLogout() {
+  setToken(null);
+  currentUser = null;
+  showLogin();
+}
+
+async function startApp() {
+  document.getElementById('appScreen').style.display = 'block';
+  if (currentUser) {
+    document.getElementById('currentUserLabel').textContent = currentUser.username + (currentUser.role === 'super_admin' ? '（超级管理员）' : '（销售）');
+  }
+  renderStageChips();
+  await loadAll();
+}
+
+async function loadAll() {
+  try {
+    [orders, products, salesUsers] = await Promise.all([api('/orders'), api('/products'), api('/users/sales-list')]);
+  } catch (e) {
+    orders = []; products = []; salesUsers = [];
+  }
+  renderOrderList();
+}
+
+function renderStageChips() {
+  const wrap = document.getElementById('stageChips');
+  const chips = [{ key: 'all', label: '全部' }, ...CUSTOMER_STAGES.map((s, i) => ({ key: s.key, label: `${i + 1}.${s.label}` }))];
+  wrap.innerHTML = chips.map((c) => `<span class="chip ${stageFilter === c.key ? 'active' : ''}" onclick="setStageFilter('${c.key}')">${c.label}</span>`).join('');
+}
+
+function setStageFilter(key) {
+  stageFilter = key;
+  renderStageChips();
+  renderOrderList();
+}
+
+function onSearchInput() {
+  searchQuery = document.getElementById('orderSearch').value.trim().toLowerCase();
+  renderOrderList();
+}
+
+function productNameById(id) {
+  const p = products.find((x) => x.id === id);
+  return p ? p.name : '';
+}
+
+function getFilteredSortedOrders() {
+  let list = orders.slice();
+  if (stageFilter !== 'all') list = list.filter((o) => o.stage === stageFilter);
+  if (searchQuery) {
+    list = list.filter((o) => [o.name, o.phone, o.assigned_to].join(' ').toLowerCase().includes(searchQuery));
+  }
+  list.sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0));
+  return list;
+}
+
+function renderOrderList() {
+  const list = document.getElementById('orderList');
+  if (!orders.length) { list.innerHTML = '<div class="empty-hint">还没有订单，点右下角＋新建一个</div>'; return; }
+  const filtered = getFilteredSortedOrders();
+  if (!filtered.length) { list.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
+  list.innerHTML = filtered.map((o) => `
+    <div class="order-card" onclick="openOrderForm('${o.id}')">
+      <div class="order-card-top">
+        <div><span class="order-name">${escapeHtml(o.name)}</span>${o.phone ? `<span class="order-phone">${escapeHtml(o.phone)}</span>` : ''}</div>
+        <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
+      </div>
+      <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+      ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="order-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
+      ${o.notes ? `<div class="order-notes">${escapeHtml(o.notes)}</div>` : ''}
+      <select class="order-stage-select" onclick="event.stopPropagation()" onchange="changeOrderStage('${o.id}', this.value)">
+        ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === o.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
+      </select>
+    </div>
+  `).join('');
+}
+
+function orderToPayload(o) {
+  return {
+    name: o.name, phone: o.phone, source: o.source, financial_status: o.financial_status,
+    product_id: o.product_id, stage: o.stage, assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
+    notes: o.notes, amount: o.amount, signed_at: o.signed_at, delivered_at: o.delivered_at,
+    aftersales_status: o.aftersales_status, aftersales_notes: o.aftersales_notes,
+  };
+}
+
+async function changeOrderStage(id, newStage) {
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
+  try {
+    await api(`/orders/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...orderToPayload(o), stage: newStage }),
+    });
+    orders = await api('/orders');
+    renderOrderList();
+  } catch (e) {
+    alert('更新失败：' + e.message);
+    renderOrderList();
+  }
+}
+
+function toggleFormStageFields() {
+  const stage = document.getElementById('fStage').value;
+  const idx = CUSTOMER_STAGES.findIndex((s) => s.key === stage);
+  document.getElementById('dealSection').hidden = idx < 6;
+  document.getElementById('deliverSection').hidden = idx < 7;
+}
+
+function openOrderForm(id) {
+  editingOrderId = id;
+  const productSel = document.getElementById('fProduct');
+  productSel.innerHTML = '<option value="">未选择</option>' + products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  const assignedSel = document.getElementById('fAssigned');
+  assignedSel.innerHTML = '<option value="">-- 选择销售 --</option>' + salesUsers.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join('');
+  const stageSel = document.getElementById('fStage');
+  stageSel.innerHTML = CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('');
+
+  const o = id ? orders.find((x) => x.id === id) : null;
+  document.getElementById('formTitle').textContent = o ? '编辑订单' : '新建订单';
+  document.getElementById('formDeleteBtn').hidden = !o;
+  document.getElementById('fName').value = o ? o.name : '';
+  document.getElementById('fPhone').value = o ? o.phone : '';
+  document.getElementById('fSource').value = o ? o.source : '';
+  document.getElementById('fFinancial').value = o ? (o.financial_status || '') : '';
+  document.getElementById('fAiWechat').value = o ? (o.ai_wechat || '') : '';
+  productSel.value = o ? (o.product_id || '') : '';
+  stageSel.value = o ? o.stage : 'initial_chat';
+  assignedSel.value = o ? o.assigned_to : (currentUser && currentUser.role === 'operator' ? currentUser.username : '');
+  document.getElementById('fAmount').value = o ? (o.amount || 0) : 0;
+  document.getElementById('fSignedAt').value = o && o.signed_at ? String(o.signed_at).slice(0, 10) : '';
+  document.getElementById('fDeliveredAt').value = o && o.delivered_at ? String(o.delivered_at).slice(0, 10) : '';
+  document.getElementById('fAftersalesStatus').value = o ? (o.aftersales_status || '质保中') : '质保中';
+  document.getElementById('fAftersalesNotes').value = o ? (o.aftersales_notes || '') : '';
+  document.getElementById('fNotes').value = o ? o.notes : '';
+  document.getElementById('formMsg').textContent = '';
+  toggleFormStageFields();
+
+  document.getElementById('formScreen').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+
+function closeOrderForm() {
+  document.getElementById('formScreen').style.display = 'none';
+}
+
+async function submitOrderForm() {
+  const msg = document.getElementById('formMsg');
+  const payload = {
+    name: document.getElementById('fName').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
+    source: document.getElementById('fSource').value.trim(),
+    financial_status: document.getElementById('fFinancial').value.trim(),
+    product_id: document.getElementById('fProduct').value || null,
+    stage: document.getElementById('fStage').value,
+    assigned_to: document.getElementById('fAssigned').value,
+    ai_wechat: document.getElementById('fAiWechat').value.trim(),
+    notes: document.getElementById('fNotes').value.trim(),
+    amount: Number(document.getElementById('fAmount').value) || 0,
+    signed_at: document.getElementById('fSignedAt').value || null,
+    delivered_at: document.getElementById('fDeliveredAt').value || null,
+    aftersales_status: document.getElementById('fAftersalesStatus').value,
+    aftersales_notes: document.getElementById('fAftersalesNotes').value.trim(),
+  };
+  if (!payload.name) { msg.textContent = '请填写客户姓名'; msg.className = 'msg error'; return; }
+  if (!payload.assigned_to) { msg.textContent = '请选择归属销售'; msg.className = 'msg error'; return; }
+  msg.textContent = '保存中...';
+  msg.className = 'msg';
+  try {
+    if (editingOrderId) {
+      await api(`/orders/${editingOrderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    } else {
+      await api('/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }
+    orders = await api('/orders');
+    renderOrderList();
+    closeOrderForm();
+  } catch (e) {
+    msg.textContent = '保存失败：' + e.message;
+    msg.className = 'msg error';
+  }
+}
+
+async function deleteCurrentOrder() {
+  if (!editingOrderId) return;
+  if (!confirm('确定删除这条订单吗？')) return;
+  try {
+    await api(`/orders/${editingOrderId}`, { method: 'DELETE' });
+    orders = await api('/orders');
+    renderOrderList();
+    closeOrderForm();
+  } catch (e) {
+    alert('删除失败：' + e.message);
+  }
+}
+
+async function init() {
+  if (!token()) { showLogin(); return; }
+  try {
+    currentUser = await api('/auth/me');
+    document.getElementById('loginScreen').style.display = 'none';
+    await startApp();
+  } catch (e) {
+    showLogin();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
