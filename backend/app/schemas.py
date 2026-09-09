@@ -370,9 +370,12 @@ class Order(BaseModel):
     id: str
     name: str  # 客户姓名
     phone: str = ""
+    avatar_url: str | None = None  # 客户头像
+    city: str = ""  # 客户城市
     source: str = ""  # 来源渠道
     financial_status: str = ""  # 经济状况
     product_id: str | None = None  # 意向/匹配车型
+    chassis_number: str = ""  # 车架号（这台车实际的车架号，跟 Product.chassis_number 模板号是两回事）
     stage: CustomerStage = "initial_chat"
     order_status: OrderStatus = "negotiating"  # 独立于 stage 的图标进度
     assigned_to: str  # 归属销售，必填
@@ -391,9 +394,12 @@ class Order(BaseModel):
 class OrderInput(BaseModel):
     name: str
     phone: str = ""
+    avatar_url: str | None = None
+    city: str = ""
     source: str = ""
     financial_status: str = ""
     product_id: str | None = None
+    chassis_number: str = ""
     stage: CustomerStage = "initial_chat"
     order_status: OrderStatus = "negotiating"
     assigned_to: str

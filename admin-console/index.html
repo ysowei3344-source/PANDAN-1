@@ -3701,6 +3701,81 @@ let orderSearchQuery = '';
 let orderStageFilter = 'all';
 let salesFilter = 'all';
 
+const ORDER_SOURCES = ['抖音', '小红书', '视频号', '线下展会', '其他'];
+
+const ORDER_AVATAR_CROP = { vw: 240, vh: 240, outW: 480, outH: 480, maxBytesKB: 100 };
+let orderAvatarEntry = null; // { url?, file?, originalFile?, previewUrl? } | null，订单表单的客户头像
+
+function renderOrderAvatarThumb() {
+  const wrap = document.getElementById('oAvatarThumbRow');
+  if (!wrap) return;
+  if (!orderAvatarEntry) {
+    wrap.innerHTML = `<label class="img-thumb-add" for="oAvatarFileInput">＋<br>头像</label>`;
+    return;
+  }
+  const src = orderAvatarEntry.previewUrl || staticUrl(orderAvatarEntry.url);
+  wrap.innerHTML = `
+    <div class="img-thumb-item">
+      <img src="${src}" class="img-thumb-9x16" alt="">
+      ${orderAvatarEntry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
+      <div class="img-thumb-actions">
+        <button type="button" class="img-thumb-btn" onclick="editOrderAvatarThumb()">编辑</button>
+        <button type="button" class="img-thumb-btn danger" onclick="clearOrderAvatarThumb()">删除</button>
+      </div>
+    </div>
+  `;
+}
+
+async function handleOrderAvatarFileSelect(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file || !file.type.startsWith('image/')) return;
+  try {
+    const img = await loadImageFromFile(file);
+    const state = computeCoverCrop(img.naturalWidth, img.naturalHeight, ORDER_AVATAR_CROP.vw, ORDER_AVATAR_CROP.vh);
+    const blob = await cropImageElementToBlob(img, state, ORDER_AVATAR_CROP.outW, ORDER_AVATAR_CROP.outH, ORDER_AVATAR_CROP.maxBytesKB * 1024);
+    URL.revokeObjectURL(img.src);
+    if (!blob) return;
+    orderAvatarEntry = {
+      file: new File([blob], 'order-avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
+      originalFile: file,
+      previewUrl: URL.createObjectURL(blob),
+      url: null,
+    };
+    renderOrderAvatarThumb();
+  } catch (e) { /* skip unreadable file */ }
+}
+
+function clearOrderAvatarThumb() {
+  orderAvatarEntry = null;
+  renderOrderAvatarThumb();
+}
+
+async function editOrderAvatarThumb() {
+  if (!orderAvatarEntry) return;
+  let sourceFile = orderAvatarEntry.originalFile || orderAvatarEntry.file;
+  if (!sourceFile && orderAvatarEntry.url) {
+    try {
+      const resp = await fetch(staticUrl(orderAvatarEntry.url));
+      const blob = await resp.blob();
+      sourceFile = new File([blob], 'original.jpg', { type: blob.type || 'image/jpeg' });
+    } catch (e) {
+      alert('无法加载原图，请重新上传');
+      return;
+    }
+  }
+  if (!sourceFile) return;
+  openImageCropper(sourceFile, '裁剪头像（1:1）', (blob) => {
+    orderAvatarEntry = {
+      file: new File([blob], 'order-avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
+      originalFile: sourceFile,
+      previewUrl: URL.createObjectURL(blob),
+      url: null,
+    };
+    renderOrderAvatarThumb();
+  }, ORDER_AVATAR_CROP.vw, ORDER_AVATAR_CROP.vh, ORDER_AVATAR_CROP.outW, ORDER_AVATAR_CROP.outH, ORDER_AVATAR_CROP.maxBytesKB);
+}
+
 const STALE_DAYS = 3; // 超过这么多天没更新，标"即将超时"；"已提醒"标记也在这个窗口内算有效
 const LARGE_AMOUNT_THRESHOLD = 200000; // 成交金额达到这个数，标"大额订单"
 
@@ -3798,8 +3873,10 @@ function truncateName(name, max = 6) {
 
 function orderToPayload(o) {
   return {
-    name: o.name, phone: o.phone, source: o.source, financial_status: o.financial_status,
-    product_id: o.product_id, stage: o.stage, order_status: o.order_status || 'negotiating', assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
+    name: o.name, phone: o.phone, avatar_url: o.avatar_url || null, city: o.city || '',
+    source: o.source, financial_status: o.financial_status,
+    product_id: o.product_id, chassis_number: o.chassis_number || '',
+    stage: o.stage, order_status: o.order_status || 'negotiating', assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
     notes: o.notes, amount: o.amount, signed_at: o.signed_at, delivered_at: o.delivered_at,
     aftersales_status: o.aftersales_status, aftersales_notes: o.aftersales_notes,
     last_reminded_at: o.last_reminded_at || null,
@@ -3861,13 +3938,31 @@ function orderFormModalHtml(title) {
       <div class="form-grid">
         <div><label>客户姓名</label><input type="text" id="oName"></div>
         <div><label>联系电话</label><input type="text" id="oPhone"></div>
-        <div><label>来源渠道</label><input type="text" id="oSource" placeholder="例如：抖音私信"></div>
+        <div>
+          <label>客户头像</label>
+          <div class="img-thumb-row" id="oAvatarThumbRow"></div>
+          <input type="file" id="oAvatarFileInput" accept="image/*" hidden onchange="handleOrderAvatarFileSelect(event)">
+        </div>
+        <div><label>客户城市</label><input type="text" id="oCity" placeholder="例如：杭州"></div>
+        <div>
+          <label>来源渠道</label>
+          <select id="oSource">
+            ${ORDER_SOURCES.map((s) => `<option value="${s}">${s}</option>`).join('')}
+          </select>
+        </div>
         <div><label>经济状况</label><input type="text" id="oFinancial" placeholder="例如：预算30万内，全款"></div>
         <div>
           <label>匹配车型</label>
           <select id="oProduct">
             <option value="">未选择</option>
             ${products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div><label>车架号</label><input type="text" id="oChassisNumber" placeholder="手动填写"></div>
+        <div>
+          <label>订单状态</label>
+          <select id="oOrderStatus">
+            ${ORDER_STATUSES.map((s) => `<option value="${s.key}">${orderStatusOptionLabel(s)}</option>`).join('')}
           </select>
         </div>
         <div>
@@ -3877,12 +3972,6 @@ function orderFormModalHtml(title) {
           </select>
         </div>
         <div>
-          <label>订单状态</label>
-          <select id="oOrderStatus">
-            ${ORDER_STATUSES.map((s) => `<option value="${s.key}">${orderStatusOptionLabel(s)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="full">
           <label>归属销售跟单猿</label>
           <select id="oAssigned">
             <option value="">-- 选择销售跟单猿 --</option>
@@ -3890,7 +3979,7 @@ function orderFormModalHtml(title) {
           </select>
           ${salesUsers.length === 0 ? '<div class="row-sub" style="margin-top:6px;">还没有销售跟单猿账号，先去「内部账号管理」新建一个</div>' : ''}
         </div>
-        <div class="full"><label>AI微信</label><input type="text" id="oAiWechat"></div>
+        <div><label>AI微信</label><input type="text" id="oAiWechat"></div>
         <div id="oAmountField"><label>成交金额</label><input type="number" id="oAmount" value="0"></div>
         <div id="oSignedAtField"><label>签约日期</label><input type="date" id="oSignedAt"></div>
         <div id="oDeliveredAtField"><label>交付日期</label><input type="date" id="oDeliveredAt"></div>
@@ -3916,9 +4005,11 @@ function orderFormModalHtml(title) {
 
 function openAddOrderModal() {
   editingOrderId = null;
+  orderAvatarEntry = null;
   const modal = document.getElementById('productModal');
   modal.innerHTML = orderFormModalHtml('新建订单');
   modal.hidden = false;
+  renderOrderAvatarThumb();
   toggleOrderStageFields();
 }
 
@@ -4052,10 +4143,12 @@ function fullOrderRowHtml(o) {
       <td>
         <div class="user-cell">
           ${dotsHtml ? `<div class="user-cell-dots">${dotsHtml}</div>` : ''}
-          <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
+          ${o.avatar_url
+            ? `<img class="avatar avatar-img" src="${staticUrl(o.avatar_url)}" alt="">`
+            : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`}
           <div>
             <div class="row-title" style="font-size:13px;" title="${escapeHtml(o.name)}">${escapeHtml(truncateName(o.name))}</div>
-            <div class="row-sub">归属：${escapeHtml(o.assigned_to)}</div>
+            <div class="row-sub">归属：${escapeHtml(o.assigned_to)}${o.city ? ' · ' + escapeHtml(o.city) : ''}</div>
           </div>
         </div>
       </td>
@@ -4231,14 +4324,18 @@ function editOrder(id) {
   const o = orders.find((x) => x.id === id);
   if (!o) return;
   editingOrderId = id;
+  orderAvatarEntry = o.avatar_url ? { url: o.avatar_url, file: null, originalFile: null, previewUrl: null } : null;
   const modal = document.getElementById('productModal');
   modal.innerHTML = orderFormModalHtml('编辑订单');
   modal.hidden = false;
+  renderOrderAvatarThumb();
   document.getElementById('oName').value = o.name;
   document.getElementById('oPhone').value = o.phone;
+  document.getElementById('oCity').value = o.city || '';
   document.getElementById('oSource').value = o.source;
   document.getElementById('oFinancial').value = o.financial_status || '';
   document.getElementById('oProduct').value = o.product_id || '';
+  document.getElementById('oChassisNumber').value = o.chassis_number || '';
   document.getElementById('oStage').value = o.stage;
   document.getElementById('oOrderStatus').value = o.order_status || 'negotiating';
   document.getElementById('oAssigned').value = o.assigned_to;
@@ -4257,9 +4354,11 @@ async function submitOrder() {
   const payload = {
     name: document.getElementById('oName').value.trim(),
     phone: document.getElementById('oPhone').value.trim(),
+    city: document.getElementById('oCity').value.trim(),
     source: document.getElementById('oSource').value.trim(),
     financial_status: document.getElementById('oFinancial').value.trim(),
     product_id: document.getElementById('oProduct').value || null,
+    chassis_number: document.getElementById('oChassisNumber').value.trim(),
     stage: document.getElementById('oStage').value,
     order_status: document.getElementById('oOrderStatus').value,
     assigned_to: document.getElementById('oAssigned').value,
@@ -4277,6 +4376,14 @@ async function submitOrder() {
   msg.textContent = '保存中...';
   msg.className = 'msg';
   try {
+    if (orderAvatarEntry && orderAvatarEntry.file) {
+      const fd = new FormData();
+      fd.append('file', orderAvatarEntry.file);
+      const res = await api('/upload', { method: 'POST', body: fd });
+      payload.avatar_url = res.url;
+    } else {
+      payload.avatar_url = orderAvatarEntry ? orderAvatarEntry.url : null;
+    }
     if (editingOrderId) {
       await api(`/orders/${editingOrderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } else {
