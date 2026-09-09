@@ -587,8 +587,7 @@
   }
   .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   .data-table tbody tr:hover { background: var(--card-2); }
-  .order-status-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
-  .order-status-stars { color: var(--warning); font-size: 14px; letter-spacing: 1px; white-space: nowrap; }
+  .order-status-cell { display: flex; align-items: flex-start; }
   .order-status-icon-pill {
     display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 24px;
     border-radius: 6px; font-size: 13px;
@@ -3723,38 +3722,28 @@ function orderFlags(o) {
   return flags;
 }
 
-// 独立于"客户阶段"(1-8)的另一条进度线——星级/图标表示的"订单状态"，跟单猿
+// 独立于"客户阶段"(1-8)的另一条进度线——图标表示的"订单状态"，跟单猿
 // 手动推进，跟客户阶段并存互不影响。
 const ORDER_STATUSES = [
-  { key: 'new_lead', label: '新添加客户', stars: 1 },
-  { key: 'ai_contacted', label: 'AI已沟通', stars: 2 },
-  { key: 'human_involved', label: '人工已介入', stars: 3 },
-  { key: 'call_contacted', label: '电话/视频沟通过', stars: 4 },
-  { key: 'site_visited', label: '客户到现场看过车', stars: 5 },
-  { key: 'deposit_paid', label: '已付定金', icon: '🥈', badge: 'badge-silver' },
-  { key: 'full_deposit_paid', label: '已付大定，等待生产', icon: '🥇', badge: 'badge-gold' },
-  { key: 'in_production', label: '生产中', icon: '🔨', badge: 'badge-silver' },
-  { key: 'production_done', label: '生产完结', icon: '🔨', badge: 'badge-gold' },
-  { key: 'delivered', label: '已交付', icon: '🚗', badge: 'badge-green' },
+  { key: 'negotiating', label: '洽谈中', icon: '💬', badge: 'badge-gray' },
+  { key: 'small_deposit', label: '付小订', icon: '🥈', badge: 'badge-silver' },
+  { key: 'full_deposit', label: '付大定', icon: '🥇', badge: 'badge-gold' },
+  { key: 'in_production', label: '生产中', icon: '🔨', badge: 'badge-blue' },
+  { key: 'completed', label: '已完工', icon: '🚗', badge: 'badge-green' },
+  { key: 'delivered', label: '已交付', icon: '🎉', badge: 'badge-pink' },
 ];
 
 function orderStatusMeta(key) {
   return ORDER_STATUSES.find((s) => s.key === key) || ORDER_STATUSES[0];
 }
 
-function orderStatusStars(count) {
-  return '★'.repeat(count) + '☆'.repeat(5 - count);
-}
-
 function orderStatusDisplayHtml(key) {
   const s = orderStatusMeta(key);
-  return s.stars
-    ? `<span class="order-status-stars" title="${escapeHtml(s.label)}">${orderStatusStars(s.stars)}</span>`
-    : `<span class="order-status-icon-pill ${s.badge}" title="${escapeHtml(s.label)}">${s.icon}</span>`;
+  return `<span class="order-status-icon-pill ${s.badge}" title="${escapeHtml(s.label)}">${s.icon}</span>`;
 }
 
 function orderStatusOptionLabel(s) {
-  return s.stars ? `${orderStatusStars(s.stars)} ${s.label}` : `${s.icon} ${s.label}`;
+  return `${s.icon} ${s.label}`;
 }
 
 let selectedOrderMonth = null; // { year, month(0-indexed) }，默认当月
@@ -3810,7 +3799,7 @@ function truncateName(name, max = 6) {
 function orderToPayload(o) {
   return {
     name: o.name, phone: o.phone, source: o.source, financial_status: o.financial_status,
-    product_id: o.product_id, stage: o.stage, order_status: o.order_status || 'new_lead', assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
+    product_id: o.product_id, stage: o.stage, order_status: o.order_status || 'negotiating', assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
     notes: o.notes, amount: o.amount, signed_at: o.signed_at, delivered_at: o.delivered_at,
     aftersales_status: o.aftersales_status, aftersales_notes: o.aftersales_notes,
     last_reminded_at: o.last_reminded_at || null,
@@ -4057,7 +4046,7 @@ function fullOrderRowHtml(o) {
     <tr>
       <td>
         <div class="order-status-cell">
-          ${orderStatusDisplayHtml(o.order_status || 'new_lead')}
+          ${orderStatusDisplayHtml(o.order_status || 'negotiating')}
         </div>
       </td>
       <td>
@@ -4094,7 +4083,7 @@ function fullOrderRowHtml(o) {
 function lockedOrderRowHtml(o) {
   return `
     <tr>
-      <td>${orderStatusDisplayHtml(o.order_status || 'new_lead')}</td>
+      <td>${orderStatusDisplayHtml(o.order_status || 'negotiating')}</td>
       <td>
         <div class="user-cell">
           <div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>
@@ -4251,7 +4240,7 @@ function editOrder(id) {
   document.getElementById('oFinancial').value = o.financial_status || '';
   document.getElementById('oProduct').value = o.product_id || '';
   document.getElementById('oStage').value = o.stage;
-  document.getElementById('oOrderStatus').value = o.order_status || 'new_lead';
+  document.getElementById('oOrderStatus').value = o.order_status || 'negotiating';
   document.getElementById('oAssigned').value = o.assigned_to;
   document.getElementById('oAiWechat').value = o.ai_wechat || '';
   document.getElementById('oAmount').value = o.amount || 0;

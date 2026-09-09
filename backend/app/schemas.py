@@ -346,19 +346,15 @@ CustomerStage = Literal[
     "delivered",  # 8 交付客户
 ]
 
-# 独立于 CustomerStage 的另一条进度线——"订单状态"，用星级/图标表示，跟单猿
+# 独立于 CustomerStage 的另一条进度线——"订单状态"，用图标表示，跟单猿
 # 手动推进，跟客户阶段并存，互不影响。
 OrderStatus = Literal[
-    "new_lead",  # ☆ 新添加客户
-    "ai_contacted",  # ☆☆ AI已沟通
-    "human_involved",  # ☆☆☆ 人工已介入
-    "call_contacted",  # ☆☆☆☆ 电话/视频沟通过
-    "site_visited",  # ☆☆☆☆☆ 客户到现场看过车
-    "deposit_paid",  # 银 已付定金
-    "full_deposit_paid",  # 金 已付大定，等待生产
-    "in_production",  # 银锤 生产中
-    "production_done",  # 金锤 生产完结
-    "delivered",  # 汽车 已交付
+    "negotiating",  # 💬 洽谈中
+    "small_deposit",  # 🥈 付小订
+    "full_deposit",  # 🥇 付大定
+    "in_production",  # 🔨 生产中
+    "completed",  # 🚗 已完工
+    "delivered",  # 🎉 已交付
 ]
 
 
@@ -378,7 +374,7 @@ class Order(BaseModel):
     financial_status: str = ""  # 经济状况
     product_id: str | None = None  # 意向/匹配车型
     stage: CustomerStage = "initial_chat"
-    order_status: OrderStatus = "new_lead"  # 独立于 stage 的星级/图标进度
+    order_status: OrderStatus = "negotiating"  # 独立于 stage 的图标进度
     assigned_to: str  # 归属销售，必填
     ai_wechat: str = ""
     notes: str = ""
@@ -399,7 +395,7 @@ class OrderInput(BaseModel):
     financial_status: str = ""
     product_id: str | None = None
     stage: CustomerStage = "initial_chat"
-    order_status: OrderStatus = "new_lead"
+    order_status: OrderStatus = "negotiating"
     assigned_to: str
     ai_wechat: str = ""
     notes: str = ""

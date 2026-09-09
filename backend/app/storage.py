@@ -523,20 +523,37 @@ def _ensure_orders_file() -> None:
 
 
 STAGE_TO_ORDER_STATUS = {
-    "initial_chat": "new_lead",
-    "deep_chat": "human_involved",
-    "phone_call": "call_contacted",
-    "video_call": "call_contacted",
-    "car_viewing": "site_visited",
-    "deposit": "deposit_paid",
-    "deal_closed": "full_deposit_paid",
+    "initial_chat": "negotiating",
+    "deep_chat": "negotiating",
+    "phone_call": "negotiating",
+    "video_call": "negotiating",
+    "car_viewing": "negotiating",
+    "deposit": "small_deposit",
+    "deal_closed": "full_deposit",
+    "delivered": "delivered",
+}
+
+# 上一版是星级(1-5)+图标的十级体系，这版精简成六个图标；把已经存过的旧值
+# 换成新的六个键，跟 STAGE_TO_ORDER_STATUS 一起在 _normalize_order 里处理。
+OLD_TO_NEW_ORDER_STATUS = {
+    "new_lead": "negotiating",
+    "ai_contacted": "negotiating",
+    "human_involved": "negotiating",
+    "call_contacted": "negotiating",
+    "site_visited": "negotiating",
+    "deposit_paid": "small_deposit",
+    "full_deposit_paid": "full_deposit",
+    "in_production": "in_production",
+    "production_done": "completed",
     "delivered": "delivered",
 }
 
 
 def _normalize_order(o: dict) -> dict:
     if "order_status" not in o:
-        o = {**o, "order_status": STAGE_TO_ORDER_STATUS.get(o.get("stage", "initial_chat"), "new_lead")}
+        o = {**o, "order_status": STAGE_TO_ORDER_STATUS.get(o.get("stage", "initial_chat"), "negotiating")}
+    elif o["order_status"] in OLD_TO_NEW_ORDER_STATUS:
+        o = {**o, "order_status": OLD_TO_NEW_ORDER_STATUS[o["order_status"]]}
     return o
 
 
