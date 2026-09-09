@@ -31,10 +31,19 @@ def list_users() -> list[dict]:
 def list_sales_users(current: dict = Depends(get_current_user)) -> list[dict]:
     """Lightweight roster (id + username only) any authenticated user can
     read, so a 销售 filling in 归属销售 on an order doesn't need
-    super_admin-only /users access."""
+    super_admin-only /users access. Ordered by this month's new-customer
+    count (orders created this month, descending) so the busiest 跟单猿
+    show up first in the 归属销售 picker."""
+    month_key = datetime.now(timezone.utc).strftime("%Y-%m")
+    counts: dict[str, int] = {}
+    for o in storage.list_orders():
+        if o.created_at[:7] == month_key:
+            counts[o.assigned_to] = counts.get(o.assigned_to, 0) + 1
+    operators = [u for u in storage.list_users() if u["role"] == "operator"]
+    operators.sort(key=lambda u: counts.get(u["username"], 0), reverse=True)
     return [
         {"id": u["id"], "username": u["username"], "avatar_url": u.get("avatar_url")}
-        for u in storage.list_users() if u["role"] == "operator"
+        for u in operators
     ]
 
 
