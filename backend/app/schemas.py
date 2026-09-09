@@ -372,6 +372,7 @@ class Order(BaseModel):
     phone: str = ""
     avatar_url: str | None = None  # 客户头像
     city: str = ""  # 客户城市
+    gender: str = ""  # 客户性别（称呼），例如"大哥"/"美女"
     source: str = ""  # 来源渠道
     financial_status: str = ""  # 经济状况
     product_id: str | None = None  # 意向/匹配车型
@@ -396,6 +397,7 @@ class OrderInput(BaseModel):
     phone: str = ""
     avatar_url: str | None = None
     city: str = ""
+    gender: str = ""
     source: str = ""
     financial_status: str = ""
     product_id: str | None = None

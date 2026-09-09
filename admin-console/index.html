@@ -595,6 +595,8 @@
   .user-cell { display: flex; align-items: center; gap: 8px; }
   .user-cell-dots { display: flex; flex-direction: column; gap: 2px; }
   .user-cell .avatar { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+  .avatar-clickable { cursor: pointer; }
+  .avatar-clickable:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
   .table-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
   .product-thumb-carousel { position: relative; width: 90px; height: 160px; border-radius: 8px; overflow: hidden; background: #000; flex-shrink: 0; }
@@ -3702,78 +3704,42 @@ let orderStageFilter = 'all';
 let salesFilter = 'all';
 
 const ORDER_SOURCES = ['抖音', '小红书', '视频号', '线下展会', '其他'];
+const ORDER_GENDERS = ['大哥', '大姐', '叔叔', '阿姨', '小哥', '美女'];
 
 const ORDER_AVATAR_CROP = { vw: 240, vh: 240, outW: 480, outH: 480, maxBytesKB: 100 };
-let orderAvatarEntry = null; // { url?, file?, originalFile?, previewUrl? } | null，订单表单的客户头像
+let orderListAvatarTargetId = null; // 订单列表里点相机图标待上传头像的那条订单 id
 
-function renderOrderAvatarThumb() {
-  const wrap = document.getElementById('oAvatarThumbRow');
-  if (!wrap) return;
-  if (!orderAvatarEntry) {
-    wrap.innerHTML = `<label class="img-thumb-add" for="oAvatarFileInput">＋<br>头像</label>`;
-    return;
-  }
-  const src = orderAvatarEntry.previewUrl || staticUrl(orderAvatarEntry.url);
-  wrap.innerHTML = `
-    <div class="img-thumb-item">
-      <img src="${src}" class="img-thumb-9x16" alt="">
-      ${orderAvatarEntry.file ? '<span class="img-thumb-pending">待保存</span>' : ''}
-      <div class="img-thumb-actions">
-        <button type="button" class="img-thumb-btn" onclick="editOrderAvatarThumb()">编辑</button>
-        <button type="button" class="img-thumb-btn danger" onclick="clearOrderAvatarThumb()">删除</button>
-      </div>
-    </div>
-  `;
+function triggerOrderAvatarUpload(id) {
+  orderListAvatarTargetId = id;
+  document.getElementById('orderListAvatarFileInput').click();
 }
 
-async function handleOrderAvatarFileSelect(event) {
+async function handleOrderListAvatarFileSelect(event) {
   const file = event.target.files[0];
   event.target.value = '';
-  if (!file || !file.type.startsWith('image/')) return;
+  const id = orderListAvatarTargetId;
+  orderListAvatarTargetId = null;
+  if (!file || !file.type.startsWith('image/') || !id) return;
+  const o = orders.find((x) => x.id === id);
+  if (!o) return;
   try {
     const img = await loadImageFromFile(file);
     const state = computeCoverCrop(img.naturalWidth, img.naturalHeight, ORDER_AVATAR_CROP.vw, ORDER_AVATAR_CROP.vh);
     const blob = await cropImageElementToBlob(img, state, ORDER_AVATAR_CROP.outW, ORDER_AVATAR_CROP.outH, ORDER_AVATAR_CROP.maxBytesKB * 1024);
     URL.revokeObjectURL(img.src);
     if (!blob) return;
-    orderAvatarEntry = {
-      file: new File([blob], 'order-avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
-      originalFile: file,
-      previewUrl: URL.createObjectURL(blob),
-      url: null,
-    };
-    renderOrderAvatarThumb();
-  } catch (e) { /* skip unreadable file */ }
-}
-
-function clearOrderAvatarThumb() {
-  orderAvatarEntry = null;
-  renderOrderAvatarThumb();
-}
-
-async function editOrderAvatarThumb() {
-  if (!orderAvatarEntry) return;
-  let sourceFile = orderAvatarEntry.originalFile || orderAvatarEntry.file;
-  if (!sourceFile && orderAvatarEntry.url) {
-    try {
-      const resp = await fetch(staticUrl(orderAvatarEntry.url));
-      const blob = await resp.blob();
-      sourceFile = new File([blob], 'original.jpg', { type: blob.type || 'image/jpeg' });
-    } catch (e) {
-      alert('无法加载原图，请重新上传');
-      return;
-    }
+    const fd = new FormData();
+    fd.append('file', new File([blob], 'order-avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }));
+    const res = await api('/upload', { method: 'POST', body: fd });
+    await api(`/orders/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...orderToPayload(o), avatar_url: res.url }),
+    });
+    orders = await api('/orders');
+    renderOrderListEl();
+  } catch (e) {
+    alert('头像上传失败：' + e.message);
   }
-  if (!sourceFile) return;
-  openImageCropper(sourceFile, '裁剪头像（1:1）', (blob) => {
-    orderAvatarEntry = {
-      file: new File([blob], 'order-avatar-' + Date.now() + '.jpg', { type: 'image/jpeg' }),
-      originalFile: sourceFile,
-      previewUrl: URL.createObjectURL(blob),
-      url: null,
-    };
-    renderOrderAvatarThumb();
-  }, ORDER_AVATAR_CROP.vw, ORDER_AVATAR_CROP.vh, ORDER_AVATAR_CROP.outW, ORDER_AVATAR_CROP.outH, ORDER_AVATAR_CROP.maxBytesKB);
 }
 
 const STALE_DAYS = 3; // 超过这么多天没更新，标"即将超时"；"已提醒"标记也在这个窗口内算有效
@@ -3873,7 +3839,7 @@ function truncateName(name, max = 6) {
 
 function orderToPayload(o) {
   return {
-    name: o.name, phone: o.phone, avatar_url: o.avatar_url || null, city: o.city || '',
+    name: o.name, phone: o.phone, avatar_url: o.avatar_url || null, gender: o.gender || '', city: o.city || '',
     source: o.source, financial_status: o.financial_status,
     product_id: o.product_id, chassis_number: o.chassis_number || '',
     stage: o.stage, order_status: o.order_status || 'negotiating', assigned_to: o.assigned_to, ai_wechat: o.ai_wechat,
@@ -3925,6 +3891,7 @@ async function renderOrderTrackingPage() {
       </div>
       <div id="orderListEl"></div>
     </div>
+    <input type="file" id="orderListAvatarFileInput" accept="image/*" hidden onchange="handleOrderListAvatarFileSelect(event)">
     <button type="button" class="fab-btn" onclick="openAddOrderModal()" title="新建订单">+</button>
   `;
   renderSalesTabs();
@@ -3939,9 +3906,11 @@ function orderFormModalHtml(title) {
         <div><label>客户姓名</label><input type="text" id="oName"></div>
         <div><label>联系电话</label><input type="text" id="oPhone"></div>
         <div>
-          <label>客户头像</label>
-          <div class="img-thumb-row" id="oAvatarThumbRow"></div>
-          <input type="file" id="oAvatarFileInput" accept="image/*" hidden onchange="handleOrderAvatarFileSelect(event)">
+          <label>客户性别</label>
+          <select id="oGender">
+            <option value="">未选择</option>
+            ${ORDER_GENDERS.map((g) => `<option value="${g}">${g}</option>`).join('')}
+          </select>
         </div>
         <div><label>客户城市</label><input type="text" id="oCity" placeholder="例如：杭州"></div>
         <div>
@@ -4005,11 +3974,9 @@ function orderFormModalHtml(title) {
 
 function openAddOrderModal() {
   editingOrderId = null;
-  orderAvatarEntry = null;
   const modal = document.getElementById('productModal');
   modal.innerHTML = orderFormModalHtml('新建订单');
   modal.hidden = false;
-  renderOrderAvatarThumb();
   toggleOrderStageFields();
 }
 
@@ -4133,6 +4100,11 @@ function fullOrderRowHtml(o) {
   const dotsHtml = flags.map((f) => `<span class="status-dot ${FLAG_META[f].dot}" title="${FLAG_META[f].label}"></span>`).join('');
   const dealHtml = (o.stage === 'deal_closed' || o.stage === 'delivered')
     ? `<div class="row-sub">¥${fmtNum(o.amount)}</div>` : '';
+  const titleParts = [];
+  if (o.city) titleParts.push(escapeHtml(o.city));
+  titleParts.push(escapeHtml(truncateName(o.name)));
+  if (o.gender) titleParts.push(escapeHtml(o.gender));
+  const fullTitleText = [o.city, o.name, o.gender].filter(Boolean).join(' ');
   return `
     <tr>
       <td>
@@ -4144,11 +4116,11 @@ function fullOrderRowHtml(o) {
         <div class="user-cell">
           ${dotsHtml ? `<div class="user-cell-dots">${dotsHtml}</div>` : ''}
           ${o.avatar_url
-            ? `<img class="avatar avatar-img" src="${staticUrl(o.avatar_url)}" alt="">`
-            : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`}
+            ? `<img class="avatar avatar-img avatar-clickable" src="${staticUrl(o.avatar_url)}" alt="" onclick="triggerOrderAvatarUpload('${o.id}')" title="点击更换头像">`
+            : `<div class="avatar badge-gray avatar-clickable" onclick="triggerOrderAvatarUpload('${o.id}')" title="点击上传头像">${DEFAULT_AVATAR_SVG}</div>`}
           <div>
-            <div class="row-title" style="font-size:13px;" title="${escapeHtml(o.name)}">${escapeHtml(truncateName(o.name))}</div>
-            <div class="row-sub">归属：${escapeHtml(o.assigned_to)}${o.city ? ' · ' + escapeHtml(o.city) : ''}</div>
+            <div class="row-title" style="font-size:13px;" title="${fullTitleText}">${titleParts.join(' ')}</div>
+            <div class="row-sub">归属：${escapeHtml(o.assigned_to)}</div>
           </div>
         </div>
       </td>
@@ -4326,13 +4298,12 @@ function editOrder(id) {
   const o = orders.find((x) => x.id === id);
   if (!o) return;
   editingOrderId = id;
-  orderAvatarEntry = o.avatar_url ? { url: o.avatar_url, file: null, originalFile: null, previewUrl: null } : null;
   const modal = document.getElementById('productModal');
   modal.innerHTML = orderFormModalHtml('编辑订单');
   modal.hidden = false;
-  renderOrderAvatarThumb();
   document.getElementById('oName').value = o.name;
   document.getElementById('oPhone').value = o.phone;
+  document.getElementById('oGender').value = o.gender || '';
   document.getElementById('oCity').value = o.city || '';
   document.getElementById('oSource').value = o.source;
   document.getElementById('oFinancial').value = o.financial_status || '';
@@ -4356,6 +4327,8 @@ async function submitOrder() {
   const payload = {
     name: document.getElementById('oName').value.trim(),
     phone: document.getElementById('oPhone').value.trim(),
+    avatar_url: editingOrderId ? ((orders.find((x) => x.id === editingOrderId) || {}).avatar_url || null) : null,
+    gender: document.getElementById('oGender').value,
     city: document.getElementById('oCity').value.trim(),
     source: document.getElementById('oSource').value.trim(),
     financial_status: document.getElementById('oFinancial').value.trim(),
@@ -4378,14 +4351,6 @@ async function submitOrder() {
   msg.textContent = '保存中...';
   msg.className = 'msg';
   try {
-    if (orderAvatarEntry && orderAvatarEntry.file) {
-      const fd = new FormData();
-      fd.append('file', orderAvatarEntry.file);
-      const res = await api('/upload', { method: 'POST', body: fd });
-      payload.avatar_url = res.url;
-    } else {
-      payload.avatar_url = orderAvatarEntry ? orderAvatarEntry.url : null;
-    }
     if (editingOrderId) {
       await api(`/orders/${editingOrderId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } else {
