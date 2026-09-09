@@ -587,6 +587,22 @@
   }
   .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   .data-table tbody tr:hover { background: var(--card-2); }
+
+  .pagination-bar { display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--ink-soft); }
+  .pagination-total { margin-right: auto; white-space: nowrap; }
+  .pagination-size-select { width: auto; padding: 5px 8px; font-size: 12px; }
+  .pagination-pages { display: flex; align-items: center; gap: 4px; }
+  .pagination-btn {
+    min-width: 26px; height: 26px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink-soft); font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pagination-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .pagination-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pagination-ellipsis { padding: 0 4px; color: var(--ink-faint); }
+  .pagination-jump { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .pagination-jump input { width: 44px; padding: 5px 6px; font-size: 12px; text-align: center; }
   .order-status-cell { display: flex; align-items: flex-start; }
   .order-status-icon-pill {
     display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 24px;
@@ -647,6 +663,85 @@
   .shot-error-text { color: #dc4646; font-size: 12px; margin-top: 6px; }
   .creative-person-thumb { width: 90px; height: 90px; border-radius: 8px; overflow: hidden; background: var(--card-2); border: 1px solid var(--line); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--ink-soft); }
   .creative-person-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* ---------- 页面装修 ---------- */
+  .decor-app-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .decor-app-tab {
+    padding: 8px 16px; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line);
+    font-size: 13px; color: var(--ink-soft); cursor: pointer;
+  }
+  .decor-app-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+  .decor-page-chips { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .decor-block-row {
+    display: flex; align-items: center; gap: 10px; padding: 12px; margin-bottom: 8px;
+    background: var(--card-2); border: 1px solid var(--line); border-radius: 10px;
+  }
+  .decor-block-row.disabled { opacity: 0.5; }
+  .decor-block-handle { color: var(--ink-faint); font-size: 16px; cursor: default; }
+  .decor-block-body { flex: 1; min-width: 0; }
+  .decor-block-type { font-size: 11px; color: var(--accent); font-weight: 600; }
+  .decor-block-summary { font-size: 13px; color: var(--ink); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .decor-block-btns { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+  .decor-block-btns button { padding: 5px 9px; font-size: 12px; }
+  .decor-block-btns .icon-btn { padding: 5px 8px; }
+  .decor-add-menu { position: relative; display: inline-block; margin-top: 6px; }
+  .decor-add-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow); z-index: 20; min-width: 160px; overflow: hidden;
+  }
+  .decor-add-dropdown div { padding: 10px 14px; font-size: 13px; cursor: pointer; }
+  .decor-add-dropdown div:hover { background: var(--card-2); }
+  .decor-toggle {
+    position: relative; width: 34px; height: 20px; border-radius: 999px; background: var(--line);
+    border: none; cursor: pointer; flex-shrink: 0;
+  }
+  .decor-toggle.on { background: var(--accent); }
+  .decor-toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: transform 0.15s;
+  }
+  .decor-toggle.on::after { transform: translateX(14px); }
+  .decor-array-item { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .decor-array-item:last-child { border-bottom: none; }
+  .decor-array-thumb-btn { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: var(--card-2); border: 1px dashed var(--line); cursor: pointer; }
+  .decor-array-fields { display: flex; flex-direction: column; gap: 6px; }
+  .decor-array-fields input { font-size: 12px; }
+
+  .decor-phone-wrap { display: flex; justify-content: center; }
+  .decor-phone {
+    width: 320px; height: 640px; border-radius: 34px; background: #eef4fc; border: 8px solid #1c1f26;
+    box-shadow: var(--shadow); overflow-y: auto; overflow-x: hidden; position: relative;
+  }
+  .decor-phone-notch {
+    position: sticky; top: 0; height: 22px; background: #1c1f26; border-radius: 0 0 14px 14px;
+    width: 120px; margin: 0 auto; z-index: 5;
+  }
+  .decor-phone-body { padding: 16px 16px 40px; }
+  .decor-phone-empty { padding: 60px 20px; text-align: center; color: #8a94a6; font-size: 13px; }
+  .dp-image { width: 100%; display: block; margin-bottom: 12px; background: #dbe4f3; }
+  .dp-image.radius-md { border-radius: 12px; }
+  .dp-image.radius-lg { border-radius: 20px; }
+  .dp-grid { display: flex; margin-bottom: 12px; background: #fff; border-radius: 12px; padding: 14px 6px; }
+  .dp-grid-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .dp-grid-icon { width: 40px; height: 40px; border-radius: 10px; background: #e4eefd; object-fit: cover; }
+  .dp-grid-text { font-size: 11px; color: #1a2b3d; }
+  .dp-notice { display: flex; align-items: center; gap: 8px; background: #fff7e0; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; color: #8a6d1a; }
+  .dp-notice-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+  .dp-richtext { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .dp-richtext-title { display: block; font-size: 15px; font-weight: 700; color: #1a2b3d; margin-bottom: 6px; }
+  .dp-richtext-content { display: block; font-size: 13px; color: #8a94a6; line-height: 1.6; white-space: pre-wrap; }
+  .dp-divider { height: 1px; background: #dbe4f3; margin: 12px 0; }
+  .dp-builtin { border-radius: 12px; margin-bottom: 12px; }
+  .dp-builtin-banner { height: 90px; background: repeating-linear-gradient(135deg, #dbe4f3, #dbe4f3 10px, #cddaf0 10px, #cddaf0 20px); display: flex; align-items: center; justify-content: center; color: #6b7a99; font-size: 12px; }
+  .dp-builtin-hero { height: 130px; background: linear-gradient(135deg, #6f9bfa, #3e7bfa); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; }
+  .dp-builtin-panel { background: #fff; padding: 12px; }
+  .dp-builtin-title { font-size: 13px; font-weight: 700; color: #1a2b3d; margin-bottom: 10px; }
+  .dp-builtin-avatars { display: flex; gap: 10px; }
+  .dp-builtin-avatars span { width: 30px; height: 30px; border-radius: 50%; background: #e4eefd; }
+  .dp-builtin-kpis { display: flex; gap: 8px; }
+  .dp-builtin-kpis span { flex: 1; height: 36px; border-radius: 8px; background: #eef4fc; }
+  .dp-builtin-rows { display: flex; flex-direction: column; gap: 8px; }
+  .dp-builtin-rows span { height: 16px; border-radius: 6px; background: #eef4fc; }
 </style>
 </head>
 <body>
@@ -657,11 +752,11 @@
     <p class="hint">管理台登录</p>
     <div>
       <label>用户名</label>
-      <input type="text" id="loginUsername">
+      <input type="text" id="loginUsername" value="admin">
     </div>
     <div>
       <label>密码</label>
-      <input type="password" id="loginPassword">
+      <input type="password" id="loginPassword" value="888">
     </div>
     <button onclick="login()">登录</button>
     <p class="msg" id="loginMsg"></p>
@@ -711,6 +806,7 @@
         <section id="section-orders" hidden></section>
         <section id="section-saleslog" hidden></section>
         <section id="section-create" hidden></section>
+        <section id="section-decor" hidden></section>
         <section id="section-stub" hidden></section>
       </div>
     </main>
@@ -722,6 +818,7 @@
 <div class="modal-overlay" id="productModal" hidden onclick="closeProductModal()"></div>
 <div class="modal-overlay" id="tutorialModal" hidden onclick="closeTutorialModal()"></div>
 <div class="modal-overlay" id="quickCategoryModal" hidden onclick="closeQuickCategoryModal()"></div>
+<div class="modal-overlay" id="decorBlockModal" hidden onclick="closeDecorBlockModal()"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script>
@@ -773,9 +870,10 @@ const NAV_ACCOUNTS = [
   },
 ];
 const NAV_SYSTEM = [
-  { key: 'banners', label: '首页轮播广告' },
+  { key: 'decor', label: '页面装修' },
+  { key: 'banners', label: '轮播广告' },
   {
-    key: 'tutorials', label: '使用教程管理',
+    key: 'tutorials', label: '教程管理',
     children: [
       { key: 'tutorials-add', label: '教程添加' },
     ],
@@ -936,7 +1034,7 @@ async function showSection(key) {
   document.getElementById('headerLeft').innerHTML = '';
   stopActivityLogPolling();
   stopAllShotPolling();
-  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'orders', 'saleslog', 'create', 'stub'].forEach((k) => {
+  ['overview', 'accounts', 'banners', 'users', 'tutorials', 'orders', 'saleslog', 'create', 'decor', 'stub'].forEach((k) => {
     document.getElementById(`section-${k}`).hidden = true;
   });
 
@@ -980,6 +1078,9 @@ async function showSection(key) {
   } else if (key === 'create') {
     document.getElementById('section-create').hidden = false;
     await renderCreatePage();
+  } else if (key === 'decor') {
+    document.getElementById('section-decor').hidden = false;
+    await renderDecorPage();
   } else {
     document.getElementById('section-stub').hidden = false;
     const item = findNavItem(key);
@@ -1458,7 +1559,7 @@ async function showTutorialModal(platformKey) {
         ${t.cover_image_url ? `<img src="${t.cover_image_url}" style="width:100%;border-radius:8px;margin-bottom:12px;">` : ''}
         <div class="tutorial-title">${escapeHtml(t.title)}</div>
         <div class="tutorial-content">${t.content}</div>
-      ` : `<div class="empty-hint">还没有${label}的绑定教程，去「系统管理 → 使用教程管理」添加一篇</div>`}
+      ` : `<div class="empty-hint">还没有${label}的绑定教程，去「系统管理 → 教程管理」添加一篇</div>`}
       <div class="actions" style="margin-top:16px;"><button class="ghost" onclick="closeTutorialModal()">关闭</button></div>
     </div>
   `;
@@ -2072,7 +2173,7 @@ async function loadBanners() { banners = await api('/banners'); }
 function renderBanners() {
   const el = document.getElementById('section-banners');
   el.innerHTML = `
-    <div class="page-title">首页轮播广告</div>
+    <div class="page-title">轮播广告</div>
     <div class="users-columns">
       <div class="panel">
         <h2>当前轮播图（按排序号显示）</h2>
@@ -2217,7 +2318,7 @@ async function renderTutorialsPage() {
   el.innerHTML = `<div class="empty-hint">加载中...</div>`;
   await loadTutorials();
   el.innerHTML = `
-    <div class="page-title">使用教程管理</div>
+    <div class="page-title">教程管理</div>
     <div class="page-sub">给"添加账号"页每个平台的"绑定教程"链接提供图文内容，一个平台可以有多篇，弹窗里默认展示排序最靠前的一篇</div>
     <div class="panel" style="margin-bottom:16px;">
       <h2>教程文章列表</h2>
@@ -3702,6 +3803,8 @@ let salesUsers = [];
 let orderSearchQuery = '';
 let orderStageFilter = 'all';
 let salesFilter = 'all';
+let orderPage = 1;
+let orderPageSize = 10;
 
 const ORDER_SOURCES = ['抖音', '小红书', '视频号', '线下展会', '其他'];
 const ORDER_GENDERS = ['大哥', '大姐', '叔叔', '阿姨', '小哥', '美女'];
@@ -3861,6 +3964,7 @@ async function renderOrderTrackingPage() {
   orderSearchQuery = '';
   orderStageFilter = 'all';
   salesFilter = 'all';
+  orderPage = 1;
   const monthOpts = buildMonthOptions();
   selectedOrderMonth = monthOpts[0];
   el.innerHTML = `
@@ -3994,18 +4098,20 @@ function renderSalesTabs() {
   const wrap = document.getElementById('salesTabs');
   if (!wrap) return;
   const { year, month } = selectedOrderMonth;
+  const salesCards = getSalesTabNames().map((name) => {
+    const u = salesUsers.find((x) => x.username === name);
+    const avatarHtml = u && u.avatar_url
+      ? `<img class="avatar avatar-img" src="${staticUrl(u.avatar_url)}" alt="">`
+      : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`;
+    const orderList = orders.filter((o) => o.assigned_to === name);
+    return { key: name, label: `${name}的客户数`, avatarHtml, orderList, ...monthStats(orderList, year, month) };
+  }).sort((a, b) => b.count - a.count);
   const cards = [
     { key: 'all', label: '全部客户数', avatarHtml: `<div class="avatar badge-blue">${DEFAULT_AVATAR_SVG}</div>`, orderList: orders },
-    ...getSalesTabNames().map((name) => {
-      const u = salesUsers.find((x) => x.username === name);
-      const avatarHtml = u && u.avatar_url
-        ? `<img class="avatar avatar-img" src="${staticUrl(u.avatar_url)}" alt="">`
-        : `<div class="avatar badge-gray">${DEFAULT_AVATAR_SVG}</div>`;
-      return { key: name, label: `${name}的客户数`, avatarHtml, orderList: orders.filter((o) => o.assigned_to === name) };
-    }),
+    ...salesCards,
   ];
   wrap.innerHTML = cards.map((c) => {
-    const { count, pct } = monthStats(c.orderList, year, month);
+    const { count, pct } = c.count != null ? c : monthStats(c.orderList, year, month);
     const up = pct >= 0;
     return `
       <div class="sales-stat-card ${salesFilter === c.key ? 'active' : ''}" onclick="setSalesFilter('${escapeHtml(c.key)}')">
@@ -4025,6 +4131,7 @@ function renderSalesTabs() {
 
 function setSalesFilter(key) {
   salesFilter = key;
+  orderPage = 1;
   renderSalesTabs();
   renderOrderListEl();
 }
@@ -4081,11 +4188,13 @@ function getFilteredSortedOrders() {
 
 function onOrderSearchInput() {
   orderSearchQuery = document.getElementById('orderSearch').value.trim().toLowerCase();
+  orderPage = 1;
   renderOrderListEl();
 }
 
 function onOrderStageFilterChange() {
   orderStageFilter = document.getElementById('orderStageFilterSel').value;
+  orderPage = 1;
   renderOrderListEl();
 }
 
@@ -4170,11 +4279,61 @@ function lockedOrderRowHtml(o) {
   `;
 }
 
+function buildPageNumbers(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, '...', total];
+  if (current >= total - 3) return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+  return [1, '...', current - 1, current, current + 1, '...', total];
+}
+
+function renderPaginationHtml(total, totalPages) {
+  const pages = buildPageNumbers(orderPage, totalPages);
+  const pageBtns = pages.map((p) => p === '...'
+    ? '<span class="pagination-ellipsis">...</span>'
+    : `<button type="button" class="pagination-btn ${p === orderPage ? 'active' : ''}" onclick="goToOrderPage(${p})">${p}</button>`
+  ).join('');
+  return `
+    <div class="pagination-bar">
+      <div class="pagination-total">共 ${total.toLocaleString('zh-CN')} 条</div>
+      <select class="pagination-size-select" onchange="onOrderPageSizeChange(this.value)">
+        ${[10, 20, 50, 100].map((n) => `<option value="${n}" ${n === orderPageSize ? 'selected' : ''}>${n}条/页</option>`).join('')}
+      </select>
+      <div class="pagination-pages">
+        <button type="button" class="pagination-btn" onclick="goToOrderPage(${orderPage - 1})" ${orderPage <= 1 ? 'disabled' : ''}>&lt;</button>
+        ${pageBtns}
+        <button type="button" class="pagination-btn" onclick="goToOrderPage(${orderPage + 1})" ${orderPage >= totalPages ? 'disabled' : ''}>&gt;</button>
+      </div>
+      <div class="pagination-jump">
+        前往
+        <input type="number" id="orderPageJumpInput" min="1" max="${totalPages}" value="${orderPage}"
+               onkeydown="if(event.key==='Enter'){goToOrderPage(parseInt(this.value,10))}">
+        页
+      </div>
+    </div>
+  `;
+}
+
+function goToOrderPage(p) {
+  const filtered = getFilteredSortedOrders();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / orderPageSize));
+  orderPage = Math.min(Math.max(1, p || 1), totalPages);
+  renderOrderListEl();
+}
+
+function onOrderPageSizeChange(value) {
+  orderPageSize = parseInt(value, 10) || 10;
+  orderPage = 1;
+  renderOrderListEl();
+}
+
 function renderOrderListEl() {
   const wrap = document.getElementById('orderListEl');
   if (!orders.length) { wrap.innerHTML = '<div class="empty-hint">还没有订单，右下角新建一个</div>'; return; }
   const filtered = getFilteredSortedOrders();
   if (!filtered.length) { wrap.innerHTML = '<div class="empty-hint">没有匹配的订单</div>'; return; }
+  const totalPages = Math.max(1, Math.ceil(filtered.length / orderPageSize));
+  orderPage = Math.min(Math.max(1, orderPage), totalPages);
+  const pageItems = filtered.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
   wrap.innerHTML = `
     <div class="table-scroll">
       <table class="data-table">
@@ -4184,10 +4343,11 @@ function renderOrderListEl() {
           </tr>
         </thead>
         <tbody>
-          ${filtered.map((o) => (isSalesGroupUnlocked(o.assigned_to) ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('')}
+          ${pageItems.map((o) => (isSalesGroupUnlocked(o.assigned_to) ? fullOrderRowHtml(o) : lockedOrderRowHtml(o))).join('')}
         </tbody>
       </table>
     </div>
+    ${renderPaginationHtml(filtered.length, totalPages)}
   `;
 }
 
@@ -5071,6 +5231,461 @@ async function saveBrand() {
   } finally {
     showBrandDisplay();
   }
+}
+
+/* ---------------- 页面装修 ---------------- */
+
+let decorRegistry = [];
+let decorApp = 'frontend';
+let decorPageKey = 'home';
+let decorBlocks = [];
+let editingDecorBlockId = null;
+
+const DECOR_BLOCK_TYPES = [
+  { type: 'image', label: '图片/横幅' },
+  { type: 'grid_nav', label: '宫格导航' },
+  { type: 'notice', label: '公告栏' },
+  { type: 'rich_text', label: '文字版块' },
+  { type: 'spacer', label: '间距' },
+  { type: 'divider', label: '分割线' },
+];
+const BUILTIN_BLOCK_LABELS = {
+  builtin_banner: '首页轮播图（内置）',
+  builtin_matrix_accounts: '矩阵账号模块（内置）',
+  builtin_today_stats: '今日数据分析模块（内置）',
+  builtin_video_feed: '分平台视频模块（内置）',
+  builtin_hero: '成交总额大卡片（内置）',
+  builtin_sales_performance: '跟单猿业绩模块（内置）',
+  builtin_customer_list: '客户流水单模块（内置）',
+};
+// 内置模块里，允许改标题文案的那几个（其余内置模块要么没有标题展示位，要么
+// 标题是别处写死的，编辑弹窗里就不给标题框了，只能开关/排序）
+const BUILTIN_TITLE_EDITABLE = new Set([
+  'builtin_matrix_accounts',
+  'builtin_today_stats',
+  'builtin_sales_performance',
+  'builtin_customer_list',
+]);
+function isBuiltinBlockType(type) {
+  return type.indexOf('builtin_') === 0;
+}
+function decorBlockTypeLabel(type) {
+  if (isBuiltinBlockType(type)) return BUILTIN_BLOCK_LABELS[type] || type;
+  return (DECOR_BLOCK_TYPES.find((t) => t.type === type) || {}).label || type;
+}
+
+function decorBlockDefaultProps(type) {
+  if (type === 'image') return { image_url: '', link_url: '', radius: 'md' };
+  if (type === 'grid_nav') return { items: [0, 1, 2, 3].map(() => ({ icon_url: '', text: '', link_url: '' })) };
+  if (type === 'notice') return { text: '', icon_url: '' };
+  if (type === 'rich_text') return { title: '', content: '' };
+  if (type === 'spacer') return { height: 24 };
+  return {};
+}
+
+async function renderDecorPage() {
+  const el = document.getElementById('section-decor');
+  el.innerHTML = `<div class="empty-hint">加载中...</div>`;
+  try {
+    decorRegistry = await api('/decor/apps');
+  } catch (e) {
+    decorRegistry = [];
+  }
+  if (!decorRegistry.find((r) => r.app === decorApp)) decorApp = decorRegistry[0] ? decorRegistry[0].app : 'frontend';
+  const reg = decorRegistry.find((r) => r.app === decorApp);
+  if (reg && !reg.pages.find((p) => p.page_key === decorPageKey)) decorPageKey = reg.pages[0].page_key;
+  el.innerHTML = `
+    <div class="page-title">页面装修</div>
+    <div class="page-sub">给小程序前台页面拼装图片/宫格导航/公告/文字等组件，保存后小程序页面下次打开自动生效，不用重新发布小程序</div>
+    <div class="decor-app-tabs" id="decorAppTabs"></div>
+    <div class="decor-page-chips" id="decorPageChips"></div>
+    <div class="users-columns">
+      <div class="panel">
+        <div class="panel-header-row"><h2>组件列表</h2></div>
+        <div id="decorBlockList"></div>
+        <div class="decor-add-menu">
+          <button type="button" onclick="toggleDecorAddMenu(event)">＋ 添加组件</button>
+          <div class="decor-add-dropdown" id="decorAddDropdown" hidden>
+            ${DECOR_BLOCK_TYPES.map((t) => `<div onclick="addDecorBlock('${t.type}')">${t.label}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="panel sticky-edit-panel">
+        <h2>手机预览</h2>
+        <div class="decor-phone-wrap">
+          <div class="decor-phone">
+            <div class="decor-phone-notch"></div>
+            <div class="decor-phone-body" id="decorPreviewBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  renderDecorAppTabs();
+  renderDecorPageChips();
+  await loadDecorBlocks();
+}
+
+function renderDecorAppTabs() {
+  const wrap = document.getElementById('decorAppTabs');
+  if (!wrap) return;
+  wrap.innerHTML = decorRegistry.map((r) => `
+    <div class="decor-app-tab ${r.app === decorApp ? 'active' : ''}" onclick="switchDecorApp('${r.app}')">${escapeHtml(r.label)}</div>
+  `).join('');
+}
+
+function renderDecorPageChips() {
+  const wrap = document.getElementById('decorPageChips');
+  if (!wrap) return;
+  const reg = decorRegistry.find((r) => r.app === decorApp);
+  const pages = reg ? reg.pages : [];
+  wrap.innerHTML = pages.map((p) => `
+    <div class="category-chip ${p.page_key === decorPageKey ? 'active' : ''}" onclick="switchDecorPage('${p.page_key}')">${escapeHtml(p.label)}</div>
+  `).join('');
+}
+
+async function switchDecorApp(app) {
+  decorApp = app;
+  const reg = decorRegistry.find((r) => r.app === app);
+  decorPageKey = reg && reg.pages[0] ? reg.pages[0].page_key : 'home';
+  renderDecorAppTabs();
+  renderDecorPageChips();
+  await loadDecorBlocks();
+}
+
+async function switchDecorPage(pageKey) {
+  decorPageKey = pageKey;
+  renderDecorPageChips();
+  await loadDecorBlocks();
+}
+
+async function loadDecorBlocks() {
+  document.getElementById('decorBlockList').innerHTML = '<div class="empty-hint">加载中...</div>';
+  try {
+    const page = await api(`/decor/pages/${decorApp}/${decorPageKey}`);
+    decorBlocks = page.blocks || [];
+  } catch (e) {
+    decorBlocks = [];
+  }
+  renderDecorBlockList();
+  renderDecorPreview();
+}
+
+function decorBlockSummary(b) {
+  if (isBuiltinBlockType(b.type)) {
+    return BUILTIN_TITLE_EDITABLE.has(b.type) ? (b.props.title || '（用默认标题）') : '页面固有模块，只能开关/排序';
+  }
+  if (b.type === 'image') return b.props.image_url ? '已上传图片' : '未设置图片';
+  if (b.type === 'grid_nav') {
+    const n = (b.props.items || []).filter((it) => it.text || it.icon_url).length;
+    return `${n} 个导航项`;
+  }
+  if (b.type === 'notice') return b.props.text || '未设置文案';
+  if (b.type === 'rich_text') return b.props.title || b.props.content || '未设置内容';
+  if (b.type === 'spacer') return `高度 ${b.props.height || 24}rpx`;
+  if (b.type === 'divider') return '一条分割线';
+  return '';
+}
+
+function renderDecorBlockList() {
+  const wrap = document.getElementById('decorBlockList');
+  if (!wrap) return;
+  if (!decorBlocks.length) { wrap.innerHTML = '<div class="empty-hint">还没有组件，点下面"添加组件"开始装修</div>'; return; }
+  wrap.innerHTML = decorBlocks.map((b, i) => {
+    const builtin = isBuiltinBlockType(b.type);
+    const canEdit = !builtin || BUILTIN_TITLE_EDITABLE.has(b.type);
+    return `
+    <div class="decor-block-row ${b.enabled ? '' : 'disabled'}">
+      <span class="decor-block-handle">≡</span>
+      <div class="decor-block-body">
+        <div class="decor-block-type">${decorBlockTypeLabel(b.type)}</div>
+        <div class="decor-block-summary">${escapeHtml(decorBlockSummary(b))}</div>
+      </div>
+      <div class="decor-block-btns">
+        <button class="ghost icon-btn" ${i === 0 ? 'disabled' : ''} onclick="moveDecorBlock('${b.id}', -1)" title="上移">↑</button>
+        <button class="ghost icon-btn" ${i === decorBlocks.length - 1 ? 'disabled' : ''} onclick="moveDecorBlock('${b.id}', 1)" title="下移">↓</button>
+        <button type="button" class="decor-toggle ${b.enabled ? 'on' : ''}" onclick="toggleDecorBlockEnabled('${b.id}')" title="启用/停用"></button>
+        ${canEdit ? `<button class="ghost" onclick="openDecorBlockModal('${b.id}')">编辑</button>` : ''}
+        ${builtin ? '' : `<button class="danger" onclick="deleteDecorBlock('${b.id}')">删除</button>`}
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function toggleDecorAddMenu(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('decorAddDropdown');
+  dd.hidden = !dd.hidden;
+}
+document.addEventListener('click', () => {
+  const dd = document.getElementById('decorAddDropdown');
+  if (dd) dd.hidden = true;
+});
+
+async function addDecorBlock(type) {
+  const block = { id: `dblk-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, type, props: decorBlockDefaultProps(type), enabled: true };
+  decorBlocks.push(block);
+  await persistDecorBlocks();
+  openDecorBlockModal(block.id);
+}
+
+async function deleteDecorBlock(id) {
+  const b = decorBlocks.find((x) => x.id === id);
+  if (b && isBuiltinBlockType(b.type)) { alert('这是页面固有模块，不能删除，只能开关显示/隐藏'); return; }
+  if (!confirm('确定删除这个组件吗？')) return;
+  decorBlocks = decorBlocks.filter((b) => b.id !== id);
+  await persistDecorBlocks();
+}
+
+async function toggleDecorBlockEnabled(id) {
+  const b = decorBlocks.find((x) => x.id === id);
+  if (!b) return;
+  b.enabled = !b.enabled;
+  await persistDecorBlocks();
+}
+
+async function moveDecorBlock(id, dir) {
+  const i = decorBlocks.findIndex((b) => b.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= decorBlocks.length) return;
+  [decorBlocks[i], decorBlocks[j]] = [decorBlocks[j], decorBlocks[i]];
+  await persistDecorBlocks();
+}
+
+async function persistDecorBlocks() {
+  renderDecorBlockList();
+  renderDecorPreview();
+  try {
+    await api(`/decor/pages/${decorApp}/${decorPageKey}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks: decorBlocks }) });
+  } catch (e) {
+    alert('保存失败：' + e.message);
+  }
+}
+
+/* ---- 组件编辑弹窗 ---- */
+
+function decorImageFieldHtml(id, url, label, size) {
+  size = size || 56;
+  return `
+    <div>
+      ${label ? `<label>${label}</label>` : ''}
+      <img id="${id}-thumb" class="decor-array-thumb-btn" style="width:${size}px;height:${size}px" src="${url ? staticUrl(url) : ''}" onclick="document.getElementById('${id}-file').click()">
+      <input type="file" id="${id}-file" accept="image/*" hidden onchange="handleDecorImageUpload(event, '${id}')">
+      <input type="hidden" id="${id}" value="${url || ''}">
+    </div>
+  `;
+}
+
+function decorBlockModalHtml(b) {
+  const p = b.props || {};
+  let fields = '';
+  if (isBuiltinBlockType(b.type)) {
+    fields = BUILTIN_TITLE_EDITABLE.has(b.type)
+      ? `<div class="full"><label>标题（留空用默认文案）</label><input type="text" id="dfBuiltinTitle" value="${escapeHtml(p.title || '')}"></div>`
+      : `<div class="full"><div class="empty-hint">这个模块没有可编辑的文案，只能在组件列表里开关显示/调整顺序</div></div>`;
+  } else if (b.type === 'image') {
+    fields = `
+      <div class="full">${decorImageFieldHtml('dfImage', p.image_url, '图片（点击上传）', 96)}</div>
+      <div class="full"><label>跳转链接（可选，小程序内页面路径，如 /pages/accounts/accounts）</label><input type="text" id="dfLink" value="${escapeHtml(p.link_url || '')}"></div>
+      <div><label>圆角</label>
+        <select id="dfRadius">
+          <option value="none" ${p.radius === 'none' ? 'selected' : ''}>无圆角</option>
+          <option value="md" ${!p.radius || p.radius === 'md' ? 'selected' : ''}>中等圆角</option>
+          <option value="lg" ${p.radius === 'lg' ? 'selected' : ''}>大圆角</option>
+        </select>
+      </div>
+    `;
+  } else if (b.type === 'grid_nav') {
+    const items = p.items && p.items.length ? p.items : decorBlockDefaultProps('grid_nav').items;
+    fields = `
+      <div class="full"><label>导航项（最多4个，文案留空则这一格不显示）</label>
+        ${items.map((it, i) => `
+          <div class="decor-array-item">
+            ${decorImageFieldHtml(`dfGridIcon${i}`, it.icon_url, '', 48)}
+            <div class="decor-array-fields">
+              <input type="text" placeholder="文案" id="dfGridText${i}" value="${escapeHtml(it.text || '')}">
+              <input type="text" placeholder="跳转链接（可选）" id="dfGridLink${i}" value="${escapeHtml(it.link_url || '')}">
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } else if (b.type === 'notice') {
+    fields = `
+      <div class="full">${decorImageFieldHtml('dfNoticeIcon', p.icon_url, '图标（可选）', 56)}</div>
+      <div class="full"><label>公告文案</label><input type="text" id="dfNoticeText" value="${escapeHtml(p.text || '')}"></div>
+    `;
+  } else if (b.type === 'rich_text') {
+    fields = `
+      <div class="full"><label>标题（可选）</label><input type="text" id="dfRichTitle" value="${escapeHtml(p.title || '')}"></div>
+      <div class="full"><label>正文</label><textarea id="dfRichContent" rows="4">${escapeHtml(p.content || '')}</textarea></div>
+    `;
+  } else if (b.type === 'spacer') {
+    fields = `<div><label>高度（rpx）</label><input type="number" id="dfSpacerHeight" value="${p.height || 24}"></div>`;
+  } else if (b.type === 'divider') {
+    fields = `<div class="full"><div class="empty-hint">分割线没有可编辑项，直接保存即可</div></div>`;
+  }
+  return `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <button type="button" class="modal-close-x" onclick="closeDecorBlockModal()" aria-label="关闭">✕</button>
+      <h2>编辑组件 · ${decorBlockTypeLabel(b.type)}</h2>
+      <div class="form-grid">${fields}</div>
+      <div class="actions">
+        <button onclick="submitDecorBlockForm()">保存</button>
+        <button class="ghost" onclick="closeDecorBlockModal()">取消</button>
+      </div>
+      <p class="msg" id="decorBlockFormMsg"></p>
+    </div>
+  `;
+}
+
+function openDecorBlockModal(id) {
+  editingDecorBlockId = id;
+  const b = decorBlocks.find((x) => x.id === id);
+  if (!b) return;
+  const modal = document.getElementById('decorBlockModal');
+  modal.innerHTML = decorBlockModalHtml(b);
+  modal.hidden = false;
+  makeModalDraggable('#decorBlockModal .modal-card', '#decorBlockModal .modal-card h2');
+}
+
+function closeDecorBlockModal() {
+  document.getElementById('decorBlockModal').hidden = true;
+  editingDecorBlockId = null;
+}
+
+async function handleDecorImageUpload(event, fieldId) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const res = await uploadFileWithProgress(file);
+    document.getElementById(fieldId).value = res.url;
+    document.getElementById(`${fieldId}-thumb`).src = staticUrl(res.url);
+  } catch (e) {
+    const msg = document.getElementById('decorBlockFormMsg');
+    if (msg) { msg.textContent = '上传失败：' + e.message; msg.className = 'msg error'; }
+  }
+}
+
+async function submitDecorBlockForm() {
+  const b = decorBlocks.find((x) => x.id === editingDecorBlockId);
+  if (!b) return;
+  if (isBuiltinBlockType(b.type)) {
+    if (BUILTIN_TITLE_EDITABLE.has(b.type)) {
+      b.props = { ...b.props, title: document.getElementById('dfBuiltinTitle').value.trim() };
+    }
+  } else if (b.type === 'image') {
+    b.props = {
+      image_url: document.getElementById('dfImage').value,
+      link_url: document.getElementById('dfLink').value.trim(),
+      radius: document.getElementById('dfRadius').value,
+    };
+  } else if (b.type === 'grid_nav') {
+    const items = [];
+    for (let i = 0; i < 4; i++) {
+      items.push({
+        icon_url: document.getElementById(`dfGridIcon${i}`).value,
+        text: document.getElementById(`dfGridText${i}`).value.trim(),
+        link_url: document.getElementById(`dfGridLink${i}`).value.trim(),
+      });
+    }
+    b.props = { items };
+  } else if (b.type === 'notice') {
+    b.props = {
+      icon_url: document.getElementById('dfNoticeIcon').value,
+      text: document.getElementById('dfNoticeText').value.trim(),
+    };
+  } else if (b.type === 'rich_text') {
+    b.props = {
+      title: document.getElementById('dfRichTitle').value.trim(),
+      content: document.getElementById('dfRichContent').value,
+    };
+  } else if (b.type === 'spacer') {
+    b.props = { height: Number(document.getElementById('dfSpacerHeight').value) || 24 };
+  }
+  closeDecorBlockModal();
+  await persistDecorBlocks();
+}
+
+/* ---- 手机预览 ---- */
+
+function renderDecorPreview() {
+  const wrap = document.getElementById('decorPreviewBody');
+  if (!wrap) return;
+  const visible = decorBlocks.filter((b) => b.enabled);
+  if (!visible.length) { wrap.innerHTML = '<div class="decor-phone-empty">还没有装修内容<br>加几个组件试试</div>'; return; }
+  wrap.innerHTML = visible.map((b) => decorBlockPreviewHtml(b)).join('');
+}
+
+function decorBlockPreviewHtml(b) {
+  const p = b.props || {};
+  if (b.type === 'builtin_banner') {
+    return `<div class="dp-builtin dp-builtin-banner">首页轮播图</div>`;
+  }
+  if (b.type === 'builtin_matrix_accounts') {
+    return `<div class="dp-builtin dp-builtin-panel">
+      <div class="dp-builtin-title">${escapeHtml(p.title || '矩阵账号')}</div>
+      <div class="dp-builtin-avatars">${'●●●●'.split('').map(() => '<span></span>').join('')}</div>
+    </div>`;
+  }
+  if (b.type === 'builtin_today_stats') {
+    return `<div class="dp-builtin dp-builtin-panel">
+      <div class="dp-builtin-title">${escapeHtml(p.title || '今日数据分析')}</div>
+      <div class="dp-builtin-kpis"><span></span><span></span><span></span><span></span></div>
+    </div>`;
+  }
+  if (b.type === 'builtin_video_feed') {
+    return `<div class="dp-builtin dp-builtin-panel">
+      <div class="dp-builtin-title">分平台视频</div>
+      <div class="dp-builtin-rows"><span></span><span></span></div>
+    </div>`;
+  }
+  if (b.type === 'builtin_hero') {
+    return `<div class="dp-builtin dp-builtin-hero">成交总额大卡片</div>`;
+  }
+  if (b.type === 'builtin_sales_performance') {
+    return `<div class="dp-builtin dp-builtin-panel">
+      <div class="dp-builtin-title">${escapeHtml(p.title || '跟单猿数据')}</div>
+      <div class="dp-builtin-avatars">${'●●●'.split('').map(() => '<span></span>').join('')}</div>
+    </div>`;
+  }
+  if (b.type === 'builtin_customer_list') {
+    return `<div class="dp-builtin dp-builtin-panel">
+      <div class="dp-builtin-title">${escapeHtml(p.title || '客户流水单')}</div>
+      <div class="dp-builtin-rows"><span></span><span></span></div>
+    </div>`;
+  }
+  if (b.type === 'image') {
+    return p.image_url
+      ? `<img class="dp-image radius-${p.radius || 'md'}" src="${staticUrl(p.image_url)}">`
+      : `<div class="dp-image radius-${p.radius || 'md'}" style="height:120px"></div>`;
+  }
+  if (b.type === 'grid_nav') {
+    const items = (p.items || []).filter((it) => it.text || it.icon_url);
+    if (!items.length) return '';
+    return `<div class="dp-grid">${items.map((it) => `
+      <div class="dp-grid-item">
+        <img class="dp-grid-icon" src="${it.icon_url ? staticUrl(it.icon_url) : ''}">
+        <span class="dp-grid-text">${escapeHtml(it.text || '')}</span>
+      </div>
+    `).join('')}</div>`;
+  }
+  if (b.type === 'notice') {
+    if (!p.text) return '';
+    return `<div class="dp-notice">${p.icon_url ? `<img class="dp-notice-icon" src="${staticUrl(p.icon_url)}">` : '📣'}<span>${escapeHtml(p.text)}</span></div>`;
+  }
+  if (b.type === 'rich_text') {
+    return `<div class="dp-richtext">${p.title ? `<span class="dp-richtext-title">${escapeHtml(p.title)}</span>` : ''}<span class="dp-richtext-content">${escapeHtml(p.content || '')}</span></div>`;
+  }
+  if (b.type === 'spacer') {
+    return `<div style="height:${(p.height || 24) / 2}px"></div>`;
+  }
+  if (b.type === 'divider') {
+    return `<div class="dp-divider"></div>`;
+  }
+  return '';
 }
 
 /* ---------------- Boot ---------------- */
