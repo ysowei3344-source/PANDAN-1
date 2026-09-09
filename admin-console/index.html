@@ -582,10 +582,10 @@
   .table-scroll { overflow-x: auto; }
   .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .data-table th {
-    text-align: left; font-weight: 600; color: var(--ink-soft); font-size: 12px; padding: 10px 12px;
+    text-align: left; font-weight: 600; color: var(--ink-soft); font-size: 12px; padding: 8px 10px;
     border-bottom: 1px solid var(--line); white-space: nowrap;
   }
-  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   .data-table tbody tr:hover { background: var(--card-2); }
   .order-status-cell { display: flex; align-items: flex-start; }
   .order-status-icon-pill {
@@ -4156,6 +4156,7 @@ function fullOrderRowHtml(o) {
       <td>${o.source ? escapeHtml(o.source) : '-'}</td>
       <td>${o.financial_status ? escapeHtml(o.financial_status) : '-'}</td>
       <td>${o.product_id ? escapeHtml(productNameById(o.product_id)) : '-'}</td>
+      <td>${o.chassis_number ? escapeHtml(o.chassis_number) : '-'}</td>
       <td>
         <select class="bind-select" onchange="changeOrderStage('${o.id}', this.value)">
           ${CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}" ${s.key === o.stage ? 'selected' : ''}>${i + 1}. ${s.label}</option>`).join('')}
@@ -4190,6 +4191,7 @@ function lockedOrderRowHtml(o) {
       <td>***</td>
       <td>***</td>
       <td>***</td>
+      <td>***</td>
       <td><span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span></td>
       <td><button class="ghost" onclick="promptSalesPasscode('${escapeHtml(o.assigned_to)}', renderOrderListEl)">🔒 查看详情</button></td>
     </tr>
@@ -4206,7 +4208,7 @@ function renderOrderListEl() {
       <table class="data-table">
         <thead>
           <tr>
-            <th>订单状态</th><th>用户</th><th>电话</th><th>来源渠道</th><th>经济状况</th><th>匹配商品</th><th>客户阶段</th><th>操作</th>
+            <th>订单状态</th><th>用户</th><th>电话</th><th>来源渠道</th><th>经济状况</th><th>匹配商品</th><th>车架号</th><th>客户阶段</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
