@@ -1,5 +1,6 @@
 <template>
   <view class="page">
+    <decor-blocks app="frontend" page-key="benchmark" />
     <view class="empty-card">
       <text class="empty-icon">◎</text>
       <text class="empty-title">对标拆解引擎</text>
@@ -11,9 +12,10 @@
 
 <script>
 import TabBar from '@/components/tab-bar/tab-bar.vue'
+import DecorBlocks from '@/components/decor-blocks/decor-blocks.vue'
 
 export default {
-  components: { TabBar },
+  components: { TabBar, DecorBlocks },
 }
 </script>
 
@@ -23,6 +25,7 @@ export default {
   min-height: 100vh;
   box-sizing: border-box;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }

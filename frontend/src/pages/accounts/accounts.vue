@@ -1,5 +1,7 @@
 <template>
   <view class="page">
+    <decor-blocks app="frontend" page-key="accounts" />
+
     <view class="panel">
       <view class="panel-head">
         <view class="head-bar"></view>
@@ -42,9 +44,10 @@
 <script>
 import { getIdentities } from '@/utils/api.js'
 import TabBar from '@/components/tab-bar/tab-bar.vue'
+import DecorBlocks from '@/components/decor-blocks/decor-blocks.vue'
 
 export default {
-  components: { TabBar },
+  components: { TabBar, DecorBlocks },
   data() {
     return {
       identities: [],

@@ -40,6 +40,10 @@ export function getBanners() {
   return request('/api/banners')
 }
 
+export function getDecorBlocks(app, pageKey) {
+  return request(`/api/decor/pages/${app}/${pageKey}`).then((page) => (page && page.blocks) || [])
+}
+
 export function getTodayStats() {
   return request('/api/dashboard/today')
 }
