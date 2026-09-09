@@ -1,0 +1,70 @@
+{
+	"pages": [
+		{
+			"path": "pages/home/home",
+			"style": {
+				"navigationBarTitleText": "跟单猿"
+			}
+		},
+		{
+			"path": "pages/products/products",
+			"style": {
+				"navigationBarTitleText": "商品库"
+			}
+		},
+		{
+			"path": "pages/order-form/order-form",
+			"style": {
+				"navigationBarTitleText": "搞订单"
+			}
+		},
+		{
+			"path": "pages/product-detail/product-detail",
+			"style": {
+				"navigationBarTitleText": "商品详情"
+			}
+		},
+		{
+			"path": "pages/order-list/order-list",
+			"style": {
+				"navigationBarTitleText": "订单列表"
+			}
+		},
+		{
+			"path": "pages/logs/logs",
+			"style": {
+				"navigationBarTitleText": "跟单猿日志"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "我的"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "跟单猿登录"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "跟单猿",
+		"navigationBarBackgroundColor": "#ffffff",
+		"backgroundColor": "#eef4fc"
+	},
+	"tabBar": {
+		"custom": true,
+		"color": "#8a94a6",
+		"selectedColor": "#3e7bfa",
+		"backgroundColor": "#ffffff",
+		"list": [
+			{ "pagePath": "pages/home/home", "text": "首页" },
+			{ "pagePath": "pages/products/products", "text": "商品" },
+			{ "pagePath": "pages/logs/logs", "text": "日志" },
+			{ "pagePath": "pages/profile/profile", "text": "我的" }
+		]
+	}
+}
