@@ -155,7 +155,7 @@
   </div>
   <div class="filter-chips" id="salesChips"></div>
   <div class="search-wrap">
-    <input type="text" id="orderSearch" placeholder="搜索姓名/电话/销售" oninput="onSearchInput()">
+    <input type="text" id="orderSearch" placeholder="搜索姓名/电话/销售跟单猿" oninput="onSearchInput()">
     <select id="stageFilterSelect" onchange="onStageFilterChange()"></select>
   </div>
   <div class="order-list" id="orderList"></div>
@@ -202,7 +202,7 @@
     <div class="form-section-label">匹配与阶段</div>
     <div class="field"><label>匹配车型</label><select id="fProduct"><option value="">未选择</option></select></div>
     <div class="field"><label>客户阶段</label><select id="fStage" onchange="toggleFormStageFields()"></select></div>
-    <div class="field"><label>归属销售</label><select id="fAssigned"><option value="">-- 选择销售 --</option></select></div>
+    <div class="field"><label>归属销售跟单猿</label><select id="fAssigned"><option value="">-- 选择销售跟单猿 --</option></select></div>
 
     <div id="dealSection" hidden>
       <div class="form-section-label">成交信息</div>
@@ -346,7 +346,7 @@ function doLogout() {
 async function startApp() {
   document.getElementById('appScreen').style.display = 'block';
   if (currentUser) {
-    document.getElementById('currentUserLabel').textContent = currentUser.username + (currentUser.role === 'super_admin' ? '（超级管理员）' : '（销售）');
+    document.getElementById('currentUserLabel').textContent = currentUser.username + (currentUser.role === 'super_admin' ? '（超级管理员）' : '（销售跟单猿）');
   }
   renderStageFilterOptions();
   await loadAll();
@@ -431,7 +431,7 @@ function fullOrderCardHtml(o) {
           <button type="button" class="stage-edit-btn" onclick="event.stopPropagation(); openStageModal('${o.id}')" aria-label="修改客户阶段">✎</button>
         </span>
       </div>
-      <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)} · ${new Date(o.created_at).toLocaleDateString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
+      <div class="order-sub">归属销售跟单猿：${escapeHtml(o.assigned_to)} · ${new Date(o.created_at).toLocaleDateString('zh-CN')}${o.source ? ' · ' + escapeHtml(o.source) : ''}${o.product_id ? ' · ' + escapeHtml(productNameById(o.product_id)) : ''}</div>
       ${(o.stage === 'deal_closed' || o.stage === 'delivered') ? `<div class="order-sub">成交 ¥${fmtNum(o.amount)}${o.signed_at ? ' · ' + String(o.signed_at).slice(0, 10) : ''}</div>` : ''}
       ${o.notes ? `<div class="order-notes">${escapeHtml(o.notes)}</div>` : ''}
     </div>
@@ -445,7 +445,7 @@ function lockedOrderCardHtml(o) {
         <div><span class="order-name">${escapeHtml(o.name)}</span></div>
         <span class="stage-pill ${stageClass(o.stage)}">${stageLabel(o.stage)}</span>
       </div>
-      <div class="order-sub">归属销售：${escapeHtml(o.assigned_to)} · ${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
+      <div class="order-sub">归属销售跟单猿：${escapeHtml(o.assigned_to)} · ${new Date(o.created_at).toLocaleDateString('zh-CN')}</div>
     </div>
   `;
 }
@@ -557,7 +557,7 @@ function openOrderForm(id) {
   const productSel = document.getElementById('fProduct');
   productSel.innerHTML = '<option value="">未选择</option>' + products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
   const assignedSel = document.getElementById('fAssigned');
-  assignedSel.innerHTML = '<option value="">-- 选择销售 --</option>' + salesUsers.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join('');
+  assignedSel.innerHTML = '<option value="">-- 选择销售跟单猿 --</option>' + salesUsers.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join('');
   const stageSel = document.getElementById('fStage');
   stageSel.innerHTML = CUSTOMER_STAGES.map((s, i) => `<option value="${s.key}">${i + 1}. ${s.label}</option>`).join('');
 
@@ -608,7 +608,7 @@ async function submitOrderForm() {
     aftersales_notes: document.getElementById('fAftersalesNotes').value.trim(),
   };
   if (!payload.name) { msg.textContent = '请填写客户姓名'; msg.className = 'msg error'; return; }
-  if (!payload.assigned_to) { msg.textContent = '请选择归属销售'; msg.className = 'msg error'; return; }
+  if (!payload.assigned_to) { msg.textContent = '请选择归属销售跟单猿'; msg.className = 'msg error'; return; }
   msg.textContent = '保存中...';
   msg.className = 'msg';
   try {
