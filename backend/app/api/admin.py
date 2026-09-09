@@ -1,7 +1,3 @@
-import json
-import os
-import urllib.error
-import urllib.request
 import uuid
 from pathlib import Path
 
@@ -10,40 +6,27 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from .. import storage
 from ..auth import get_current_user
 from ..schemas import Banner, BannerInput, ScrapeProfileInput, Tutorial, TutorialInput
+from ..scraper_client import (
+    SCRAPER_SERVICE_URL,
+    SCRAPER_SERVICE_VIDEO_LIST_URL,
+    ScraperError,
+    call_scraper,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
-# Internal scraper service (separate box, see ARCHIVE.md 九) — the bearer
-# token lives only in this process's environment, never sent to the browser.
-# SCRAPER_SERVICE_URL points at .../scraper-internal/scrape; the video-list
-# endpoint lives as a sibling path on the same service.
-SCRAPER_SERVICE_URL = os.environ.get("SCRAPER_SERVICE_URL", "")
-SCRAPER_SERVICE_VIDEO_LIST_URL = SCRAPER_SERVICE_URL.rsplit("/", 1)[0] + "/scrape-video-list" if SCRAPER_SERVICE_URL else ""
-SCRAPER_SERVICE_TOKEN = os.environ.get("SCRAPER_SERVICE_TOKEN", "")
+# These two endpoints are no longer called from the add/edit-account flow
+# (that used to block the form on a ~20s scrape — see accounts.py, which now
+# scrapes automatically in the background after save). Kept for manual
+# re-scrape use from the admin console if that's ever wired up.
 
 
 def _call_scraper(url: str, payload: dict) -> dict:
-    if not url or not SCRAPER_SERVICE_TOKEN:
-        raise HTTPException(status_code=503, detail="抓取服务没配置（SCRAPER_SERVICE_URL/SCRAPER_SERVICE_TOKEN 环境变量缺失）")
-    body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {SCRAPER_SERVICE_TOKEN}"},
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="ignore")
-        try:
-            detail = json.loads(detail).get("error", detail)
-        except ValueError:
-            pass
-        raise HTTPException(status_code=502, detail=f"抓取失败：{detail}")
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"抓取服务连不上：{e}")
+        return call_scraper(url, payload)
+    except ScraperError as e:
+        status = 503 if "没配置" in str(e) else 502
+        raise HTTPException(status_code=status, detail=str(e))
 
 STATIC_DIR = Path(__file__).parent.parent / "static"
 ALLOWED_UPLOAD_EXT = {
