@@ -7,6 +7,7 @@ from .schemas import (
     Account,
     Banner,
     CreativeProject,
+    DecorPage,
     Identity,
     Member,
     Order,
@@ -35,6 +36,7 @@ ORDERS_FILE = DATA_DIR / "orders.json"
 AFTERSALES_FILE = DATA_DIR / "aftersales.json"
 CREATIVE_PROJECTS_FILE = DATA_DIR / "creative_projects.json"
 WORK_LOGS_FILE = DATA_DIR / "work_logs.json"
+DECOR_PAGES_FILE = DATA_DIR / "decor_pages.json"
 
 
 def _read_json(path: Path) -> list[dict]:
@@ -693,3 +695,34 @@ def log_activity(user_id: str, username: str, action: str, detail: str = "") -> 
 def list_activity(limit: int = 200) -> list[dict]:
     entries = _read_json(ACTIVITY_FILE)
     return list(reversed(entries))[:limit]
+
+
+# ---- Page decoration (小程序页面装修) ----
+# Stored as a flat list of {app, page_key, blocks, updated_at} records, one per
+# (app, page_key) pair — reuses the same _read_json/_write_json list convention
+# as everything else in this file, just keyed by two fields instead of "id".
+
+def get_decor_page(app: str, page_key: str) -> DecorPage:
+    items = _read_json(DECOR_PAGES_FILE)
+    for item in items:
+        if item["app"] == app and item["page_key"] == page_key:
+            return DecorPage(**item)
+    return DecorPage(app=app, page_key=page_key, blocks=[])
+
+
+def save_decor_page(app: str, page_key: str, blocks: list[dict]) -> DecorPage:
+    items = _read_json(DECOR_PAGES_FILE)
+    record = {
+        "app": app,
+        "page_key": page_key,
+        "blocks": blocks,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    for i, item in enumerate(items):
+        if item["app"] == app and item["page_key"] == page_key:
+            items[i] = record
+            break
+    else:
+        items.append(record)
+    _write_json(DECOR_PAGES_FILE, items)
+    return DecorPage(**record)

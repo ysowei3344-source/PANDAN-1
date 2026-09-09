@@ -241,6 +241,24 @@ class SettingsInput(BaseModel):
     brand_name: str
 
 
+class DecorBlock(BaseModel):
+    id: str
+    type: str  # image | grid_nav | notice | rich_text | spacer | divider
+    props: dict = {}
+    enabled: bool = True
+
+
+class DecorPage(BaseModel):
+    app: str
+    page_key: str
+    blocks: list[DecorBlock] = []
+    updated_at: str | None = None
+
+
+class DecorPageInput(BaseModel):
+    blocks: list[DecorBlock] = []
+
+
 class MetricSummary(BaseModel):
     value: float
     change_pct: float
